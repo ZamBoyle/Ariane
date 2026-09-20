@@ -1,0 +1,1898 @@
+/* ──────────────────────────────────────────────────────────────────────
+   Ariane — feuille de style unique.
+
+   Palette chaude proche de Claude. Toutes les couleurs sont des tokens sur
+   :root, redéfinis pour le thème sombre, afin qu'un seul endroit gouverne
+   l'apparence. Le thème suit l'OS par défaut et reste surchargeable via
+   l'attribut data-theme sur <html>.
+   ────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --bg: #faf9f5;
+  --bg-sidebar: #f2f0e9;
+  --bg-panel: #ffffff;
+  --bg-hover: rgba(0, 0, 0, 0.045);
+  --bg-active: rgba(217, 119, 87, 0.12);
+  --bg-code: #f4f2ec;
+
+  --text: #1f1e1b;
+  --text-soft: #6b6862;
+  --text-faint: #97938b;
+
+  --border: rgba(0, 0, 0, 0.1);
+  --border-soft: rgba(0, 0, 0, 0.06);
+
+  --accent: #c2603c;
+  --accent-soft: rgba(217, 119, 87, 0.16);
+  --user: #4a6fa5;
+  --mark: #ffe08a;
+  /* Native widgets only: MUST stay fully opaque. A translucent value here is
+     composited by the OS against its own highlight and comes out wrong - it is
+     what turned the selected option pink. */
+  --option-bg: #ffffff;
+  --option-text: #1f1e1b;
+  --option-active-bg: #efe2db;
+  --option-active-text: #1f1e1b;
+
+  --radius: 10px;
+  --radius-sm: 7px;
+  --sidebar-w: 300px;
+
+  --scrollbar: rgba(0, 0, 0, 0.28);
+
+  /* Tells the browser to draw native widgets - the <select> popup, scrollbars,
+     focus rings - in the matching scheme. Without it Chromium paints the popup
+     light while the inherited text colour stays pale: white on white. */
+  color-scheme: light;
+
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'SF Mono', 'Cascadia Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+}
+
+:root:not([data-theme='light']) {
+  @media (prefers-color-scheme: dark) {
+    color-scheme: dark;
+
+    --bg: #1a1915;
+    --bg-sidebar: #16150f;
+    --bg-panel: #262622;
+    --bg-hover: rgba(255, 255, 255, 0.06);
+    --bg-active: rgba(217, 119, 87, 0.18);
+    --bg-code: #12110d;
+
+    --text: #f0eee6;
+    --text-soft: #a8a49a;
+    --text-faint: #7a766d;
+
+    --border: rgba(255, 255, 255, 0.11);
+    --border-soft: rgba(255, 255, 255, 0.06);
+
+    --accent: #d97757;
+    --accent-soft: rgba(217, 119, 87, 0.2);
+    --user: #8aa9d6;
+    --mark: #7a5c15;
+    --scrollbar: rgba(255, 255, 255, 0.26);
+    --option-bg: #262622;
+    --option-text: #f0eee6;
+    --option-active-bg: #3d332c;
+    --option-active-text: #ffffff;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #1a1915;
+  --bg-sidebar: #16150f;
+  --bg-panel: #262622;
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --bg-active: rgba(217, 119, 87, 0.18);
+  --bg-code: #12110d;
+  --text: #f0eee6;
+  --text-soft: #a8a49a;
+  --text-faint: #7a766d;
+  --border: rgba(255, 255, 255, 0.11);
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --accent: #d97757;
+  --accent-soft: rgba(217, 119, 87, 0.2);
+  --user: #8aa9d6;
+  --mark: #7a5c15;
+  --scrollbar: rgba(255, 255, 255, 0.26);
+  --option-bg: #262622;
+  --option-text: #f0eee6;
+  --option-active-bg: #3d332c;
+  --option-active-text: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* `hidden` is an attribute, and its default `display: none` loses to any
+   explicit display on the same element. `.convo-head { display: flex }` silently
+   defeated it, so going home kept the previous conversation's header — and its
+   live "Reprendre" button — on screen. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  height: 100vh;
+}
+
+/* ── Colonne gauche ──────────────────────────────────────────────────── */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  /* Grid and flex items default to min-height:auto, which means "never shrink
+     below my content". Without this, .tree grows to fit every folder and the
+     sidebar overflows the window instead of scrolling. */
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+}
+
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 12px 10px 16px;
+}
+
+.brand {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+/* Les icônes : une seule famille, dessinée dans icons.js — un trait fin, de
+   la couleur du texte qui l'entoure. */
+.icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-btn.busy .icon {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn.busy .icon {
+    animation-duration: 2.4s;
+  }
+}
+
+.filter-wrap {
+  padding: 0 12px 10px;
+}
+
+.filter,
+.search {
+  width: 100%;
+  padding: 7px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.filter::placeholder,
+.search::placeholder {
+  color: var(--text-faint);
+}
+
+.filter:focus,
+.search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.tree {
+  flex: 1;
+  min-height: 0; /* see .sidebar - required for overflow-y to take effect */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 8px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+}
+
+.tree-empty {
+  padding: 18px 10px;
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+.folder {
+  margin-bottom: 1px;
+}
+
+.folder-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.folder-btn:hover {
+  background: var(--bg-hover);
+}
+
+.folder-btn .chev {
+  flex: none;
+  width: 0;
+  height: 0;
+  border-left: 4.5px solid currentColor;
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  color: var(--text-faint);
+  transition: transform 0.12s ease;
+}
+
+.folder-btn[aria-expanded='true'] .chev {
+  transform: rotate(90deg);
+}
+
+.folder-names {
+  flex: 1;
+  min-width: 0;
+}
+
+.folder-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.folder-parent {
+  display: block;
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+
+.count {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 9px;
+  background: var(--bg-hover);
+  color: var(--text-soft);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Dossier dont les transcriptions ont été purgées : prompts seuls. */
+.folder.orphan .folder-name::after {
+  content: ' ~';
+  color: var(--text-faint);
+}
+
+/* Chemin reconstruit, jamais confirmé par une source exacte. */
+.folder.approx .folder-parent::after {
+  content: ' ?';
+  color: var(--text-faint);
+}
+
+.sessions {
+  margin: 1px 0 6px;
+  padding-left: 14px;
+  list-style: none;
+  border-left: 1px solid var(--border-soft);
+  margin-left: 13px;
+}
+
+.session-btn {
+  display: block;
+  width: 100%;
+  padding: 5px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.session-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.session-btn[aria-current='true'] {
+  background: var(--bg-active);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.session-title {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-sub {
+  display: block;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.badge-history {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  vertical-align: 1px;
+}
+
+/* Conversation dont le fichier d'origine a disparu : Ariane en garde la seule copie. */
+.badge-saved {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.sidebar-foot {
+  padding: 8px 16px 10px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.stats {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Colonne droite ──────────────────────────────────────────────────── */
+
+.main {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-width: 0;
+  height: 100vh;
+}
+
+/* Each row is named explicitly because the header is `hidden` whenever no
+   conversation is open — and a hidden element is not a grid item at all. With
+   automatic placement the two survivors then took rows 1 and 2, which handed
+   `1fr` to the COMPOSER: the search bar climbed to the top of the window and
+   the results panel, anchored to its height, flew off the top of the screen. */
+.convo-head {
+  grid-row: 1;
+  grid-column: 1;
+}
+
+/* The column is named too, and must be: the outline shares this cell. An item
+   with only its row fixed is placed AFTER items with both fixed, so the outline
+   took column 1 and pushed the transcript into a new, 201 px wide column. */
+.transcript {
+  grid-row: 2;
+  grid-column: 1;
+}
+
+.composer {
+  grid-row: 3;
+  grid-column: 1;
+}
+
+.convo-head {
+  /* Measured by its own width, not the window's: the sidebar narrows too. */
+  container: convo / inline-size;
+  display: flex;
+  flex-wrap: wrap; /* the find bar takes a row of its own */
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 28px 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.convo-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.convo-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.convo-meta {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ghost-btn .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.ghost-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+/* Un menu déroulant sous son bouton : « Exporter ». */
+.menu-wrap {
+  position: relative;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  min-width: 170px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.18);
+}
+
+.menu[hidden] {
+  display: none;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--bg-hover);
+  outline: none;
+}
+
+/* Le second clic efface pour de bon : il doit se voir. */
+.ghost-btn.danger,
+.ghost-btn.danger:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.transcript {
+  min-height: 0; /* 1fr row; see .sidebar */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 28px 28px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+}
+
+.welcome {
+  max-width: 480px;
+  margin: 14vh auto 0;
+  text-align: center;
+  color: var(--text-soft);
+}
+
+.welcome h2 {
+  margin: 0 0 8px;
+  font-size: 19px;
+  color: var(--text);
+}
+
+.welcome p {
+  margin: 0 0 10px;
+}
+
+.kbd-hints {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg-panel);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+/* ── Messages ────────────────────────────────────────────────────────── */
+
+.msg {
+  max-width: 860px;
+  margin: 0 auto 22px;
+  scroll-margin-top: 20px;
+}
+
+.msg-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+/* Copier un message : discret tant que la souris n'est pas sur lui. */
+/* L'étoile d'un message, à côté de « Copier » : discrète tant qu'on ne la
+   survole pas, franche une fois posée. */
+.msg-star {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 20px;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.msg-star + .msg-copy {
+  margin-left: 4px;
+}
+
+.msg:hover .msg-star,
+.msg-star:focus-visible,
+.msg-star.on {
+  opacity: 1;
+}
+
+.msg-star.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.msg-star .icon[data-filled='true'] {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+
+.favorite-message .session-title {
+  font-weight: 400;
+  font-style: italic;
+}
+
+.favorite-message .session-sub {
+  color: var(--text-faint);
+}
+
+.msg-copy {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 20px;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-faint);
+  font: inherit;
+  font-size: 11px;
+  line-height: 18px;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.msg:hover .msg-copy,
+.msg-copy:focus-visible,
+.msg-copy.done {
+  opacity: 1;
+}
+
+.msg-copy .icon,
+.msg-star .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.msg-copy.done {
+  color: var(--user);
+  border-color: var(--user);
+}
+
+.msg-copy:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.who {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.msg-user .who {
+  color: var(--user);
+}
+
+.msg-assistant .who {
+  color: var(--accent);
+}
+
+.when {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.msg-body {
+  padding: 11px 15px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  overflow-wrap: break-word;
+}
+
+.msg-user .msg-body {
+  border-left: 2px solid var(--user);
+}
+
+.msg-assistant .msg-body {
+  border-left: 2px solid var(--accent);
+}
+
+.msg.is-hit .msg-body {
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.msg-body > :first-child {
+  margin-top: 0;
+}
+
+.msg-body > :last-child {
+  margin-bottom: 0;
+}
+
+.msg-body p {
+  margin: 0 0 9px;
+}
+
+.msg-body h2,
+.msg-body h3,
+.msg-body h4 {
+  margin: 14px 0 6px;
+  font-size: 14px;
+}
+
+.msg-body ul,
+.msg-body ol {
+  margin: 0 0 9px;
+  padding-left: 22px;
+}
+
+.msg-body blockquote {
+  margin: 0 0 9px;
+  padding-left: 11px;
+  border-left: 2px solid var(--border);
+  color: var(--text-soft);
+}
+
+.msg-body code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--bg-code);
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+
+.msg-body pre.code {
+  margin: 0 0 9px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-code);
+  overflow-x: auto;
+}
+
+.msg-body pre.code code {
+  padding: 0;
+  background: none;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+mark {
+  padding: 0 2px;
+  border-radius: 3px;
+  background: var(--mark);
+  color: inherit;
+}
+
+/* ── Le plan de la conversation : un trait par message de la personne ── */
+
+/* Posé sur la même rangée de grille que la transcription, contre son bord
+   droit, en retrait de la barre de défilement pour ne jamais la masquer. */
+.outline {
+  grid-row: 2;
+  grid-column: 1;
+  justify-self: end;
+  position: relative;
+  width: 12px;
+  margin: 14px 14px 14px 0;
+  z-index: 2;
+}
+
+.outline[hidden] {
+  display: none;
+}
+
+/* Un rail discret, pour que les traits se lisent comme une carte et non comme
+   des éclats égarés. */
+.outline::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--border-soft);
+}
+
+.outline-tick {
+  position: absolute;
+  left: 1px;
+  width: 10px;
+  height: 3px;
+  margin-top: -1px;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  background: var(--user);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+/* Un message marqué : le trait prend la couleur de l'étoile et s'épaissit,
+   pour qu'il se distingue des messages de la personne sans dépendre de la
+   seule couleur. */
+.outline-tick.starred {
+  height: 5px;
+  background: var(--accent);
+  opacity: 0.9;
+}
+
+.outline-tick:hover {
+  opacity: 1;
+  transform: scaleX(1.4);
+}
+
+/* Le message atteint par le plan, un instant. */
+.msg.is-target .msg-body {
+  box-shadow: 0 0 0 2px var(--user);
+  transition: box-shadow 0.6s;
+}
+
+/* Six actions and their labels need ~635 px, and the title deserves room of its
+   own: below that, the labels step aside and the icons speak alone. Each
+   button keeps its name in aria-label (see icons.js), and its tooltip. */
+@container convo (max-width: 920px) {
+  .convo-actions .ghost-btn .label {
+    display: none;
+  }
+
+  .convo-actions .ghost-btn {
+    padding: 5px 7px;
+  }
+}
+
+/* ── Chercher dans la conversation ouverte (Ctrl+F) ───────────────────── */
+
+.find-bar {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: 4px;
+}
+
+.find-bar[hidden] {
+  display: none;
+}
+
+.find-input {
+  width: auto;
+  flex: 0 1 340px;
+  padding: 5px 10px;
+}
+
+/* La loupe devant les deux champs de recherche. */
+.find-glyph,
+.composer-glyph {
+  color: var(--text-faint);
+}
+
+.find-count {
+  min-width: 5.5em;
+  padding: 0 6px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+
+/* Le mot trouvé dans le message courant : plus appuyé que les extraits. */
+mark.find-hit {
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* ── Blocs repliés : outils, réflexion, pièces jointes ───────────────── */
+
+details.fold {
+  margin: 7px 0 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sidebar);
+}
+
+details.fold > summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  color: var(--text-soft);
+  font-size: 12px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+details.fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.fold > summary::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 4px solid currentColor;
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+  color: var(--text-faint);
+  transition: transform 0.12s ease;
+}
+
+details.fold[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+details.fold > summary:hover {
+  color: var(--text);
+}
+
+.fold-tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.fold-tag.error {
+  color: var(--accent);
+}
+
+details.fold pre {
+  margin: 0;
+  padding: 9px 12px;
+  border-top: 1px solid var(--border-soft);
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-soft);
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.attach {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 7px 7px 0 0;
+  padding: 4px 9px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-faint);
+  font-size: 11.5px;
+}
+
+/* ── Zone de recherche (à la place du prompt) ────────────────────────── */
+
+.composer {
+  position: relative;
+  padding: 10px 28px 16px;
+  border-top: 1px solid var(--border-soft);
+  background: var(--bg);
+}
+
+.composer-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 6px 8px 6px 6px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--bg-panel);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.composer-bar:focus-within {
+  border-color: var(--accent);
+}
+
+.scope {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  padding: 4px 9px;
+  border: none;
+  border-radius: 9px;
+  background: var(--bg-hover);
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 190px;
+}
+
+.scope:hover {
+  color: var(--text);
+}
+
+.scope #scope-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.caret {
+  flex: none;
+  width: 0;
+  height: 0;
+  border-top: 4px solid currentColor;
+  border-left: 3.5px solid transparent;
+  border-right: 3.5px solid transparent;
+  opacity: 0.6;
+}
+
+/* Le champ, sa loupe et son compteur : un seul bloc, qui ne se coupe pas.
+   Quand la portée et la période ne lui laissent plus de quoi écrire, il passe
+   à la ligne et prend toute la largeur — mesuré : à 900 px de large, les deux
+   listes laissaient 174 px au champ, et 54 px à la largeur minimale. */
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.search {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 4px 2px;
+  font-size: 14px;
+}
+
+.search:focus {
+  outline: none;
+  border: none;
+}
+
+.search-hint {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── Résultats en surcouche ──────────────────────────────────────────── */
+
+.results {
+  position: absolute;
+  left: 28px;
+  right: 28px;
+  bottom: calc(100% - 10px);
+  max-width: 860px;
+  margin: 0 auto;
+  max-height: min(58vh, 520px);
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.22);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+}
+
+.results-group {
+  padding: 7px 8px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.result {
+  display: block;
+  width: 100%;
+  padding: 7px 9px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.result:hover,
+.result.active {
+  background: var(--bg-hover);
+}
+
+.result.active {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.result-title {
+  display: flex;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-bottom: 1px;
+}
+
+.result-title strong {
+  color: var(--text);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* La date, au bout de la ligne : ce qu'on regarde quand on cherche par période. */
+.result-when {
+  flex: none;
+  margin-left: auto;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.result-snippet {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.results-empty {
+  padding: 14px 10px;
+  color: var(--text-faint);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ── Toast ───────────────────────────────────────────────────────────── */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 88px;
+  transform: translateX(-50%);
+  padding: 8px 15px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-panel);
+  color: var(--text);
+  font-size: 12.5px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+}
+
+.toast.error {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Le seul bouton d'un message : ce que la personne peut faire tout de suite. */
+.toast-action {
+  margin-left: 10px;
+  padding: 2px 9px;
+  border: 1px solid currentColor;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.toast-action:hover {
+  background: var(--bg-hover);
+}
+
+/* ── Les repères : l'étoile et la note ────────────────────────────────── */
+
+/* La ligne « Favoris », au-dessus de l'arbre : elle ne s'affiche que
+   lorsqu'il y a quelque chose à y trouver. */
+.favorites-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% - 24px);
+  margin: 0 12px 6px;
+  padding: 6px 9px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.favorites-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.favorites-btn[aria-pressed='true'] {
+  background: var(--bg-active);
+  color: var(--text);
+}
+
+.favorites-btn .icon {
+  width: 13px;
+  height: 13px;
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+
+.favorites-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* L'étoile : pleine quand elle est posée, et de la couleur d'accent — mais
+   jamais la couleur seule, la forme change aussi. */
+/* La chaîne d'une conversation compactée : « partie 2 sur 3 », et de quoi
+   passer d'une partie à l'autre. */
+.part-chain {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 4px;
+  padding: 1px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.part-chain[hidden] {
+  display: none;
+}
+
+.part-label {
+  font-size: 11px;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+.part-chain .icon-btn {
+  width: 20px;
+  height: 20px;
+}
+
+.star-btn .icon[data-filled='true'],
+.session-star .icon {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+
+.star-btn.on {
+  color: var(--accent);
+}
+
+.session-star {
+  display: inline-flex;
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+
+.session-star .icon {
+  width: 11px;
+  height: 11px;
+}
+
+.favorite-row .session-sub {
+  color: var(--text-soft);
+}
+
+/* La note, sous le titre : elle appartient à la personne, pas à l'assistant. */
+/* Une rangée à elle seule dans l'en-tête, comme la barre de recherche :
+   `.convo-head` est un conteneur flexible qui passe à la ligne. */
+.note-bar {
+  display: flex;
+  flex-basis: 100%;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.note-bar[hidden] {
+  display: none;
+}
+
+.note-input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.note-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.note-status {
+  flex: none;
+  padding-top: 9px;
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.ghost-btn.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Réglages ─────────────────────────────────────────────────────────── */
+
+.settings {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--text);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.25);
+}
+
+.settings[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.settings-head {
+  padding: 18px 22px 6px;
+}
+
+.settings-head h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.settings-lead {
+  margin: 0;
+  padding: 8px 22px 0;
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+
+/* La rangée des assistants, sous le champ de filtre. Une pastille décochée
+   reste lisible : elle perd sa couleur, pas son contour — sinon on ne voit
+   plus ce qu'on a masqué, et on ne le retrouve jamais. */
+.agent-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px 8px;
+}
+
+.agent-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.agent-toggle:hover {
+  background: var(--bg-hover);
+}
+
+.agent-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.agent-toggle[aria-pressed='false'] .agent-dot {
+  background: none;
+  color: var(--text-faint);
+  border: 1px dashed var(--text-faint);
+}
+
+.agent-show-all {
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  color: var(--text-soft);
+  font-size: 11.5px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.agent-show-all:hover {
+  color: var(--accent);
+}
+
+.settings-choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 26px;
+  padding: 10px 22px 4px;
+  font-size: 12.5px;
+}
+
+.settings-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-select {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.settings-select option {
+  background-color: var(--option-bg);
+  color: var(--option-text);
+}
+
+.settings-banner {
+  margin: 8px 22px 0;
+  padding: 8px 11px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-size: 12.5px;
+}
+
+/* La liste défile ; l'en-tête et les boutons restent en place, parce que la
+   fenêtre est une colonne flexible bornée par sa hauteur maximale. */
+.settings-rows {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 6px 22px;
+}
+
+.settings-row {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.settings-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.settings-sessions {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.settings-detected,
+.settings-check {
+  margin: 3px 0;
+  font-size: 11.5px;
+  color: var(--text-soft);
+  overflow-wrap: anywhere;
+}
+
+.settings-label {
+  display: block;
+  margin: 8px 0 3px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.settings-field {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.settings-input::placeholder {
+  font-family: var(--font);
+  color: var(--text-faint);
+}
+
+.settings-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.settings-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.settings-check .icon {
+  width: 13px;
+  height: 13px;
+  margin-top: 1px;
+}
+
+.settings-check.bad {
+  color: var(--accent);
+}
+
+.settings-check.pending {
+  color: var(--text-faint);
+}
+
+.settings-add {
+  position: relative;
+  padding: 10px 22px 0;
+}
+
+.settings-add .menu {
+  top: auto;
+  bottom: calc(100% + 4px);
+  left: 22px;
+  right: auto;
+}
+
+.settings-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 22px 18px;
+}
+
+.settings-spacer {
+  flex: 1;
+}
+
+.primary-btn {
+  padding: 5px 14px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.primary-btn:hover {
+  filter: brightness(1.06);
+}
+
+.primary-btn:disabled,
+.ghost-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── Fenêtre étroite : la colonne se rétracte ────────────────────────── */
+
+@media (max-width: 900px) {
+  :root {
+    --sidebar-w: 232px;
+  }
+
+  .transcript,
+  .composer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .results {
+    left: 16px;
+    right: 16px;
+  }
+
+  .convo-head {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+/* ── Tours sans auteur ────────────────────────────────────────────────────
+   Sortie d'outil ou avis du harnais : le format les enregistre avec le rôle
+   « user », mais la personne ne les a pas écrits. Ils se rattachent donc
+   visuellement au tour précédent, sans nom et sans barre de couleur. */
+
+.msg-unattributed {
+  /* NEVER set margin-left here: it would override the `auto` from `.msg`'s
+     margin shorthand and drop the row out of the centred column. Indent the
+     inner body instead. */
+  margin-top: -14px;
+}
+
+.msg-unattributed .msg-body {
+  margin-left: 18px;
+}
+
+.msg-unattributed .msg-head {
+  margin-bottom: 2px;
+}
+
+.msg-unattributed .msg-body {
+  border-left-color: var(--border);
+  background: transparent;
+}
+
+.msg-notice .msg-body {
+  border-style: dashed;
+  border-left-color: var(--border);
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 12.5px;
+}
+
+/* ── Série d'appels d'outils ──────────────────────────────────────────────
+   Une exécution enchaîne facilement vingt tours ne contenant qu'un appel et
+   son résultat. Groupés en un seul bandeau replié, ils cessent d'enterrer la
+   conversation tout en restant consultables. */
+
+.msg-toolrun {
+  margin-bottom: 14px;
+}
+
+.msg-toolrun > details.fold {
+  margin: 0;
+  background: transparent;
+  border-style: dashed;
+}
+
+.msg-toolrun > details.fold > summary {
+  padding: 6px 12px;
+}
+
+.msg-toolrun > details.fold > summary .when {
+  margin-left: auto;
+}
+
+.tool-run-body {
+  padding: 4px 10px 10px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.tool-run-body > details.fold {
+  margin: 6px 0 0;
+  background: var(--bg-panel);
+}
+
+.tool-run-body > .attach {
+  margin-top: 8px;
+}
+
+/* ── Identité des agents ──────────────────────────────────────────────────
+   Chaque agent a sa couleur, déclarée ici une seule fois et reprise par la
+   pastille du dossier, l'en-tête de groupe et l'en-tête de conversation. Un
+   agent inconnu retombe sur une teinte neutre : il doit rester visible même
+   avant qu'on lui choisisse une couleur. */
+
+[data-agent] {
+  --agent: var(--text-faint);
+}
+[data-agent='claude'] {
+  --agent: #d97757;
+}
+[data-agent='codex'] {
+  --agent: #5ba3a0;
+}
+[data-agent='gemini'] {
+  --agent: #6f8ed8;
+}
+[data-agent='qwen'] {
+  --agent: #a87fd0;
+}
+[data-agent='copilot-cli'] {
+  --agent: #8fa96b;
+}
+[data-agent='antigravity'] {
+  --agent: #c8963e;
+}
+[data-agent='vscode'] {
+  --agent: #4f9bd6;
+}
+
+.agent-marks {
+  display: flex;
+  gap: 3px;
+  flex: none;
+}
+
+.agent-dot {
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--agent) 22%, transparent);
+  color: var(--agent);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.sessions-wrap {
+  margin: 2px 0 6px;
+}
+
+.agent-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px 2px 14px;
+}
+
+.agent-chip {
+  padding: 1px 7px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--agent) 18%, transparent);
+  color: var(--agent);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.agent-count {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* La barre colorée reprend la teinte de l'agent, pour que l'œil ne mélange
+   jamais deux listes voisines. */
+.sessions[data-agent] {
+  border-left-color: color-mix(in srgb, var(--agent) 45%, transparent);
+}
+
+/* La liste déroulante de portée remplace l'ancienne pastille cliquable. */
+select.scope {
+  flex: none;
+  max-width: 210px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 9px;
+  background: var(--bg-hover);
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+select.scope:hover {
+  color: var(--text);
+}
+
+select.scope option {
+  background-color: var(--option-bg);
+  color: var(--option-text);
+}
+
+select.scope option:checked,
+select.scope option:hover,
+select.scope option:focus {
+  background-color: var(--option-active-bg);
+  color: var(--option-active-text);
+}
+
+/* Les actions de la conversation : reprendre, copier la commande, ouvrir le
+   dossier. Groupées pour qu'elles ne se dispersent pas quand l'une est cachée. */
+.convo-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+/* La marque sert de retour à l'accueil, comme le logo d'une page web. Elle
+   reste un titre pour les lecteurs d'écran, et devient un bouton au clic. */
+.brand-wrap {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+button.brand {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+button.brand:hover {
+  color: var(--text);
+}

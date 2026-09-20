@@ -1,0 +1,58 @@
+node_modules/
+dist/
+out/
+*.log
+.DS_Store
+.cache/
+coverage/
+prebuilds/
+
+# Index databases. Ariane keeps its real index in the OS user-data directory
+# (~/.config/Ariane on Linux), well outside this repository, so nothing here
+# should ever match. These entries are deliberate insurance: an index holds the
+# full text of every conversation on the machine, and committing one by
+# accident would publish it.
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite
+*.db
+
+# Les instructions de projet pour les sessions d'IA. Elles décrivent la manière
+# de travailler ici, pas le produit : elles restent sur la machine.
+CLAUDE.md
+
+# Secrets et matériel de signature. Le jour où un certificat de signature de
+# code arrive dans ce dossier, il ne doit pas pouvoir en sortir : c'est la
+# fuite classique d'un dépôt public, et elle ne se rattrape pas — un secret
+# poussé une fois est un secret à révoquer.
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# L'état des outils d'IA : réglages de session, notes locales. Comme CLAUDE.md,
+# ça décrit la façon de travailler ici, pas le produit.
+.claude/
+CLAUDE.local.md
+.cursor/
+.aider*
+
+# Éditeurs et systèmes
+.vscode/
+.idea/
+*.swp
+*~
+*.bak
+*.orig
+*.rej
+Thumbs.db
+desktop.ini
+
+# Restes d'outils
+.nyc_output/
+*.tsbuildinfo

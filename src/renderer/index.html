@@ -1,0 +1,204 @@
+<!doctype html>
+<html data-theme="auto">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ariane</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <!-- ── Colonne gauche : dossiers et conversations ──────────────── -->
+      <aside class="sidebar" data-l10n-id="sidebar">
+        <header class="sidebar-head">
+          <h1 class="brand-wrap">
+            <button id="home" class="brand" type="button" data-l10n-id="home-button"></button>
+          </h1>
+          <button
+            id="settings"
+            class="icon-btn"
+            data-icon-only="settings"
+            type="button"
+            data-l10n-id="settings-button"
+          ></button>
+          <button
+            id="refresh"
+            class="icon-btn"
+            data-icon-only="refresh"
+            type="button"
+            data-l10n-id="refresh-button"
+          ></button>
+        </header>
+
+        <div class="filter-wrap">
+          <input
+            id="filter"
+            class="filter"
+            type="search"
+            data-l10n-id="folder-filter"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+
+        <button id="favorites" class="favorites-btn" type="button" aria-pressed="false"
+                data-l10n-id="favorites-view"></button>
+
+        <div
+          id="agent-filter"
+          class="agent-filter"
+          role="group"
+          data-l10n-id="agent-filter"
+          hidden
+        ></div>
+
+        <nav id="tree" class="tree" data-l10n-id="tree">
+          <p class="tree-empty" data-l10n-id="tree-loading"></p>
+        </nav>
+
+        <footer class="sidebar-foot">
+          <span id="stats" class="stats" aria-live="polite">—</span>
+        </footer>
+      </aside>
+
+      <!-- ── Colonne droite : lecture ────────────────────────────────── -->
+      <main class="main">
+        <header id="convo-head" class="convo-head" hidden>
+          <div class="convo-titles">
+            <h2 id="convo-title" class="convo-title"></h2>
+            <p id="convo-meta" class="convo-meta"></p>
+          </div>
+          <div class="convo-actions">
+            <span id="part" class="part-chain" hidden>
+              <button id="part-previous" class="icon-btn" type="button" data-icon-only="chevronUp"
+                      data-l10n-id="convo-part-previous"></button>
+              <span id="part-label" class="part-label"></span>
+              <button id="part-next" class="icon-btn" type="button" data-icon-only="chevronDown"
+                      data-l10n-id="convo-part-next"></button>
+            </span>
+            <button id="favorite" class="icon-btn star-btn" type="button" aria-pressed="false"></button>
+            <button id="note-toggle" class="ghost-btn" type="button" data-icon="note"
+                    aria-expanded="false" aria-controls="note" data-l10n-id="mark-note"></button>
+            <button id="order" class="ghost-btn" type="button" aria-pressed="false"
+                    data-l10n-id="order-button"></button>
+            <div class="menu-wrap">
+              <button id="export" class="ghost-btn" type="button" data-icon="download" aria-haspopup="menu"
+                      aria-expanded="false" aria-controls="export-menu"
+                      data-l10n-id="export-button"></button>
+              <div id="export-menu" class="menu" role="menu" hidden>
+                <button class="menu-item" type="button" role="menuitem" data-format="md"
+                        data-icon="fileText" data-l10n-id="export-markdown"></button>
+                <button class="menu-item" type="button" role="menuitem" data-format="pdf"
+                        data-icon="printer" data-l10n-id="export-pdf"></button>
+              </div>
+            </div>
+            <button id="resume" class="ghost-btn" type="button" hidden></button>
+            <button id="copy-cmd" class="ghost-btn" type="button" data-icon="copy" hidden
+                    data-l10n-id="copy-command-button"></button>
+            <button id="open-folder" class="ghost-btn" type="button" data-icon="folderOpen" hidden
+                    data-l10n-id="open-folder-button"></button>
+            <button id="forget" class="ghost-btn" type="button" hidden
+                    data-l10n-id="forget-button"></button>
+          </div>
+
+          <div id="note" class="note-bar" hidden>
+            <textarea id="note-input" class="note-input" rows="2" spellcheck="false"
+                      data-l10n-id="mark-note-input"></textarea>
+            <span id="note-status" class="note-status" aria-live="polite"></span>
+          </div>
+
+          <div id="find" class="find-bar" role="search" hidden>
+            <input
+              id="find-input"
+              class="filter find-input"
+              type="text"
+              data-l10n-id="find-input"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <span id="find-count" class="find-count" aria-live="polite" data-l10n-id="find-count"></span>
+            <button id="find-prev" class="icon-btn" type="button" data-icon-only="chevronUp"
+                    data-l10n-id="find-previous"></button>
+            <button id="find-next" class="icon-btn" type="button" data-icon-only="chevronDown"
+                    data-l10n-id="find-next"></button>
+            <button id="find-close" class="icon-btn" type="button" data-icon-only="close"
+                    data-l10n-id="find-close"></button>
+          </div>
+        </header>
+
+        <div id="transcript" class="transcript" tabindex="-1"></div>
+
+        <!-- ── Le plan : un trait par message de la personne ─────────── -->
+        <nav id="outline" class="outline" data-l10n-id="outline" hidden></nav>
+
+        <!-- ── Barre de recherche, à la place du prompt ──────────────── -->
+        <div class="composer">
+          <div
+            id="results"
+            class="results"
+            role="listbox"
+            data-l10n-id="results"
+            hidden
+          ></div>
+
+          <div class="composer-bar">
+            <select id="scope" class="scope" data-l10n-id="scope-select"></select>
+
+            <select id="period" class="scope" data-l10n-id="period-select"></select>
+
+            <div class="search-field">
+              <input
+                id="search"
+                class="search"
+                type="text"
+                data-l10n-id="search-input"
+                aria-controls="results"
+                aria-autocomplete="list"
+                autocomplete="off"
+                spellcheck="false"
+              />
+
+              <span id="search-hint" class="search-hint" aria-live="polite"></span>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- ── Réglages : où vit la commande de chaque assistant ─────────── -->
+    <dialog id="settings-dialog" class="settings" aria-labelledby="settings-title">
+      <header class="settings-head">
+        <h2 id="settings-title" data-l10n-id="settings-title"></h2>
+      </header>
+      <p class="settings-banner" role="alert" hidden></p>
+      <div class="settings-choices">
+        <div class="settings-choice">
+          <label for="settings-language" data-l10n-id="settings-language"></label>
+          <select id="settings-language" class="settings-select" data-l10n-id="settings-language-select"></select>
+        </div>
+        <div class="settings-choice">
+          <label for="settings-theme" data-l10n-id="settings-theme"></label>
+          <select id="settings-theme" class="settings-select" data-l10n-id="settings-theme-select"></select>
+        </div>
+      </div>
+      <p class="settings-lead" data-l10n-id="settings-lead"></p>
+      <div class="settings-rows"></div>
+      <div class="settings-add">
+        <button type="button" class="ghost-btn settings-add-btn" data-icon="plus"
+                aria-haspopup="menu" aria-expanded="false" data-l10n-id="settings-add"></button>
+        <div class="menu settings-add-menu" role="menu" data-l10n-id="settings-add-menu" hidden></div>
+      </div>
+      <footer class="settings-foot">
+        <button type="button" class="ghost-btn settings-json" data-icon="fileText"
+                data-l10n-id="settings-open-json"></button>
+        <span class="settings-spacer"></span>
+        <button type="button" class="ghost-btn settings-cancel" data-l10n-id="settings-cancel"></button>
+        <button type="button" class="primary-btn settings-save" data-l10n-id="settings-save"></button>
+      </footer>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

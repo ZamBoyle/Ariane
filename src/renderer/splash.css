@@ -1,0 +1,99 @@
+/* ──────────────────────────────────────────────────────────────────────
+   L'écran d'accueil. Une fenêtre sans cadre, sans menu, qui se ferme dès
+   que la fenêtre principale est prête.
+
+   Elle ne partage rien avec styles.css : ni thème, ni tokens, ni police
+   de l'application. Elle affiche une image sombre, donc elle est sombre,
+   quel que soit le thème choisi — et elle ne doit surtout pas attendre
+   que la localisation ou les réglages aient répondu pour s'afficher.
+   ────────────────────────────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #0a0908;
+  display: flex;
+  flex-direction: column;
+  /* Aucun texte n'est sélectionnable, et la fenêtre ne réagit pas au clic
+     droit : ce n'est pas un document, c'est une attente. */
+  user-select: none;
+  cursor: default;
+}
+
+.art {
+  display: block;
+  cursor: pointer;
+  width: 100%;
+  flex: 1;
+  /* Un élément flex ne descend pas sous son contenu sans ça, et l'image
+     déborderait la fenêtre au lieu de laisser sa place à la bande. */
+  min-height: 0;
+  object-fit: cover;
+}
+
+/* Sa propre bande sous l'image, plutôt que des commandes posées dessus : la
+   bannière a sa rangée de boutons en bas, et tout ce qu'on y superpose la
+   recouvre. */
+.bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 14px;
+  height: 46px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dismiss {
+  flex: none;
+  padding: 6px 18px;
+  border: 1px solid rgba(217, 119, 87, 0.55);
+  border-radius: 999px;
+  background: rgba(217, 119, 87, 0.16);
+  color: #f0eee6;
+  font: 12.5px/1.2 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  cursor: pointer;
+}
+
+.dismiss:hover {
+  background: rgba(217, 119, 87, 0.3);
+}
+
+.dismiss:focus-visible {
+  outline: 2px solid #d97757;
+  outline-offset: 2px;
+}
+
+.hide {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #d8d4cc;
+  font: 12px/1.2 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  cursor: pointer;
+}
+
+.hide:hover {
+  color: #f0eee6;
+  border-color: rgba(217, 119, 87, 0.5);
+}
+
+.hide input {
+  margin: 0;
+  width: 13px;
+  height: 13px;
+  accent-color: #d97757;
+  cursor: pointer;
+}
+
+.hide:focus-within {
+  outline: 2px solid #d97757;
+  outline-offset: 2px;
+}

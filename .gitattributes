@@ -1,0 +1,10 @@
+# This project is developed on Linux/macOS and packaged for Windows. Line endings
+# are normalised to LF everywhere so a checkout on one platform never rewrites
+# files for another (and shebang scripts keep working).
+* text=auto eol=lf
+
+*.node  binary
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.icns  binary

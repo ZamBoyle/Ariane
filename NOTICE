@@ -1,0 +1,52 @@
+Ariane
+Copyright (C) 2026 Johnny Piette
+https://github.com/ZamBoyle/ariane
+
+Ariane est un logiciel libre : vous pouvez le redistribuer et/ou le modifier
+selon les termes de la GNU General Public License version 3, telle que publiée
+par la Free Software Foundation, ou (à votre choix) toute version ultérieure.
+Le texte complet est dans le fichier LICENSE.
+
+Ce programme est distribué dans l'espoir qu'il sera utile, mais SANS AUCUNE
+GARANTIE — voir les articles 15 et 16 de la licence.
+
+
+TERME ADDITIONNEL — article 7(b) de la GPLv3
+============================================
+
+L'article 7(b) de la GNU GPL version 3 autorise à assortir la licence d'une
+exigence de préservation des mentions d'auteur. Elle est ici la suivante, et
+elle ne peut pas être retirée par ceux qui redistribuent :
+
+    La redistribution de ce programme, modifié ou non, et de tout travail qui
+    en dérive, doit préserver la mention suivante — dans le code source, ainsi
+    que dans les « Appropriate Legal Notices » affichées par le travail s'il en
+    affiche :
+
+        Ariane — © 2026 Johnny Piette — https://github.com/ZamBoyle/ariane
+
+En clair : reprenez ce code, modifiez-le, redistribuez-le — mais publiez votre
+code sous la même licence, et dites d'où il vient.
+
+
+-------------------------------------------------------------------------------
+
+Ariane is free software: you may redistribute it and/or modify it under the
+terms of the GNU General Public License version 3, as published by the Free
+Software Foundation, or (at your option) any later version. The full text is in
+the LICENSE file. There is NO WARRANTY — see sections 15 and 16.
+
+ADDITIONAL TERM — GPLv3 section 7(b)
+
+Section 7(b) of the GNU GPL version 3 allows the license to be supplemented
+with a requirement to preserve author attributions. That requirement is stated
+here, and may not be removed by those who redistribute:
+
+    Redistribution of this program, modified or not, and of any work derived
+    from it, must preserve the following attribution — in the source code, and
+    in the Appropriate Legal Notices displayed by the work, if it displays any:
+
+        Ariane — (C) 2026 Johnny Piette — https://github.com/ZamBoyle/ariane
+
+In short: take this code, change it, redistribute it — but publish your code
+under the same license, and say where it came from.

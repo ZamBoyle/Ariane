@@ -1,0 +1,569 @@
+'use strict';
+
+/**
+ * A stand-in for the real preload, used only by the rendering tests.
+ *
+ * It exposes the same `window.api` surface backed by fixed data, so the real
+ * renderer can be driven end to end — folders, sessions, messages, search —
+ * with no database, no Electron main process and no filesystem.
+ *
+ * The fixture deliberately contains the shapes that have caused real bugs:
+ * a tool result recorded under the "user" role, a harness notice, and an empty
+ * shell message. Those are the rows the assertions care about.
+ */
+
+const { contextBridge } = require('electron');
+const fs = require('fs');
+const path = require('path');
+
+/**
+ * The language, from the real files: French unless the page was loaded with
+ * `?lang=en`, or `?lang=pseudo` — English with every sentence marked ⟦…⟧, so
+ * that one which bypassed the language files shows up bare.
+ */
+const LOCALES = path.join(__dirname, '..', '..', 'src', 'locales');
+const readLocale = (code) => fs.readFileSync(path.join(LOCALES, `${code}.ftl`), 'utf8');
+/** A language chosen in the settings window outlives the reload it causes, as the real file does. */
+const chosenLanguage = () => {
+  try {
+    return globalThis.sessionStorage.getItem('mock.language');
+  } catch {
+    return null;
+  }
+};
+const WANTED =
+  chosenLanguage() || new URLSearchParams(globalThis.location ? globalThis.location.search : '').get('lang') || 'fr';
+const PSEUDO = WANTED === 'pseudo';
+const LANGUAGE = PSEUDO ? 'en' : WANTED;
+const languageSaves = [];
+
+/** The stars and the notes, as marks.js would keep them: id -> {favorite, note}. */
+const MARKS = {};
+const marked = (session) => ({
+  ...session,
+  favorite: Boolean(MARKS[session.id] && MARKS[session.id].favorite),
+  note: (MARKS[session.id] && MARKS[session.id].note) || '',
+  messages: (MARKS[session.id] && MARKS[session.id].messages) || [],
+});
+
+/**
+ * The two Codex sessions stand for one conversation a compaction cut in two:
+ * the app must say so rather than show two strangers.
+ */
+const CHAIN = [
+  { id: 'codex:c1', title: 'Session Codex A' },
+  { id: 'codex:c2', title: 'Session Codex B' },
+];
+const chainOf = (id) => (CHAIN.some((part) => part.id === id) ? CHAIN.slice() : []);
+
+/** What marks.js does in the main process: find the starred rows again. */
+const resolveStarred = (id, messages) => {
+  const marks = (MARKS[id] && MARKS[id].messages) || [];
+  return messages
+    .filter((m) => marks.some((mark) => (mark.uuid && mark.uuid === m.uuid) || mark.seq === m.seq))
+    .map((m) => m.id);
+};
+
+const FOLDERS = [
+  {
+    id: 1,
+    path: '/home/zam/projet',
+    dirName: '-home-zam-projet',
+    existsOnDisk: 1,
+    sessionCount: 3,
+    agentCount: 2,
+    agentIds: 'claude,codex',
+    pathExact: 1,
+    messageCount: 6,
+    lastAt: '2026-09-17T23:06:00.000Z',
+  },
+  // A folder whose first expansion FAILS. It exists so the retry path can be
+  // driven: a transient error must not be cached as "this folder is empty".
+  {
+    id: 2,
+    path: '/home/zam/fragile',
+    dirName: '-home-zam-fragile',
+    existsOnDisk: 1,
+    sessionCount: 1,
+    agentCount: 1,
+    agentIds: 'claude',
+    // Its path was reconstructed from the directory name, never confirmed.
+    pathExact: 0,
+    sessionCount: 2,
+    messageCount: 1,
+    lastAt: '2026-09-17T19:00:00.000Z',
+  },
+];
+
+const FRAGILE_SESSIONS = [
+  {
+    id: 'claude:f1', agentId: 'claude', title: 'Session fragile', gitBranch: 'main',
+    firstPrompt: 'apres une erreur', messageCount: 1,
+    firstAt: '2026-09-17T19:00:00.000Z', lastAt: '2026-09-17T19:00:00.000Z', source: 'transcript',
+  },
+  // Its file is gone: Ariane holds the only copy, so it alone can be forgotten.
+  {
+    id: 'claude:f2', agentId: 'claude', title: 'Conversation sauvée', gitBranch: 'main',
+    firstPrompt: 'ancienne', messageCount: 2,
+    firstAt: '2026-09-16T19:00:00.000Z', lastAt: '2026-09-16T19:00:00.000Z', source: 'archive',
+  },
+];
+
+/** Every id the renderer asked to forget, in order. */
+const forgotten = [];
+/** What the renderer asked to export, and which messages to copy. */
+const exportCalls = [];
+const copyCalls = [];
+/** The filters each search was sent with. */
+const searchCalls = [];
+/** What "Reprendre" answers, when made to fail. */
+let resumeReply = null;
+
+/**
+ * The settings window's world: Claude found here, Codex used but not found,
+ * the three others neither — so they wait under « Ajouter ».
+ */
+const notFound = (name) => ({ ok: false, reason: 'command-not-found', detail: name });
+const SETTINGS = {
+  file: '/home/zam/.config/Ariane/settings.json',
+  unreadable: null,
+  language: {
+    setting: 'auto',
+    current: LANGUAGE,
+    system: 'fr',
+    available: [{ code: 'en', name: 'English' }, { code: 'fr', name: 'Français' }],
+  },
+  theme: 'auto',
+  agents: [
+    { id: 'claude', name: 'claude', label: 'Claude Code', command: '', detected: '/home/zam/.local/bin/claude',
+      sessions: 3, check: { ok: true, executable: '/home/zam/.local/bin/claude', chosen: false } },
+    { id: 'codex', name: 'codex', label: 'Codex', command: '', detected: null, sessions: 2, check: notFound('codex') },
+    { id: 'copilot-cli', name: 'copilot', label: 'Copilot CLI', command: '', detected: null, sessions: 0, check: notFound('copilot') },
+    { id: 'qwen', name: 'qwen', label: 'Qwen Code', command: '', detected: null, sessions: 0, check: notFound('qwen') },
+    { id: 'gemini', name: 'gemini', label: 'Gemini CLI', command: '', detected: null, sessions: 0, check: notFound('gemini') },
+  ],
+};
+const settingsSaves = [];
+const themeSaves = [];
+let settingsFileOpened = 0;
+const copyOf = (value) => JSON.parse(JSON.stringify(value));
+
+/**
+ * A conversation long enough that painting it all at once would freeze the
+ * window: 2 000 rows. Message 7 — near the START, so at the very END of the
+ * newest-first display — is what a search finds.
+ */
+const BIG_ID = 'claude:big';
+const BIG = Array.from({ length: 2000 }, (_, i) => ({
+  id: 100000 + i, seq: i, role: i % 2 ? 'assistant' : 'user',
+  ts: new Date(Date.UTC(2026, 8, 1) + i * 60000).toISOString(),
+  text: i === 7 ? 'le message profond, tout au début' : `message numéro ${i}`,
+  thinking: '', parts: [], isMeta: false, isNotice: false, isSidechain: false, command: null,
+}));
+const BIG_SESSIONS = [{
+  id: BIG_ID, agentId: 'claude', title: 'Très longue conversation', gitBranch: 'main',
+  firstPrompt: 'message numéro 0', messageCount: BIG.length,
+  firstAt: BIG[0].ts, lastAt: BIG[BIG.length - 1].ts, source: 'transcript',
+}];
+FOLDERS.push({
+  id: 3, path: '/home/zam/grosse', dirName: '-home-zam-grosse', existsOnDisk: 1,
+  sessionCount: 1, agentCount: 1, agentIds: 'claude', pathExact: 1,
+  messageCount: BIG.length, lastAt: '2026-08-31T00:00:00.000Z',
+});
+
+/** Flipped to false by the first call, so only that one call fails. */
+let fragileWillFail = true;
+
+/** Set by the test to make two overlapping loads resolve out of order. */
+let slowClaudeSession = false;
+
+/**
+ * What the next pass will find on disk, and what the last pass was asked. Lets
+ * the suite make a conversation appear "while the app is open".
+ */
+const pending = { session: null, message: null };
+let lastRefresh = null;
+
+const AGENTS = [
+  { id: 'claude', label: 'Claude Code', root: '/fixture/.claude', sessionCount: 1, messageCount: 6, lastAt: '2026-09-17T23:06:00.000Z' },
+  { id: 'codex', label: 'Codex', root: '/fixture/.codex', sessionCount: 2, messageCount: 9, lastAt: '2026-09-17T22:00:00.000Z' },
+];
+
+/** What the person hid, which outlives a reload in the real app. */
+let hiddenAgents = [];
+
+const SESSIONS = [
+  {
+    id: 'claude:s1',
+    agentId: 'claude',
+    title: 'Session de test',
+    gitBranch: 'master',
+    firstPrompt: 'Que fait ce code',
+    messageCount: 6,
+    firstAt: '2026-09-17T23:00:00.000Z',
+    lastAt: '2026-09-17T23:06:00.000Z',
+    source: 'transcript',
+  },
+  // Two Codex sessions in the SAME folder: they must render as their own group.
+  {
+    id: 'codex:c1', agentId: 'codex', title: 'Session Codex A', gitBranch: 'main',
+    firstPrompt: 'refactor', messageCount: 5,
+    firstAt: '2026-09-17T21:00:00.000Z', lastAt: '2026-09-17T22:00:00.000Z', source: 'transcript',
+  },
+  {
+    id: 'codex:c2', agentId: 'codex', title: 'Session Codex B', gitBranch: 'main',
+    firstPrompt: 'tests', messageCount: 4,
+    firstAt: '2026-09-17T20:00:00.000Z', lastAt: '2026-09-17T21:00:00.000Z', source: 'transcript',
+  },
+];
+
+const MESSAGES = [
+  // 1. A genuine question from the person.
+  {
+    id: 1, seq: 0, role: 'user', ts: '2026-09-17T23:00:00.000Z',
+    text: 'Que fait ce code ?', thinking: '', parts: [],
+    isMeta: false, isNotice: false, isSidechain: false, command: null,
+  },
+  // 2. The assistant calls a tool.
+  {
+    id: 2, seq: 1, role: 'assistant', ts: '2026-09-17T23:01:00.000Z',
+    text: 'Je regarde.', thinking: 'raisonnement interne',
+    parts: [
+      { type: 'text', text: 'Je regarde.' },
+      { type: 'thinking', text: 'raisonnement interne' },
+      { type: 'tool_use', id: 't1', name: 'Bash', preview: '{"command":"git status"}' },
+    ],
+    isMeta: false, isNotice: false, isSidechain: false, command: null,
+  },
+  // 3. THE BUG: the tool answers, and the format records it under role "user".
+  {
+    id: 3, seq: 2, role: 'user', ts: '2026-09-17T23:02:00.000Z',
+    text: '', thinking: '',
+    parts: [{ type: 'tool_result', id: 't1', isError: false, preview: 'fatal: aucun commit' }],
+    isMeta: false, isNotice: false, isSidechain: false, command: null,
+  },
+  // 4. A harness notice, also recorded under "user".
+  {
+    id: 4, seq: 3, role: 'user', ts: '2026-09-17T23:03:00.000Z',
+    text: '[Request interrupted by user]', thinking: '', parts: [],
+    isMeta: false, isNotice: true, isSidechain: false, command: null,
+  },
+  // 5. An empty shell: a redacted thinking block and nothing else.
+  {
+    id: 5, seq: 4, role: 'assistant', ts: '2026-09-17T23:04:00.000Z',
+    text: '', thinking: '', parts: [],
+    isMeta: false, isNotice: false, isSidechain: false, command: null,
+  },
+  // 6a-6d. A run of tool machinery: four turns that must collapse into ONE strip.
+  {
+    id: 10, seq: 10, role: 'assistant', ts: '2026-09-17T23:05:10.000Z',
+    text: '', thinking: '',
+    parts: [{ type: 'tool_use', id: 't2', name: 'Bash', preview: '{"command":"ls"}' }],
+    isMeta: false, isNotice: false, isSidechain: false, command: null,
+  },
+  {
+    id: 11, seq: 11, role: 'user', ts: '2026-09-17T23:05:11.000Z',
+    text: '', thinking: '',
+    parts: [{ type: 'tool_result', id: 't2', isError: false, preview: 'a.js' }],
+    isMeta: false, isNotice: false, isSidechain: false, command: null,
+  },
+  {
+    id: 12, seq: 12, role: 'assistant', ts: '2026-09-17T23:05:12.000Z',
+    text: '', thinking: '',
+    parts: [{ type: 'tool_use', id: 't3', name: 'Read', preview: '{"file":"a.js"}' }],
+    isMeta: false, isNotice: false, isSidechain: false, command: null,
+  },
+  {
+    id: 13, seq: 13, role: 'user', ts: '2026-09-17T23:05:13.000Z',
+    text: '', thinking: '',
+    parts: [{ type: 'tool_result', id: 't3', isError: true, preview: 'ENOENT' }],
+    isMeta: false, isNotice: false, isSidechain: false, command: null,
+  },
+  // 6. A second real message, carrying markup that must never become live HTML.
+  {
+    id: 6, seq: 5, role: 'user', ts: '2026-09-17T23:05:00.000Z',
+    text: 'Et <script>alert(1)</script> ceci, avec `du code`',
+    thinking: '', parts: [],
+    isMeta: false, isNotice: false, isSidechain: false, command: null,
+  },
+];
+
+const SEARCH_HITS = [
+  {
+    id: 6, sessionId: 'claude:s1', role: 'user', ts: '2026-09-17T23:05:00.000Z', seq: 5,
+    title: 'Session de test', source: 'transcript', agentId: 'claude',
+    folderPath: '/home/zam/projet', folderId: 1,
+    snippet: `avant ${String.fromCharCode(1)}terme${String.fromCharCode(2)} apres`,
+    rank: -1,
+  },
+];
+
+contextBridge.exposeInMainWorld('api', {
+  locale: async () => ({
+    language: LANGUAGE,
+    direction: 'ltr',
+    setting: 'auto',
+    system: 'fr',
+    pseudo: PSEUDO,
+    sources: [
+      { language: LANGUAGE, source: readLocale(LANGUAGE) },
+      ...(LANGUAGE === 'en' ? [] : [{ language: 'en', source: readLocale('en') }]),
+    ],
+    languages: SETTINGS.language.available,
+  }),
+  status: async () => ({
+    dataDir: '/fixture/.claude',
+    available: true,
+    lastIndexedAt: '2026-09-17T23:10:00.000Z',
+    stats: { agents: 1, folders: 1, sessions: 1, messages: MESSAGES.length },
+    agents: AGENTS.map((a) => ({ id: a.id, label: a.label, sessions: a.sessionCount })),
+    hiddenAgents: [...hiddenAgents],
+  }),
+
+  hideAgents: async (ids) => {
+    hiddenAgents = [...new Set(ids)];
+    return {
+      hiddenAgents: [...hiddenAgents],
+      agents: AGENTS.map((a) => ({ id: a.id, label: a.label, sessions: a.sessionCount })),
+      // Comme la vraie : les comptes décrivent ce qui reste visible.
+      stats: {
+        agents: AGENTS.length - hiddenAgents.length,
+        folders: FOLDERS.filter((f) =>
+          String(f.agentIds).split(',').some((id) => !hiddenAgents.includes(id))
+        ).length,
+        sessions: SESSIONS.filter((x) => !hiddenAgents.includes(x.agentId)).length,
+        messages: MESSAGES.length,
+      },
+      saved: true,
+      error: null,
+    };
+  },
+  refresh: async (options = {}) => {
+    lastRefresh = { quiet: options.quiet === true };
+    let indexed = 0;
+    if (pending.session) {
+      SESSIONS.unshift(pending.session);
+      FOLDERS[0].sessionCount += 1;
+      pending.session = null;
+      indexed += 1;
+    }
+    if (pending.big) {
+      BIG.push(pending.big);
+      BIG_SESSIONS[0].messageCount = BIG.length;
+      pending.big = null;
+      indexed += 1;
+    }
+    if (pending.message) {
+      MESSAGES.push(pending.message);
+      SESSIONS.find((x) => x.id === 'claude:s1').messageCount += 1;
+      pending.message = null;
+      indexed += 1;
+    }
+    return {
+      scanned: 1, indexed, skipped: 0, messages: MESSAGES.length, orphans: 0,
+      agents: [], errors: [], unknownKinds: {},
+      stats: { agents: 1, folders: 1, sessions: SESSIONS.length, messages: MESSAGES.length },
+    };
+  },
+  agents: async () => AGENTS,
+  // The real one filters in SQL; here it is enough that hiding changes what
+  // comes back, which is what the screen is checked against.
+  folders: async () =>
+    FOLDERS.filter((f) => String(f.agentIds).split(',').some((id) => !hiddenAgents.includes(id))),
+  sessions: async (folderId) => {
+    if (folderId === 3) return BIG_SESSIONS.map(marked);
+    if (folderId !== 2) return SESSIONS.filter((x) => !hiddenAgents.includes(x.agentId)).map(marked);
+    if (fragileWillFail) {
+      fragileWillFail = false;
+      throw new Error('lecture impossible');
+    }
+    return FRAGILE_SESSIONS.map(marked);
+  },
+  favorites: async () =>
+    [...SESSIONS, ...FRAGILE_SESSIONS, ...BIG_SESSIONS]
+      .filter((s) => MARKS[s.id] && (MARKS[s.id].favorite || MARKS[s.id].messages.length))
+      .map((s) => ({ ...marked(s), folderPath: '/home/zam/projet' })),
+  markSession: async (id, change = {}) => {
+    const previous = MARKS[id] || { favorite: false, note: '', messages: [] };
+    const mark = {
+      favorite: change.favorite === undefined ? previous.favorite : change.favorite === true,
+      note: change.note === undefined ? previous.note : String(change.note).trim(),
+      messages: previous.messages,
+    };
+    if (!mark.favorite && !mark.note && mark.messages.length === 0) delete MARKS[id];
+    else MARKS[id] = mark;
+    return { favorite: mark.favorite, note: mark.note };
+  },
+  markMessage: async (id, messageId, favorite) => {
+    const messages = id === BIG_ID ? BIG : MESSAGES;
+    const message = messages.find((m) => m.id === messageId);
+    const previous = MARKS[id] || { favorite: false, note: '', messages: [] };
+    const kept = previous.messages.filter((m) => m.seq !== message.seq);
+    const mark = {
+      ...previous,
+      messages: favorite
+        ? [...kept, { uuid: message.uuid || '', seq: message.seq, role: message.role, at: message.ts,
+            preview: String(message.text).replace(/\s+/g, ' ').trim().slice(0, 160) }]
+        : kept,
+    };
+    if (!mark.favorite && !mark.note && mark.messages.length === 0) delete MARKS[id];
+    else MARKS[id] = mark;
+    return resolveStarred(id, messages);
+  },
+  session: async (id) => {
+    if (id === BIG_ID) {
+      return {
+        session: marked({ ...BIG_SESSIONS[0], folderPath: '/home/zam/grosse', folderId: 3 }),
+        messages: BIG.slice(),
+        favoriteMessages: resolveStarred(id, BIG),
+      };
+    }
+    const found = [...SESSIONS, ...FRAGILE_SESSIONS].find((s) => s.id === id);
+    if (!found) return null;
+    // The Claude session answers slowly, so a second click can overtake it.
+    if (id === 'claude:s1' && slowClaudeSession) {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+    // Only the Claude session carries the full message fixture; the Codex ones
+    // exist so the sidebar has two agents to separate.
+    const messages = id === 'claude:s1' ? MESSAGES : [
+      { id: 90, seq: 0, role: 'user', ts: '2026-09-17T21:00:00.000Z',
+        text: 'prompt codex', thinking: '', parts: [],
+        isMeta: false, isNotice: false, isSidechain: false, command: null },
+      // The answer whose label must read "Codex", not "Claude".
+      { id: 91, seq: 1, role: 'assistant', ts: '2026-09-17T21:00:30.000Z',
+        text: 'reponse codex', thinking: '', parts: [],
+        isMeta: false, isNotice: false, isSidechain: false, command: null },
+    ];
+    return {
+      session: marked({ ...found, folderPath: '/home/zam/projet', folderId: 1 }),
+      chain: chainOf(id),
+      messages,
+      favoriteMessages: resolveStarred(id, messages),
+    };
+  },
+  search: async (query, options = {}) => {
+    searchCalls.push({ query, period: options.period ?? null, agentId: options.agentId ?? null });
+    if (!query || !query.trim()) return [];
+    // The fixture's hits are all older than a week: the empty case, worded.
+    if (options.period === '7d') return [];
+    if (query.includes('profond')) {
+      return [{
+        id: 100007, sessionId: BIG_ID, role: 'user', ts: BIG[7].ts, seq: 7,
+        title: 'Très longue conversation', source: 'transcript', agentId: 'claude',
+        folderPath: '/home/zam/grosse', folderId: 3,
+        snippet: `le message ${String.fromCharCode(1)}profond${String.fromCharCode(2)}`, rank: -1,
+      }];
+    }
+    // Honour the agent filter so the scope dropdown can be asserted on.
+    if (options.agentId) return SEARCH_HITS.filter((h) => h.agentId === options.agentId);
+    return SEARCH_HITS;
+  },
+  openFolder: async () => true,
+  exportSession: async (id, format, options = {}) => {
+    exportCalls.push({ id, format, newestFirst: options.newestFirst === true });
+    return { saved: true, path: `/home/zam/Documents/export.${format}` };
+  },
+  copyMessage: async (id) => {
+    copyCalls.push(id);
+    return true;
+  },
+  forget: async (id) => {
+    forgotten.push(id);
+    const at = FRAGILE_SESSIONS.findIndex((x) => x.id === id);
+    if (at >= 0) FRAGILE_SESSIONS.splice(at, 1);
+    FOLDERS[1].sessionCount = FRAGILE_SESSIONS.length;
+    return true;
+  },
+  resumeInfo: async (id) =>
+    id.startsWith('codex:')
+      ? { ok: true, display: 'codex resume c1', exact: true, note: null }
+      : { ok: true, display: 'claude --resume s1', exact: true, note: null },
+  resume: async () => resumeReply || { ok: true, terminal: 'gnome-terminal', display: 'claude --resume s1' },
+  settings: async () => copyOf(SETTINGS),
+  checkCommand: async (id, command) => {
+    const agent = SETTINGS.agents.find((a) => a.id === id);
+    if (!command.trim()) return agent.check;
+    if (!command.startsWith('/')) return { ok: false, reason: 'setting-not-absolute', detail: command };
+    if (command.includes('absent')) return { ok: false, reason: 'setting-unusable', detail: command };
+    return { ok: true, executable: command.trim(), chosen: true };
+  },
+  saveSettings: async (commands, language, theme) => {
+    if (SETTINGS.unreadable) throw new Error('Réglages illisibles, rien n’a été écrit');
+    if (theme !== undefined) {
+      themeSaves.push(theme);
+      SETTINGS.theme = theme;
+      // The real one goes through nativeTheme; here the page shows it itself,
+      // which is enough to see that the choice travelled.
+      document.documentElement.dataset.theme = theme;
+    }
+    if (language !== undefined) {
+      languageSaves.push(language);
+      try {
+        globalThis.sessionStorage.setItem('mock.language', language === 'auto' ? 'fr' : language);
+      } catch {
+        /* the check that needs it will say so */
+      }
+    }
+    settingsSaves.push(copyOf(commands));
+    for (const [id, command] of Object.entries(commands)) {
+      SETTINGS.agents.find((a) => a.id === id).command = command;
+    }
+    return copyOf(SETTINGS);
+  },
+  browseCommand: async () => '/home/zam/.nvm/versions/node/v22.12.0/bin/codex',
+  openSettingsFile: async () => {
+    settingsFileOpened += 1;
+    return { path: SETTINGS.file, opened: true, unreadable: SETTINGS.unreadable };
+  },
+  copy: async () => true,
+  onIndexProgress: () => () => {},
+});
+
+// Test-only: lets the rendering suite create the overlap it needs.
+contextBridge.exposeInMainWorld('mock', {
+  slowClaudeSession(value) {
+    slowClaudeSession = Boolean(value);
+  },
+  /** A new conversation in the first folder, found by the next pass. */
+  addSession() {
+    pending.session = {
+      id: 'claude:s9', agentId: 'claude', title: 'Session arrivée pendant la lecture',
+      gitBranch: 'main', firstPrompt: 'nouvelle', messageCount: 1,
+      firstAt: '2026-09-18T10:00:00.000Z', lastAt: '2026-09-18T10:00:00.000Z', source: 'transcript',
+    };
+  },
+  /** A new message in the Claude conversation, found by the next pass. */
+  addMessageToOpen(text = 'message arrivé en direct', id = 99) {
+    pending.message = {
+      id, seq: id, role: 'assistant', ts: '2026-09-18T10:01:00.000Z',
+      text, thinking: '', parts: [],
+      isMeta: false, isNotice: false, isSidechain: false, command: null,
+    };
+  },
+  lastRefresh: () => lastRefresh,
+  /** A new message at the end of the long conversation, found by the next pass. */
+  addBigMessage() {
+    pending.big = {
+      id: 102000, seq: 2000, role: 'assistant', ts: '2026-09-02T12:00:00.000Z',
+      text: 'arrivé au bout de 2000 messages', thinking: '', parts: [],
+      isMeta: false, isNotice: false, isSidechain: false, command: null,
+    };
+  },
+  forgotten: () => forgotten.slice(),
+  exportCalls: () => exportCalls.slice(),
+  searchCalls: () => searchCalls.slice(),
+  settingsSaves: () => copyOf(settingsSaves),
+  settingsFileOpened: () => settingsFileOpened,
+  languageSaves: () => languageSaves.slice(),
+  themeSaves: () => themeSaves.slice(),
+  hiddenAgents: () => [...hiddenAgents],
+  marks: () => JSON.parse(JSON.stringify(MARKS)),
+  settingsUnreadable(message) {
+    SETTINGS.unreadable = message;
+  },
+  failResume(reply) {
+    resumeReply = reply;
+  },
+  copyCalls: () => copyCalls.slice(),
+});

@@ -1,0 +1,27 @@
+# AppArmor profile for Ariane.
+#
+# Ubuntu 24.04 sets kernel.apparmor_restrict_unprivileged_userns=1, which stops
+# unconfined programs from creating unprivileged user namespaces. Chromium needs
+# one for its sandbox, so without this profile Electron falls back to the SUID
+# sandbox helper and, finding it not setuid, aborts before drawing a window —
+# the app appears to do nothing at all when launched from the desktop menu.
+#
+# The kernel log shows it plainly:
+#   apparmor="DENIED" operation="capable" profile="unprivileged_userns"
+#   comm="ariane" capability=21 capname="sys_admin"
+#
+# This profile grants nothing beyond that capability: `flags=(unconfined)` means
+# the program is no more restricted than before, it simply gains a name instead
+# of the "unconfined" label so the userns rule can apply to it. It is the same
+# shape Ubuntu ships for chrome, code and slack, and it keeps the namespace
+# sandbox — which is stronger than the SUID one it would otherwise fall back to.
+
+abi <abi/4.0>,
+include <tunables/global>
+
+profile ariane /opt/Ariane/ariane flags=(unconfined) {
+  userns,
+
+  # Site-specific additions and overrides. See local/README for details.
+  include if exists <local/ariane>
+}
