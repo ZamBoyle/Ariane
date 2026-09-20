@@ -138,6 +138,12 @@ const state = {
    * words, in the order they stand on screen, and which one is shown.
    */
   find: { hits: [], index: -1 },
+  /**
+   * The words a search was made of, kept while the conversation it led to is
+   * open. They are marked wherever they appear, not only in the message the
+   * result pointed at: someone who searched for a word wants to see the word.
+   */
+  searchTerms: [],
   /** Where the last jump through the outline landed, as a row index. */
   outlineAt: null,
   /** The conversation whose "Oublier" was clicked once, awaiting the second click. */
@@ -205,7 +211,7 @@ const el = {
 const view = new TranscriptView(
   el.transcript,
   (group) => (group.type === 'toolRun' ? renderToolRun(group.messages) : renderMessage(group.message)),
-  { emptyText: '' }
+  { emptyText: '', onPaint: markSearchTerms }
 );
 
 /** Where each assistant's CLI lives, and the language; see settings-dialog.js. */
@@ -1016,7 +1022,7 @@ async function toggleFolder(folderId) {
 
 // ── Lecture d'une conversation ───────────────────────────────────────────
 
-async function openSession(sessionId, highlightMessageId = null, { starred = null } = {}) {
+async function openSession(sessionId, highlightMessageId = null, { starred = null, terms = [] } = {}) {
   const token = ++state.openToken;
   /** Has another conversation been asked for while this one was loading? */
   const superseded = () => token !== state.openToken;
@@ -1037,6 +1043,12 @@ async function openSession(sessionId, highlightMessageId = null, { starred = nul
   state.currentFolderId = session.folderId;
   disarmForget();
   closeFind();
+  // Set BEFORE anything is painted: the view marks every slice it paints, the
+  // first one included. A conversation opened from anywhere else clears the
+  // highlight rather than carrying the last search into a conversation that has
+  // nothing to do with it.
+  state.searchTerms = terms;
+  unmark('search-hit');
   // Its own order, not the last one used: the default, unless this very
   // conversation was flipped.
   state.newestFirst = state.flipped.has(session.id)
@@ -1550,6 +1562,75 @@ function showFindHit() {
 }
 
 /**
+ * Wrap every occurrence of `terms` inside `root` in a `<mark>` of that class.
+ *
+ * Marks are built from TEXT NODES only, never from markup: the prose has
+ * already been escaped and decorated, and rebuilding it from a string would
+ * undo invariant 2. A node already inside a mark is left alone, so running
+ * this twice cannot nest marks — which happens, since the search highlight and
+ * Ctrl+F can both be on at once.
+ */
+function markTerms(root, terms, className) {
+  const wanted = (Array.isArray(terms) ? terms : [terms]).filter((term) => term && term.trim());
+  if (!root || wanted.length === 0) return;
+
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (text) =>
+      // Folded tool output and reasoning are not what was searched; and never
+      // mark inside a mark.
+      text.parentElement.closest('details, mark') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+  });
+  const texts = [];
+  while (walker.nextNode()) texts.push(walker.currentNode);
+
+  for (const text of texts) {
+    // Every term at once, so two words overlapping the same run are both kept
+    // and neither is marked twice.
+    const ranges = wanted
+      .flatMap((term) => findRanges(text.data, term))
+      .sort((a, b) => a[0] - b[0])
+      .filter(([start], i, all) => i === 0 || start >= all[i - 1][1]);
+    if (ranges.length === 0) continue;
+
+    const pieces = document.createDocumentFragment();
+    let from = 0;
+    for (const [start, end] of ranges) {
+      pieces.append(document.createTextNode(text.data.slice(from, start)));
+      pieces.append(node('mark', className, text.data.slice(start, end)));
+      from = end;
+    }
+    pieces.append(document.createTextNode(text.data.slice(from)));
+    text.replaceWith(pieces);
+  }
+}
+
+/** Undo one kind of mark, leaving the other kind where it is. */
+function unmark(className) {
+  for (const mark of el.transcript.querySelectorAll(`mark.${className}`)) {
+    const parent = mark.parentNode;
+    mark.replaceWith(document.createTextNode(mark.textContent));
+    parent.normalize();
+  }
+}
+
+/**
+ * The words of the last search, marked in the rows that are on screen. Called
+ * again for every slice the transcript paints afterwards — a hit 6 000 rows
+ * down is painted long after the conversation opened.
+ */
+function markSearchTerms(rows) {
+  if (state.searchTerms.length === 0) return;
+  for (const row of rows) markTerms(row.querySelector('.msg-body'), state.searchTerms, 'search-hit');
+}
+
+/** The search that led here is over: its highlight goes with it. */
+function clearSearchTerms() {
+  if (state.searchTerms.length === 0) return;
+  state.searchTerms = [];
+  unmark('search-hit');
+}
+
+/**
  * Highlight the current hit: its row, and every occurrence of the words in
  * its prose. The row may be thousands down and not painted yet; rowOf paints
  * up to it. Marks are built from text nodes only — never markup.
@@ -1561,40 +1642,12 @@ function markFindHit(scroll) {
   if (!row) return;
   row.classList.add('is-hit');
 
-  const body = row.querySelector('.msg-body');
-  const needle = el.findInput.value.trim();
-  if (body && needle) {
-    const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, {
-      // Folded tool output and reasoning are not what was searched.
-      acceptNode: (text) =>
-        text.parentElement.closest('details') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
-    });
-    const texts = [];
-    while (walker.nextNode()) texts.push(walker.currentNode);
-    for (const text of texts) {
-      const ranges = findRanges(text.data, needle);
-      if (ranges.length === 0) continue;
-      const pieces = document.createDocumentFragment();
-      let from = 0;
-      for (const [start, end] of ranges) {
-        pieces.append(document.createTextNode(text.data.slice(from, start)));
-        const mark = node('mark', 'find-hit', text.data.slice(start, end));
-        pieces.append(mark);
-        from = end;
-      }
-      pieces.append(document.createTextNode(text.data.slice(from)));
-      text.replaceWith(pieces);
-    }
-  }
+  markTerms(row.querySelector('.msg-body'), el.findInput.value.trim(), 'find-hit');
   if (scroll) row.scrollIntoView({ block: 'center' });
 }
 
 function clearFindMarks() {
-  for (const mark of el.transcript.querySelectorAll('mark.find-hit')) {
-    const parent = mark.parentNode;
-    mark.replaceWith(document.createTextNode(mark.textContent));
-    parent.normalize();
-  }
+  unmark('find-hit');
   for (const row of el.transcript.querySelectorAll('.msg.is-hit')) row.classList.remove('is-hit');
 }
 
@@ -1872,9 +1925,24 @@ function scopeFilters() {
   return filters;
 }
 
+/**
+ * The words to mark, from what was typed. The index searches on stems and on a
+ * prefix for the last word, so a match can be longer than what is marked —
+ * marking exactly what someone typed is the honest half.
+ */
+function termsOf(query) {
+  return String(query || '')
+    .split(/[\s"']+/)
+    .map((word) => word.replace(/^[-+*]+|[-+*]+$/g, ''))
+    .filter((word) => word.length > 1 && !/^(and|or|not)$/i.test(word));
+}
+
 async function runSearch() {
   const query = el.search.value.trim();
-  if (!query) return hideResults();
+  if (!query) {
+    clearSearchTerms();
+    return hideResults();
+  }
 
   try {
     state.results = await api.search(query, scopeFilters());
@@ -1935,7 +2003,7 @@ function renderResult(hit, i) {
   button.append(title, snippet);
   button.addEventListener('click', () => {
     hideResults();
-    openSession(hit.sessionId, hit.id);
+    openSession(hit.sessionId, hit.id, { terms: termsOf(el.search.value) });
   });
   return button;
 }

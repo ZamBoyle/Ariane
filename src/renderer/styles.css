@@ -927,7 +927,16 @@ mark {
   color: var(--text-faint);
 }
 
-/* Le mot trouvé dans le message courant : plus appuyé que les extraits. */
+/* Le mot cherché, partout où il apparaît dans la conversation ouverte : le
+   jaune du surligneur, celui des extraits sous la barre de recherche. C'est
+   volontairement la même couleur — c'est la même information, déplacée de
+   l'extrait vers le texte entier. */
+mark.search-hit {
+  background: var(--mark);
+}
+
+/* Le mot trouvé par Ctrl+F dans le message courant : plus appuyé, et d'une
+   autre couleur, parce que les deux peuvent être allumés en même temps. */
 mark.find-hit {
   background: var(--accent-soft);
   box-shadow: 0 0 0 1px var(--accent);

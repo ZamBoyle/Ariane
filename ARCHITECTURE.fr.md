@@ -341,6 +341,13 @@ Un seul fichier mène la danse, `src/renderer/app.js`, aidé de modules spécial
 | `icons.js` | une famille d'icônes construites en DOM — rien à charger, rien à autoriser dans la CSP |
 | `export-document.js` | la mise en page d'un export (partagée avec le processus principal) |
 
+**Le mot cherché est surligné dans la conversation**, et pas seulement dans l'extrait : ouvrir un
+résultat emporte les mots de la recherche (`state.searchTerms`), qui sont marqués partout où ils
+apparaissent. Le piège est la peinture par tranches — un surlignage posé à l'ouverture ne toucherait
+que les 120 premières lignes. La vue prévient donc à chaque tranche peinte (`onPaint`), et le
+marqueur est **idempotent** : il refuse les nœuds déjà dans un `<mark>`, puisque le surlignage de
+recherche et celui du Ctrl+F peuvent être allumés en même temps.
+
 Deux règles tiennent tout le reste :
 
 1. **Échapper, puis décorer.** `innerHTML` ne reçoit jamais que la sortie de

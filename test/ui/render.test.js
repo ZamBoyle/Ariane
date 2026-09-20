@@ -886,7 +886,56 @@ const SCRIPT = `(async () => {
     saved: window.mock.hiddenAgents(),
   };
 
+  let highlightCheck = { error: null };
+  try {
+    // ── Le mot cherché, surligné dans la conversation ────────────────────
+    // « profond » n'est que dans le message 7 ; « numero » est dans les 2 000,
+    // sans accent dans la requête et avec dans le texte. Une seule recherche
+    // éprouve donc : le surlignage, les accents, et les tranches peintes après.
+    search.value = 'profond numero';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(400);
+    const deepResult = document.querySelector('#results .result');
+    if (!deepResult) {
+      return { error: 'aucun résultat pour « profond numero » : ' + document.getElementById('results').textContent };
+    }
+    deepResult.click();
+    await sleep(500);
+
+    const marksNow = () => [...transcript.querySelectorAll('mark.search-hit')];
+    const rowsNow = () => [...transcript.querySelectorAll('.msg')];
+    const paintedAtFirst = rowsNow().length;
+    highlightCheck = {
+      marked: marksNow().length,
+      words: [...new Set(marksNow().map((m) => m.textContent))].sort().join(','),
+      ring: Boolean(transcript.querySelector('.msg.is-hit')),
+      nested: transcript.querySelectorAll('mark mark').length,
+    };
+
+    // La ligne 1 500 d'une conversation de 2 000 n'a pas pu être peinte par la
+    // première tranche — elle en fait 120. Si elle porte la marque, c'est que
+    // le crochet de peinture a fait son travail longtemps après l'ouverture.
+    for (let i = 0; i < 200 && rowsNow().length < 2000; i++) await sleep(50);
+    const far = rowsNow().slice(1400, 1440);
+    highlightCheck.paintedAfter = {
+      rows: rowsNow().length,
+      firstSlice: paintedAtFirst,
+      marked: far.filter((row) => row.querySelector('mark.search-hit')).length,
+      total: far.length,
+    };
+
+    // Vider la recherche éteint le surlignage qu'elle avait causé.
+    search.value = '';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(400);
+    highlightCheck.afterClearing = marksNow().length;
+
+  } catch (error) {
+    highlightCheck = { error: String((error && error.message) || error) };
+  }
+
   return {
+    highlightCheck,
     agentFilterCheck,
     exportCheck: { menuOpen, afterMd, calls: window.mock.exportCalls(), closesOutside, copied, icons },
     chainCheck,
@@ -1517,6 +1566,25 @@ async function run() {
     `« ${mk.starred.favRow} » étoile=${mk.starred.favStar}`);
 
   // -- where a CLI lives: the settings window ---------------------------------
+  // ── Le mot cherché, surligné dans la conversation ──────────────────────
+  const hl = r.highlightCheck;
+  check('the highlight scenario ran at all', !hl.error, hl.error || '');
+  check('the searched words are highlighted in the conversation, not only in the snippet',
+    hl.marked > 50 && hl.ring, JSON.stringify({ marked: hl.marked, ring: hl.ring }));
+  check('a word typed without its accents still marks the accented one',
+    hl.words === 'numéro,profond', hl.words);
+  check('marks are never nested, however many terms overlap',
+    hl.nested === 0, `${hl.nested} imbrication(s)`);
+  // Les lignes 1 400 à 1 440 d'une conversation de deux mille : la première
+  // tranche en peint 120, elles viennent donc forcément d'une tranche
+  // ultérieure. Qu'elles portent toutes la marque, c'est le crochet qui marche.
+  check('rows painted long after the conversation opened are highlighted too',
+    hl.paintedAfter.rows >= 2000 && hl.paintedAfter.total === 40
+      && hl.paintedAfter.marked === hl.paintedAfter.total,
+    JSON.stringify(hl.paintedAfter));
+  check('clearing the search clears the highlight it caused',
+    hl.afterClearing === 0, `${hl.afterClearing} marque(s) restante(s)`);
+
   // ── Le filtre par assistant ─────────────────────────────────────────────
   const af = r.agentFilterCheck;
   check('the sidebar offers one chip per assistant, named on hover',

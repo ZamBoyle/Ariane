@@ -33,11 +33,18 @@ export class TranscriptView {
   /**
    * @param {HTMLElement} container
    * @param {(group: object) => HTMLElement} renderGroup
-   * @param {{emptyText?: string, firstSlice?: number, slice?: number}} [options]
+   * @param {{emptyText?: string, firstSlice?: number, slice?: number,
+   *          onPaint?: (rows: HTMLElement[]) => void}} [options]
+   *   onPaint: called with the rows that were just put on screen, whenever that
+   *   happens — the first slice, an idle slice, a jump to a row far down, or a
+   *   conversation that grew. Anything that decorates rows after the fact
+   *   (search highlighting) must go through it, or it would only ever touch the
+   *   rows that happened to be painted when it ran.
    */
   constructor(container, renderGroup, options = {}) {
     this.container = container;
     this.renderGroup = renderGroup;
+    this.onPaint = options.onPaint || null;
     this.emptyText = options.emptyText || '';
     this.firstSlice = options.firstSlice || FIRST_SLICE;
     this.slice = options.slice || SLICE;
@@ -124,6 +131,7 @@ export class TranscriptView {
       this.container.append(...tail);
     }
     this.rendered += tail.length - 1;
+    this.#painted(tail);
   }
 
   /** Something else takes the pane: slices still pending must not paint into it. */
@@ -143,9 +151,25 @@ export class TranscriptView {
     const stop = Math.min(end, this.groups.length);
     if (stop <= this.rendered) return;
     const fragment = document.createDocumentFragment();
-    for (let d = this.rendered; d < stop; d++) fragment.append(this.renderGroup(this.groups[this.#chrono(d)]));
+    const rows = [];
+    for (let d = this.rendered; d < stop; d++) {
+      const row = this.renderGroup(this.groups[this.#chrono(d)]);
+      rows.push(row);
+      fragment.append(row);
+    }
     this.container.append(fragment);
     this.rendered = stop;
+    this.#painted(rows);
+  }
+
+  /** Tell whoever asked, and never let it take the view down with it. */
+  #painted(rows) {
+    if (!this.onPaint || rows.length === 0) return;
+    try {
+      this.onPaint(rows);
+    } catch {
+      /* decoration is not worth a blank transcript */
+    }
   }
 
   /** The rest, a slice at a time, until done or until something else is shown. */

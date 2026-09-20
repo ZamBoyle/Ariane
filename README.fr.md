@@ -375,7 +375,7 @@ oblige désormais chaque type écarté à prouver qu'il ne contient rien de vous
 
 ```bash
 npm test              # 694 tests unitaires, sans framework (node --test)
-npm run test:render   # 149 vérifications de rendu, sous Electron
+npm run test:render   # 155 vérifications de rendu, sous Electron
 npm run test:ui       # 26 vérifications de mise en page
 npm run test:splash   # 7 vérifications de l'écran d'accueil
 npm run test:all      # les quatre

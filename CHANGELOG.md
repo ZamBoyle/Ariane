@@ -13,6 +13,33 @@ Les chiffres du corpus de référence vivent dans `ARCHITECTURE.fr.md` § 12, da
 
 ## 20 septembre 2026
 
+### Le mot cherché est surligné là où il se trouve
+
+**Venu de l'usage.** Cliquer un résultat amenait bien au bon message et lui posait un fin liseré,
+mais le **mot**, lui, n'était marqué nulle part. Sur un message de quarante lignes, la recherche
+disait *lequel*, pas *où dedans* : l'œil refaisait le travail. Les extraits sous la barre de
+recherche surlignaient déjà, le Ctrl+F aussi ; c'est seulement le trajet « résultat → conversation »
+qui perdait l'information en route.
+
+**Ce que ça change.** Les mots de la recherche sont marqués dans **toute la conversation ouverte**,
+au jaune du surligneur — la même couleur que dans les extraits, parce que c'est la même information,
+déplacée de l'extrait vers le texte. Le liseré reste sur le message que le résultat désignait : deux
+informations différentes, deux signaux différents. Vider la recherche, ou ouvrir une conversation
+depuis ailleurs, éteint le surlignage.
+
+**Le piège, et c'est là qu'était le travail.** La conversation se peint par tranches : 120 lignes
+tout de suite, le reste pendant les temps morts. Un surlignage posé à l'ouverture n'aurait touché
+que ce qui était déjà peint. La vue prévient donc à chaque tranche (`onPaint`), et le marqueur est
+**idempotent** — il refuse les nœuds déjà dans un `<mark>`, puisque le surlignage de recherche et
+celui du Ctrl+F peuvent être allumés ensemble. Au passage, le Ctrl+F a cessé d'avoir sa propre copie
+du marqueur : les deux partagent le même.
+
+**Mesuré.** Six contrôles de rendu, sur une conversation de 2 000 messages : chercher
+« profond numero » marque 2 000 occurrences, marque `numéro` alors qu'on a tapé `numero` sans
+accent, n'imbrique aucune marque, et — le point qui compte — **les lignes 1 400 à 1 440 portent
+toutes la marque** alors que la première tranche n'en peint que 120. Vider la recherche n'en laisse
+aucune.
+
 ### La fenêtre retrouve sa taille
 
 **Constaté à l'usage** : chaque lancement rouvrait Ariane en 1280 × 860,

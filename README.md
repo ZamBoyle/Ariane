@@ -51,7 +51,8 @@ three busiest:
   conversations never blend into one another.
 - **Instant full-text search**, accent-insensitive: `mathematiques` finds `Mathématiques`.
   Everywhere, or narrowed to one assistant, one folder, one conversation — and to a period: 7 days,
-  30 days, this year.
+  30 days, this year. Open a result and **the words you searched for are highlighted** wherever they
+  appear in the conversation, not just in the snippet.
 - **A compacted conversation stays one conversation**: when Claude Code splits it across two files,
   Ariane says so — *“Part 2 of 3”* — and takes you from one part to the next.
 - **Your own marks**: a star on a conversation **or on a single message**, a note under the title,
@@ -148,7 +149,7 @@ and what it cost to measure; [`ROADMAP.md`](ROADMAP.md) what is left.
 
 ```bash
 npm test              # 694 unit tests, no framework (node --test)
-npm run test:render   # 149 renderer checks, under Electron
+npm run test:render   # 155 renderer checks, under Electron
 npm run test:ui       # 26 layout checks
 npm run test:splash   # 7 checks on the splash screen
 npm run test:all      # all four

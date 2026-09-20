@@ -330,6 +330,13 @@ One file leads, `src/renderer/app.js`, helped by specialised modules:
 | `icons.js` | a family of icons built in the DOM — nothing to load, nothing to allow in the CSP |
 | `export-document.js` | the layout of an export (shared with the main process) |
 
+**The searched word is highlighted in the conversation**, not only in the snippet: opening a result
+carries the search words along (`state.searchTerms`), and they are marked wherever they appear. The
+trap is the slicing — a highlight applied on opening would only ever touch the first 120 rows. The
+view therefore calls back on every slice it paints (`onPaint`), and the marker is **idempotent**: it
+refuses nodes already inside a `<mark>`, since the search highlight and the Ctrl+F one can both be
+on at once.
+
 Two rules hold up everything else:
 
 1. **Escape, then decorate.** `innerHTML` is only ever fed the output of
