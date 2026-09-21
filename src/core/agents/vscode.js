@@ -33,7 +33,6 @@ const path = require('path');
 const Database = require('better-sqlite3');
 
 const { readRecords } = require('../jsonl');
-const { nativeBinding } = require('../binding');
 const { applyDeltas, extractRequest, folderFromUri, epoch } = require('./vscode-extract');
 const { remember, stampOf } = require('../memo');
 
@@ -281,7 +280,7 @@ async function* discoverLegacy(ctx, dir, folder, seen) {
 function readLegacyBlob(dbFile) {
   let db;
   try {
-    db = new Database(dbFile, { readonly: true, fileMustExist: true, nativeBinding: nativeBinding() });
+    db = new Database(dbFile, { readonly: true, fileMustExist: true });
     const row = db.prepare('SELECT value FROM ItemTable WHERE key = ?').get(LEGACY_KEY);
     if (!row || row.value == null) return [];
 

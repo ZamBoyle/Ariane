@@ -398,38 +398,43 @@ These figures come from measurements, not estimates. Measure them again rather t
 
 ---
 
-## 13. The native binding, and the trap that costs the most
+## 13. The native binding, and the trap that used to cost the most
 
-`better-sqlite3` is a native module, and **Electron does not expose the same ABI as the Node that
-runs the tests** (`NODE_MODULE_VERSION` 130 against 127 today). Loading the wrong one is not a
-catchable error: the process dies on a `SIGILL`, with no exception and no message.
+`better-sqlite3` is a native module, and for a long time that was the most expensive fact in this
+repository. Electron and the Node that runs the tests exposed different `NODE_MODULE_VERSION`s, and
+loading the wrong binary is not a catchable error: the process dies on a `SIGILL`, with no exception
+and no message. Two binaries had to be compiled and cached, one per runtime. The packager had to be
+watched, because it shipped whatever `node_modules` happened to hold — and twice it shipped
+something wrong: an ELF inside `Ariane.exe`, then ABI 127 inside an Electron `.deb` that installed,
+opened, and died on the first query. `src/core/binding.js`, `scripts/save-binding.js`,
+`scripts/native-prebuild.js` and `build/after-pack.js` existed for that, and for nothing else.
 
-Both binaries are therefore fetched once into `prebuilds/`, and `src/core/binding.js` picks the
-right one **by its path** when opening the database. Nothing under `node_modules` is ever swapped:
-that is what allows `npm test` to run while the app is open. An earlier design replaced the file in
-place and killed any open window the moment a test started.
+**`better-sqlite3` 13 moved to Node-API, and the whole problem left with it.** A Node-API binary is
+not tied to a `NODE_MODULE_VERSION` but to a Node-API level, which every runtime keeps compatible.
+One file per system, `prebuilds/<platform>-<arch>.node`, picked by the library itself at load time:
+nothing here selects anything, and there is nothing to rebuild after an `npm install` or an Electron
+bump. There is no `postinstall` any more, and no C++ compiler is needed to work on Ariane — on Linux,
+npm still runs an implicit `node-gyp rebuild`, so `python3` and `make` must exist, but they build
+nothing.
 
-```bash
-npm run bindings                                  # what is cached, and for which runtime
-npm run rebuild:node && npm run rebuild:electron  # after an npm install or an Electron bump
-```
+The published package carries a binary for every system it supports, so a package built for another
+one is right by construction: `--win` from Linux ships `win32-x64.node` because that file was
+already sitting in `node_modules`. Neither of the two failures above can happen again.
 
-**At packaging time the trap moves, and doubles.** `prebuilds/` is not shipped, so the installed app
-falls back on the copy in `node_modules` — and electron-builder packages whatever it finds there,
-without rebuilding it. Two ways to get it wrong, and both have happened:
+What replaced the trap is a floor, and it is the only thing left to remember:
 
-- **wrong system**: building `--win` from Linux put the ELF binding inside `Ariane.exe`, without a
-  word;
-- **wrong runtime**: an `npm rebuild` leaves the Node build behind, and the next `.deb` shipped ABI
-  127 inside an Electron app. It installed, it opened, and it died on the first query. An ELF for
-  Node and an ELF for Electron are the same file to the eye.
+| runtime | Node-API | verdict |
+| --- | --- | --- |
+| Node 22.13 and below | 9 | segfaults on the first `new Database()` |
+| **Node 22.14+** | 10 | supported |
+| Electron 33 | 9 | unusable |
+| **Electron 44+** | 10 | supported |
 
-`build/after-pack.js` therefore checks both, on every build and for every target: the system from
-the file’s first bytes (`ELF`, `MZ`, the Mach-O magics), the runtime by handing the binary to a
-loader **in a child process** — it is the refusal that names the ABI, and a binding of the wrong ABI
-dies on `SIGILL` rather than raising, so it must never be loaded into the process doing the build.
-If either one does not match, the published binary for that target is fetched; if it still does not
-match, **the build stops**. A package that ships the wrong binary is worse than a build that fails.
+The floor is a real one and it bites quietly: `better-sqlite3` declares `engines: node >= 22`, which
+is too generous — 22.12 satisfies it and still dies. `package.json` states the version that actually
+works, `>= 22.14`.
+
+The design that is gone, and the two packages it shipped wrong, are kept in `CHANGELOG.md`.
 
 ---
 

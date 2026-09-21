@@ -192,7 +192,7 @@ test('a star and a note survive the index being rebuilt from scratch', async (t)
   ]);
 
   // What a schema bump does: every table dropped, everything read again.
-  const older = new (require('better-sqlite3'))(dbFile, { nativeBinding: require('../src/core/binding').nativeBinding() });
+  const older = new (require('better-sqlite3'))(dbFile);
   older.pragma('user_version = 1');
   older.close();
   index = new Index(dbFile);

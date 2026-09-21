@@ -30,9 +30,9 @@ lecture :
   identifiants de session sont sûrs (`SAFE_ID`), mais un chemin choisi contenant `&` ou `^` ne l'est
   pas encore.
 
-**Piège.** La liaison native : `prebuilds/` doit être reconstruit pour chaque OS et chaque ABI —
-Node pour les tests unitaires, Electron pour les suites d'interface. Ne jamais échanger les fichiers
-en place : voir `ARCHITECTURE.fr.md` § 13.
+**Piège levé par better-sqlite3 13.** La liaison native est passée en Node-API : un binaire par
+système, choisi par la bibliothèque elle-même, plus rien à reconstruire par OS ni par ABI. Ce qui
+reste est un plancher, Node-API 10 — Node 22.14 et Electron 44. Voir `ARCHITECTURE.fr.md` § 13.
 
 **Fait le 20 septembre 2026 : le paquet Windows se construit.** `npm run dist:win`, depuis Linux,
 produit `Ariane 0.1.0.exe` (portable) et `Ariane Setup 0.1.0.exe` (installeur NSIS), 77 Mo chacun.

@@ -412,40 +412,45 @@ Ces chiffres viennent de mesures, pas d'estimations. Les remesurer plutôt que l
 
 ---
 
-## 13. La liaison native, et le piège qui coûte le plus cher
+## 13. La liaison native, et le piège qui coûtait le plus cher
 
-`better-sqlite3` est un module natif, et **Electron n'expose pas la même ABI que le Node qui lance
-les tests** (`NODE_MODULE_VERSION` 130 contre 127 aujourd'hui). Charger la mauvaise n'est pas une
-erreur qu'on rattrape : le processus meurt sur un `SIGILL`, sans exception, sans message.
+`better-sqlite3` est un module natif, et ce fait a longtemps été le plus coûteux de ce dépôt.
+Electron et le Node qui lance les tests n'exposaient pas la même `NODE_MODULE_VERSION`, et charger
+la mauvaise liaison n'est pas une erreur qu'on rattrape : le processus meurt sur un `SIGILL`, sans
+exception et sans message. Il fallait compiler et garder deux binaires, un par moteur. Il fallait
+surveiller l'empaqueteur, qui embarquait ce que `node_modules` contenait — et il s'est trompé deux
+fois : un ELF dans `Ariane.exe`, puis une ABI 127 dans un `.deb` Electron qui s'installait,
+s'ouvrait, et mourait à la première requête. `src/core/binding.js`, `scripts/save-binding.js`,
+`scripts/native-prebuild.js` et `build/after-pack.js` n'existaient que pour ça.
 
-Les deux binaires sont donc récupérés une fois pour toutes dans `prebuilds/`, et
-`src/core/binding.js` choisit le bon **par son chemin** au moment d'ouvrir la base. Rien sous
-`node_modules` n'est jamais échangé : c'est ce qui permet de lancer `npm test` pendant que
-l'application tourne. Une version antérieure remplaçait le fichier sur place et tuait toute fenêtre
-ouverte dès qu'un test démarrait.
+**`better-sqlite3` 13 est passé à Node-API, et le problème est parti avec.** Un binaire Node-API
+n'est pas lié à une `NODE_MODULE_VERSION` mais à un niveau de Node-API, que chaque moteur maintient
+compatible. Un fichier par système, `prebuilds/<plateforme>-<arch>.node`, choisi par la bibliothèque
+elle-même au chargement : plus rien ici ne sélectionne quoi que ce soit, et il n'y a plus rien à
+reconstruire après un `npm install` ou un saut d'Electron. Il n'y a plus de `postinstall`, et
+aucun compilateur C++ n'est nécessaire pour travailler sur Ariane — sur Linux, npm lance encore un
+`node-gyp rebuild` implicite, donc `python3` et `make` doivent exister, mais ils ne construisent
+rien.
 
-```bash
-npm run bindings                                  # ce qui est en cache, et pour quel moteur
-npm run rebuild:node && npm run rebuild:electron  # après un npm install ou un saut d'Electron
-```
+Le paquet publié emporte un binaire pour chaque système qu'il gère, donc un paquet construit pour un
+autre est juste par construction : `--win` depuis Linux embarque `win32-x64.node` parce que ce
+fichier était déjà dans `node_modules`. Aucune des deux pannes ci-dessus ne peut se reproduire.
 
-**À l'empaquetage, le piège se déplace et redouble.** `prebuilds/` n'est pas embarqué, donc l'app
-installée retombe sur la copie de `node_modules` — et electron-builder empaquette ce qu'il y trouve,
-sans le reconstruire. Deux façons de se tromper, et les deux ont été rencontrées :
+Ce qui remplace le piège est un plancher, et c'est la seule chose qu'il reste à retenir :
 
-- **mauvais système** : construire `--win` depuis Linux a placé la liaison ELF dans `Ariane.exe`,
-  sans un mot ;
-- **mauvais moteur** : un `npm rebuild` laisse la version Node, et le `.deb` suivant embarquait une
-  ABI 127 dans une application Electron. Elle s'installait, s'ouvrait, et mourait à la première
-  requête. Un ELF pour Node et un ELF pour Electron sont le même fichier à l'œil.
+| moteur | Node-API | verdict |
+| --- | --- | --- |
+| Node 22.13 et avant | 9 | segfault au premier `new Database()` |
+| **Node 22.14+** | 10 | supporté |
+| Electron 33 | 9 | inutilisable |
+| **Electron 44+** | 10 | supporté |
 
-`build/after-pack.js` vérifie donc les deux, à chaque construction et pour chaque cible : le système
-par les premiers octets du fichier (`ELF`, `MZ`, les magies Mach-O), le moteur en tendant le binaire
-à un chargeur **dans un processus enfant** — c'est son refus qui nomme l'ABI, et une liaison de la
-mauvaise ABI meurt en `SIGILL` plutôt qu'en exception, donc elle ne doit jamais être chargée dans le
-processus qui construit. Si l'un des deux ne correspond pas, le binaire publié pour la cible est
-téléchargé ; s'il ne correspond toujours pas, **la construction s'arrête**. Un paquet qui emporte le
-mauvais binaire est pire qu'une construction qui échoue.
+Le plancher est réel et il mord en silence : `better-sqlite3` déclare `engines: node >= 22`, ce qui
+est trop large — 22.12 le satisfait et meurt quand même. `package.json` porte la version qui marche
+vraiment, `>= 22.14`.
+
+La mécanique disparue, et les deux paquets qu'elle a laissé partir faux, restent racontés dans
+`CHANGELOG.md`.
 
 ## 14. Les tests
 

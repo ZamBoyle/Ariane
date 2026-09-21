@@ -5,7 +5,6 @@ out/
 .DS_Store
 .cache/
 coverage/
-prebuilds/
 
 # Index databases. Ariane keeps its real index in the OS user-data directory
 # (~/.config/Ariane on Linux), well outside this repository, so nothing here

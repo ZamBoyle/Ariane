@@ -49,7 +49,6 @@ const fsp = require('fs/promises');
 const path = require('path');
 const Database = require('better-sqlite3');
 
-const { nativeBinding } = require('../binding');
 const { readRecords } = require('../jsonl');
 const { remember, stampOf } = require('../memo');
 const { TOOL_PREVIEW_LIMIT } = require('../extract');
@@ -367,7 +366,7 @@ function absolutePathsIn(dbFile) {
   const found = new Set();
   let db;
   try {
-    db = new Database(dbFile, { readonly: true, fileMustExist: true, nativeBinding: nativeBinding() });
+    db = new Database(dbFile, { readonly: true, fileMustExist: true });
   } catch {
     return [];
   }
@@ -461,7 +460,7 @@ function readWorkspaces(file) {
   const pairs = [];
   let db;
   try {
-    db = new Database(file, { readonly: true, fileMustExist: true, nativeBinding: nativeBinding() });
+    db = new Database(file, { readonly: true, fileMustExist: true });
   } catch {
     return pairs;
   }

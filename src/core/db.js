@@ -13,7 +13,6 @@ const path = require('path');
 const Database = require('better-sqlite3');
 
 const { toMatchQuery } = require('./query');
-const { nativeBinding } = require('./binding');
 
 /**
  * Bumped for a schema change OR a change in what the adapters extract.
@@ -89,8 +88,7 @@ class Index {
     this.path = dbPath;
     this.archive = archive;
     if (dbPath !== ':memory:') fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-    // Selected by path so the Node and Electron ABIs can coexist; see binding.js.
-    this.db = new Database(dbPath, { nativeBinding: nativeBinding() });
+    this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');
     this.#migrate();

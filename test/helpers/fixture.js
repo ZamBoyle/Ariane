@@ -241,9 +241,6 @@ function createFixture() {
      */
     antigravity() {
       const Database = require('better-sqlite3');
-      // By path, never by chance: node_modules holds whichever ABI the last
-      // build left there. See "The native-binding ABI trap" in CLAUDE.md.
-      const { nativeBinding } = require('../../src/core/binding');
       const home = api.env.ANTIGRAVITY_CLI_DIR;
       const brain = path.join(home, 'brain');
       fs.mkdirSync(brain, { recursive: true });
@@ -272,7 +269,7 @@ function createFixture() {
         store(id, absolutePaths = []) {
           const dir = path.join(home, 'conversations');
           fs.mkdirSync(dir, { recursive: true });
-          const db = new Database(path.join(dir, `${id}.db`), { nativeBinding: nativeBinding() });
+          const db = new Database(path.join(dir, `${id}.db`));
           db.exec('CREATE TABLE steps (idx INTEGER, step_payload BLOB)');
           let i = 0;
           for (const value of absolutePaths) {
@@ -286,7 +283,7 @@ function createFixture() {
         /** The index `agy` keeps, when it happens to hold a row for a conversation. */
         summary(id, workspace) {
           const file = path.join(home, 'conversation_summaries.db');
-          const db = new Database(file, { nativeBinding: nativeBinding() });
+          const db = new Database(file);
           db.exec('CREATE TABLE IF NOT EXISTS conversation_summaries (conversation_id TEXT, workspace_uris TEXT)');
           db.prepare('INSERT INTO conversation_summaries (conversation_id, workspace_uris) VALUES (?, ?)').run(
             id,
@@ -422,8 +419,7 @@ function createFixture() {
         /** The previous generation: one blob in the workspace SQLite store. */
         legacyStore(hash, sessions) {
           const Database = require('better-sqlite3');
-          const { nativeBinding } = require('../../src/core/binding');
-          const db = new Database(path.join(wsDir(hash), 'state.vscdb'), { nativeBinding: nativeBinding() });
+          const db = new Database(path.join(wsDir(hash), 'state.vscdb'));
           db.exec('CREATE TABLE IF NOT EXISTS ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB)');
           db.prepare('INSERT INTO ItemTable (key, value) VALUES (?, ?)')
             .run('interactive.sessions', Buffer.from(JSON.stringify(sessions), 'utf8'));

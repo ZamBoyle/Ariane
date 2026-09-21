@@ -10,7 +10,7 @@
   "main": "src/main/main.js",
   "type": "commonjs",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.14"
   },
   "scripts": {
     "start": "electron .",
@@ -24,8 +24,6 @@
     "lint:fix": "eslint src test --fix",
     "format": "prettier --write \"**/*.{js,json,css,html,md}\"",
     "format:check": "prettier --check \"**/*.{js,json,css,html,md}\"",
-    "rebuild": "electron-rebuild -f -w better-sqlite3",
-    "postinstall": "npm run rebuild:node --silent && npm run rebuild:electron --silent",
     "dist": "node scripts/dist.js --linux AppImage deb --win portable nsis",
     "dist:linux": "node scripts/dist.js --linux AppImage deb",
     "dist:deb": "node scripts/dist.js --linux deb",
@@ -33,9 +31,6 @@
     "dist:setup": "node scripts/dist.js --win nsis",
     "dist:exe": "node scripts/dist.js --win portable",
     "dist:mac": "node scripts/dist.js --mac dmg",
-    "rebuild:node": "npm rebuild better-sqlite3 && node scripts/save-binding.js node",
-    "rebuild:electron": "electron-rebuild -f -w better-sqlite3 && node scripts/save-binding.js electron",
-    "bindings": "node scripts/save-binding.js --status",
     "test:ui": "electron test/ui/layout.test.js --no-sandbox",
     "test:all": "npm test && npm run test:ui && npm run test:render && npm run test:splash",
     "test:render": "electron test/ui/render.test.js --no-sandbox",
@@ -45,14 +40,13 @@
   },
   "dependencies": {
     "@fluent/bundle": "^0.19.1",
-    "better-sqlite3": "^11.7.0"
+    "better-sqlite3": "^13.0.3"
   },
   "devDependencies": {
-    "@electron/rebuild": "^3.7.1",
-    "electron": "^33.2.1",
-    "electron-builder": "^25.1.8",
+    "electron": "^44.4.3",
+    "electron-builder": "^26.15.3",
     "eslint": "^9.17.0",
-    "prettier": "^3.4.2"
+    "prettier": "~3.4.2"
   },
   "productName": "Ariane",
   "build": {
@@ -65,13 +59,11 @@
       "NOTICE",
       "!**/*.test.js",
       "!test/**",
-      "!prebuilds/**",
       "!scripts/**"
     ],
     "directories": {
       "output": "dist"
     },
-    "afterPack": "build/after-pack.js",
     "linux": {
       "icon": "build/icons",
       "extraResources": [
@@ -115,6 +107,7 @@
         "libuuid1",
         "libsecret-1-0"
       ]
-    }
+    },
+    "npmRebuild": false
   }
 }

@@ -348,9 +348,13 @@ async function run() {
     m.tree.maxScrollTop > 0,
     `maxScrollTop ${m.tree.maxScrollTop}`
   );
+  // A rounded rect against an integer viewport: Electron 44 lays the sidebar
+  // half a pixel lower than 33 did, which reads as 485 against 484. Same
+  // tolerance as the two neighbouring checks; the overflow guarded against
+  // here is measured in thousands of pixels, not in one.
   check(
     'sidebar does not exceed the viewport',
-    m.sidebarHeight <= m.viewportHeight,
+    m.sidebarHeight <= m.viewportHeight + 1,
     `sidebar ${m.sidebarHeight} <= viewport ${m.viewportHeight}`
   );
   check(

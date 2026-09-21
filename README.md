@@ -9,8 +9,8 @@
 <p align="center">
   <img alt="License: GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-d97757" />
   <img alt="Platforms: Linux, Windows, macOS" src="https://img.shields.io/badge/platforms-Linux%20%C2%B7%20Windows%20%C2%B7%20macOS-5ba3a0" />
-  <img alt="Electron 33" src="https://img.shields.io/badge/Electron-33-4f9bd6" />
-  <img alt="Node 20 or 22" src="https://img.shields.io/badge/Node-20%20%C2%B7%2022-8fa96b" />
+  <img alt="Electron 44" src="https://img.shields.io/badge/Electron-44-4f9bd6" />
+  <img alt="Node 22.14+" src="https://img.shields.io/badge/Node-22.14%2B-8fa96b" />
 </p>
 
 <p align="center">
@@ -89,10 +89,37 @@ npm start
 That is all. Verified from a clean clone: `npm install`, then `npm run test:all` passes every suite
 with no other preparation.
 
-**Requirements: Node 20 or 22, and nothing else.** In particular, **no C++ toolchain** — unusual
-for a project with a native module, but `better-sqlite3` publishes a binary per (runtime, version)
-and npm downloads the right one. Node 24 has none published yet and falls back to building from
-source, which does need `python3`, `make` and `g++`.
+**Requirements: Node 22.14 or newer, and nothing else.** In particular, **no C++ compiler** —
+unusual for a project with a native module, but `better-sqlite3` ships one Node-API binary per
+system and npm merely unpacks it. Nothing is compiled, and nothing has to be rebuilt when Electron
+moves. The floor is Node-API 10, which lands in Node 22.14: an older Node installs without
+complaining, then dies on the first query.
+
+So npm is told to refuse rather than warn. `.npmrc` sets `engine-strict=true`, and an older Node
+stops the install with both versions named:
+
+```
+npm error notsup Required: {"node":">=22.14"}
+npm error notsup Actual:   {"node":"v20.19.0","npm":"10.8.2"}
+```
+
+That is the whole requirement. There is nothing else to install, and no version manager to learn.
+
+On Linux, `python3` and `make` must still be on the machine: npm runs an implicit
+`node-gyp rebuild`, and node-gyp wants both before it can find out it has nothing to do. It builds
+no object file — only stamp files — and the binary that gets loaded is the published one. On a bare
+Ubuntu: `sudo apt install -y make`.
+
+On a minimal Linux — WSL, a container, a CI image — Electron also needs system libraries that
+`npm install` does not bring: a desktop Ubuntu already has them, a bare one does not. They are the
+ones listed in `build.deb.depends`, which the `.deb` installs by itself and a source checkout does
+not. On a bare Ubuntu 24.04, four were missing:
+
+```bash
+sudo apt install -y libnss3 libnotify4 libsecret-1-0 xdg-utils
+```
+
+Without them the binary does not start at all: `error while loading shared libraries: libnspr4.so`.
 
 On Linux, if the launch aborts on `chrome-sandbox`, once and for all:
 
@@ -148,7 +175,7 @@ and what it cost to measure; [`ROADMAP.md`](ROADMAP.md) what is left.
 ## Development
 
 ```bash
-npm test              # 694 unit tests, no framework (node --test)
+npm test              # 673 unit tests, no framework (node --test)
 npm run test:render   # 155 renderer checks, under Electron
 npm run test:ui       # 26 layout checks
 npm run test:splash   # 7 checks on the splash screen

@@ -14,7 +14,6 @@ const Database = require('better-sqlite3');
 const { Index } = require('../src/core/db');
 const { Indexer } = require('../src/core/indexer');
 const { Archive } = require('../src/core/archive');
-const { nativeBinding } = require('../src/core/binding');
 const codexAdapter = require('../src/core/agents/codex');
 const { createFixture, records, cdx, cop, resetCounters } = require('./helpers/fixture');
 
@@ -170,7 +169,7 @@ test.describe('a rebuild of the index', () => {
     before.close();
 
     fs.rmSync(rollout); // gone while Ariane was closed
-    const raw = new Database(file, { nativeBinding: nativeBinding() });
+    const raw = new Database(file);
     raw.pragma('user_version = 1'); // an update with a new schema
     raw.close();
 

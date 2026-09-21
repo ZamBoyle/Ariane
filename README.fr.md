@@ -155,39 +155,51 @@ npm start
 ```
 
 C'est tout. Vérifié en clonant le dépôt dans un dossier vierge : `npm install`
-puis `npm test` passent les 671 tests sans autre préparatif.
+puis `npm test` passent les 673 tests sans autre préparatif.
 
-**Prérequis : Node 20 ou 22, et rien d'autre.** En particulier, *aucun
-compilateur C++ n'est nécessaire* — contrairement à ce qu'on attend d'un projet
-qui embarque un module natif. `better-sqlite3` publie un binaire pour chaque
-couple (moteur, version), et `npm install` télécharge celui qu'il faut : 0,6 s,
-pas trois minutes de compilation.
+**Prérequis : Node 22.14 ou plus récent, et rien d'autre.** En particulier,
+*aucun compilateur C++ n'est nécessaire* — contrairement à ce qu'on attend d'un
+projet qui embarque un module natif. `better-sqlite3` livre un binaire Node-API
+par système, et `npm install` se contente de le déposer : rien ne se compile, et
+rien n'est à reconstruire quand Electron change de version.
 
-La réserve tient en une ligne : cela ne vaut que pour les versions de Node pour
-lesquelles un binaire existe — aujourd'hui Node 18, 20, 22 et 23. **Node 24
-n'en a pas** et retombe sur une compilation depuis les sources, qui exige alors
-`python3`, `make` et `g++`. Si `npm install` se met à compiler pendant des
-minutes, c'est ça : revenez en Node 22.
+La réserve tient en une ligne : le plancher est Node-API 10, arrivé dans Node
+22.14. Un Node plus ancien s'installe sans broncher, puis meurt à la première
+requête — `better-sqlite3` déclare `engines: node >= 22`, ce qui est plus large
+que ce qu'il supporte réellement.
 
-### Ce que `npm install` fait de particulier
+npm reçoit donc l'ordre de refuser plutôt que d'avertir. `.npmrc` pose
+`engine-strict=true`, et un Node plus ancien arrête l'installation en nommant
+les deux versions :
 
-Un `postinstall` récupère le module natif **deux fois**, et les range dans
-`prebuilds/` :
+```
+npm error notsup Required: {"node":">=22.14"}
+npm error notsup Actual:   {"node":"v20.19.0","npm":"10.8.2"}
+```
 
-| Fichier | Pour qui | Quand il sert |
-|---|---|---|
-| `prebuilds/better_sqlite3-node.node` | le Node qui lance les tests | `npm test` |
-| `prebuilds/better_sqlite3-electron.node` | l'Electron qui lance l'app | `npm start`, et l'app installée |
+C'est tout le prérequis. Rien d'autre à installer, aucun gestionnaire de
+versions à apprendre.
 
-Les deux moteurs n'ont pas la même ABI, et charger la mauvaise ne lève pas une
-erreur : le processus meurt sur un `SIGILL`. `src/core/binding.js` choisit donc
-le bon fichier **par son chemin**, au lieu d'échanger quoi que ce soit dans
-`node_modules` — c'est ce qui permet de lancer les tests pendant que l'app
-tourne. `prebuilds/` n'est pas versionné : il se refabrique en une seconde.
+Sur Linux, `python3` et `make` doivent tout de même être présents : npm lance un
+`node-gyp rebuild` implicite, qui réclame ces deux outils avant de constater
+qu'il n'a rien à faire. Il ne compile rien — il ne produit que des fichiers
+témoins, et c'est bien le binaire livré qui est chargé. Sur une Ubuntu nue :
+`sudo apt install -y make`.
+
+### Si Electron refuse de démarrer sur une bibliothèque manquante (Linux)
+
+Sur un Linux minimal — WSL, un conteneur, une image de CI — Electron réclame
+des bibliothèques système que `npm install` n'apporte pas : une Ubuntu de
+bureau les a déjà, une Ubuntu nue non. Ce sont celles de `build.deb.depends`,
+que le `.deb` installe tout seul et qu'un clone des sources n'installe pas.
+Sur une Ubuntu 24.04 nue, il en manquait quatre :
 
 ```bash
-npm run bindings    # dire ce qui est en cache, et pour quel moteur
+sudo apt install -y libnss3 libnotify4 libsecret-1-0 xdg-utils
 ```
+
+Sans elles, le binaire ne démarre pas du tout : `error while loading shared
+libraries: libnspr4.so`.
 
 ### Si le lancement s'interrompt sur `chrome-sandbox` (Linux)
 
@@ -238,11 +250,11 @@ en quarantaine que ce qui a été téléchargé. Sur un Mac, `npm install` puis
 `npm run dist:mac` est donc le chemin le plus court — et le seul qui ne demande
 ni compte développeur Apple ni 99 $ par an.
 
-La liaison native, elle, n'est jamais compilée pour une autre plateforme — elle
-ne peut pas l'être. `build/after-pack.js` télécharge le binaire publié pour la
-cible, vérifie qu'il est bien pour ce système **et pour cette ABI**, et arrête
-la construction sinon. Un paquet qui emporte le mauvais binaire est pire qu'une
-construction qui échoue.
+La liaison native, elle, n'est jamais compilée — ni ici, ni ailleurs.
+`better-sqlite3` publie un binaire Node-API par système et les embarque tous
+dans son paquet npm, donc une construction destinée à une autre plateforme
+emporte mécaniquement le bon fichier. C'est ce qui rend `npm run dist:win`
+depuis Linux sûr sans vérification particulière.
 
 Les fichiers atterrissent dans `dist/`, qui n'est pas versionné. Après
 modification du code, il faut reconstruire **et réinstaller** pour que l'app
@@ -374,7 +386,7 @@ oblige désormais chaque type écarté à prouver qu'il ne contient rien de vous
 ## Développement
 
 ```bash
-npm test              # 694 tests unitaires, sans framework (node --test)
+npm test              # 673 tests unitaires, sans framework (node --test)
 npm run test:render   # 155 vérifications de rendu, sous Electron
 npm run test:ui       # 26 vérifications de mise en page
 npm run test:splash   # 7 vérifications de l'écran d'accueil

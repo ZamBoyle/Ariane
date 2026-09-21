@@ -18,8 +18,7 @@ test('an index written by an older schema is rebuilt, not patched', (t) => {
 
   // Stand in for a v1 database: a `messages` table without is_notice.
   const Database = require('better-sqlite3');
-  const { nativeBinding } = require('../src/core/binding');
-  const old = new Database(file, { nativeBinding: nativeBinding() });
+  const old = new Database(file);
   old.exec('CREATE TABLE messages (id INTEGER PRIMARY KEY, text TEXT)');
   old.prepare('INSERT INTO messages (text) VALUES (?)').run('ancienne donnee');
   old.pragma('user_version = 1');
