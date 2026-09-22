@@ -4,8 +4,8 @@
 /**
  * Builds the distributable packages.
  *
- * A thin wrapper around electron-builder that exists for one reason: it removes
- * LD_PRELOAD from the environment first.
+ * A thin wrapper around electron-builder that exists for two reasons: it removes
+ * LD_PRELOAD from the environment, and it refuses to publish anything.
  *
  * Several desktop Linux setups inject a library there — Ubuntu's
  * `libgtk3-nocsd.so.0` is the common one. When electron-builder shells out to
@@ -13,6 +13,14 @@
  * be preloaded into them and the build dies with a bare
  * `ERR_ELECTRON_BUILDER_CANNOT_EXECUTE`, naming nothing. It cost an afternoon to
  * find, so it is fixed here rather than left in a README for the next person.
+ *
+ * The second reason cost a release. electron-builder publishes BY ITSELF when a
+ * git tag is present — "Implicit publishing triggered by git tag" — and then
+ * dies on a token it was never given, after having built every package
+ * correctly. Building and publishing are two decisions, and this script only
+ * makes the first: `--publish never` is appended unless the caller states a
+ * policy of their own. What goes to a release, and when, is decided in
+ * .github/workflows/release.yml.
  *
  *   npm run dist            every target this machine can build
  *   npm run dist:linux      AppImage + deb
@@ -38,6 +46,11 @@ const args = process.argv.slice(2);
 if (args.length === 0) {
   console.error('usage: node scripts/dist.js --linux [AppImage deb] | --win ... | --mac ...');
   process.exit(1);
+}
+
+// Unless the caller says otherwise: build, and stop there.
+if (!args.some((a) => a === '--publish' || a === '-p' || a.startsWith('--publish='))) {
+  args.push('--publish', 'never');
 }
 
 console.log(`[dist] electron-builder ${args.join(' ')}`);
