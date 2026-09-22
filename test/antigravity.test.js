@@ -318,11 +318,15 @@ test.describe('the rest of the app', () => {
       adapter.root({ env: {}, home: '/home/ada' }),
       path.join('/home/ada', '.gemini', 'antigravity-cli')
     );
+    // Une variable d'environnement est RÉSOLUE, pas seulement jointe : sous
+    // Windows cela lui ajoute une lettre de lecteur. L'attendu doit donc
+    // résoudre aussi. La dernière assertion se cachait derrière celle-ci —
+    // assert.equal lève, et elle n'était jamais atteinte là-bas.
     assert.equal(
       adapter.root({ env: { GEMINI_CONFIG_DIR: '/ailleurs' }, home: '/home/ada' }),
-      path.join('/ailleurs', 'antigravity-cli')
+      path.join(path.resolve('/ailleurs'), 'antigravity-cli')
     );
-    assert.equal(adapter.root({ env: { ANTIGRAVITY_CLI_DIR: '/precis' } }), '/precis');
+    assert.equal(adapter.root({ env: { ANTIGRAVITY_CLI_DIR: '/precis' } }), path.resolve('/precis'));
   });
 
   test('« Reprendre » reopens a conversation by its id', () => {
