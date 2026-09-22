@@ -1,0 +1,75 @@
+# Runs the four suites on the three systems Ariane claims to support.
+#
+# "Works everywhere" was requirement number one and had never been checked
+# anywhere but on one developer's Linux machine. Expect Windows to be red at
+# first: eight unit tests hardcode POSIX paths in their expectations, and
+# marks.test.js fails on a file lock Windows does not forgive. Both are real
+# portability defects, and this workflow exists to stop them hiding.
+#
+# fail-fast is off on purpose. A Windows failure must not cancel the macOS run:
+# a matrix that stops at the first red tells you less than one that finishes.
+
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  suites:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, name: linux }
+          - { os: windows-latest, name: windows }
+          - { os: macos-latest, name: macos }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      # The libraries build.deb.depends lists: a desktop Ubuntu has them, a
+      # runner image does not necessarily. Without them Electron does not start
+      # at all — `error while loading shared libraries: libnspr4.so`.
+      - if: matrix.name == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libnss3 libnotify4 libsecret-1-0 xdg-utils xvfb
+
+      - run: npm ci
+
+      # No display is required, and better-sqlite3 loads its Node-API binary.
+      # If this segfaults rather than fails, the Node is below 22.14.
+      - name: unit suite
+        run: npm test
+
+      - name: lint
+        if: matrix.name == 'linux'
+        run: npm run lint
+
+      # The three Electron suites need a rendering engine. The runners for
+      # Windows and macOS have one; Linux is headless, hence xvfb.
+      #
+      # The screen size is not a detail: xvfb-run defaults to 1280x1024, and the
+      # layout suite opens a 1402px window to check that a header keeps its six
+      # labels. Clamped to 1280 the labels crowd, the Dutch title drops to 195px
+      # against a threshold of 200, and the suite fails for a reason that has
+      # nothing to do with the code. Measured: 25/26 at the default, 26/26 here.
+      - name: renderer, layout and splash suites (linux)
+        if: matrix.name == 'linux'
+        run: |
+          run() { xvfb-run -a --server-args="-screen 0 1920x1080x24" "$@"; }
+          run npm run test:render
+          run npm run test:ui
+          run npm run test:splash
+
+      - name: renderer, layout and splash suites
+        if: matrix.name != 'linux'
+        run: npm run test:render && npm run test:ui && npm run test:splash

@@ -1,0 +1,106 @@
+# Builds the packages on a tag and attaches them to the release.
+#
+# Each target is built on its own system, which the repository could not do
+# before: the Windows packages were cross-built from Linux and verified under
+# wine, and macOS had never been built at all. Nothing here is signed — see the
+# README — so a downloaded .exe still raises SmartScreen and a downloaded .dmg
+# is still quarantined.
+#
+# The latest*.yml files are electron-builder's update manifests. They are
+# attached alongside the binaries because that is where an updater looks.
+
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+            script: dist:linux
+            files: |
+              dist/*.AppImage
+              dist/*.deb
+              dist/latest-linux.yml
+          - os: windows-latest
+            name: windows
+            script: dist:win
+            files: |
+              dist/*.exe
+              dist/*.blockmap
+              dist/latest.yml
+          - os: macos-latest
+            name: macos
+            script: dist:mac
+            files: |
+              dist/*.dmg
+              dist/latest-mac.yml
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Pinned rather than read from engines: that field states a floor
+          # (>= 22.14, the Node-API 10 one), not the version to build with.
+          node-version: '24'
+          cache: npm
+
+      # Electron needs system libraries that npm does not bring. The list is
+      # build.deb.depends, which the .deb installs by itself and a source
+      # checkout does not.
+      - if: matrix.name == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libnss3 libnotify4 libsecret-1-0 xdg-utils
+
+      # ignore-scripts=true lives in .npmrc: nothing here needs building.
+      - run: npm ci
+
+      - run: npm run ${{ matrix.script }}
+        env:
+          # No certificate, so do not let electron-builder hunt for one and
+          # fail the build over its absence.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+
+  publish:
+    name: publish
+    needs: build
+    # A manual run builds and keeps the artefacts; only a tag publishes. Without
+    # this, workflow_dispatch would try to create a release called "main".
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+
+      - name: attach the packages to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          # Read the paths into an array: "Ariane 0.1.0.exe" holds a space, and
+          # an unquoted $(find) would hand gh two arguments for one file.
+          mapfile -t built < <(find packages -type f | sort)
+          printf '%s\n' "${built[@]}"
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --generate-notes \
+            "${built[@]}"
