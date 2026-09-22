@@ -46,6 +46,17 @@ const LANGUAGE = /^(auto|[a-z]{2,3}(-[A-Z][a-z]{3})?(-[A-Z]{2})?)$/;
 /** What `theme` may hold: the system's choice, or one imposed over it. */
 const THEMES = ['auto', 'light', 'dark'];
 
+/**
+ * What `updateCheck` may hold, and why the default is `never`.
+ *
+ * Asking GitHub whether a newer Ariane exists is a network request, and it
+ * tells GitHub an address, a version and how often this machine starts the app.
+ * The README promises no update check; someone who does nothing keeps exactly
+ * the application that sentence describes. Turning it on is the person's move,
+ * not ours.
+ */
+const UPDATE_CHECKS = ['never', 'startup'];
+
 /** An agent id, as the registry spells them. */
 const AGENT_ID = /^[a-z][a-z0-9-]*$/;
 
@@ -126,6 +137,24 @@ class Settings {
     return this.#update(detected, {}, { splash: on });
   }
 
+  /**
+   * Whether Ariane may ask whether a newer version exists. Off unless said
+   * otherwise, and an unreadable file answers "never" like everything else.
+   */
+  updateCheck() {
+    const read = this.read();
+    const value = read.ok ? read.data.updateCheck : undefined;
+    return typeof value === 'string' && UPDATE_CHECKS.includes(value) ? value : 'never';
+  }
+
+  /** @param {string} value @param {Record<string, string|null>} detected */
+  setUpdateCheck(value, detected = {}) {
+    if (typeof value !== 'string' || !UPDATE_CHECKS.includes(value)) {
+      throw new TypeError('updateCheck must be "never" or "startup"');
+    }
+    return this.#update(detected, {}, { updateCheck: value });
+  }
+
   /** The theme the person chose: "auto" — the system's — unless they set one. */
   theme() {
     const read = this.read();
@@ -198,14 +227,15 @@ class Settings {
    * What the person chose in the settings window, saved as they typed it —
    * beside the detection, and without touching anything else in the file.
    *
-   * @param {{commands?: Record<string, string>, language?: string, theme?: string}} choices
+   * @param {{commands?: Record<string, string>, language?: string, theme?: string,
+   *          updateCheck?: string}} choices
    *   commands: agentId -> path, '' to search again. language: "auto" or a tag.
-   *   theme: "auto", "light" or "dark".
+   *   theme: "auto", "light" or "dark". updateCheck: "never" or "startup".
    * @param {Record<string, string|null>} detected
    * @throws {TypeError} For an assistant with no CLI, a command that is not
    *   text, a language that is not a tag, or a theme that is not one of three.
    */
-  save({ commands = {}, language, theme } = {}, detected = {}) {
+  save({ commands = {}, language, theme, updateCheck } = {}, detected = {}) {
     for (const [id, command] of Object.entries(commands)) {
       if (!CLI_AGENTS.some(([known]) => known === id)) throw new TypeError(`unknown assistant: ${id}`);
       if (typeof command !== 'string') throw new TypeError(`command for ${id} must be text`);
@@ -216,10 +246,13 @@ class Settings {
     if (theme !== undefined && (typeof theme !== 'string' || !THEMES.includes(theme))) {
       throw new TypeError('theme must be "auto", "light" or "dark"');
     }
-    return this.#update(detected, commands, { language, theme });
+    if (updateCheck !== undefined && (typeof updateCheck !== 'string' || !UPDATE_CHECKS.includes(updateCheck))) {
+      throw new TypeError('updateCheck must be "never" or "startup"');
+    }
+    return this.#update(detected, commands, { language, theme, updateCheck });
   }
 
-  #update(detected, commands, { language, theme, hidden, splash }) {
+  #update(detected, commands, { language, theme, hidden, splash, updateCheck }) {
     const read = this.#load();
     if (!read.ok) return { ok: false, error: read.error }; // theirs to fix, not ours to replace
 
@@ -252,6 +285,12 @@ class Settings {
     delete rest.hiddenAgents;
     const chosenSplash = splash ?? (rest.splash === false ? false : true);
     delete rest.splash;
+    const chosenUpdate =
+      updateCheck ??
+      (typeof rest.updateCheck === 'string' && UPDATE_CHECKS.includes(rest.updateCheck)
+        ? rest.updateCheck
+        : 'never');
+    delete rest.updateCheck;
     const help = this.help ? this.help(EXAMPLES[this.platform] || EXAMPLES.linux, this.platform) : null;
     const next = {
       ...(help ? { _aide: help } : {}),
@@ -259,6 +298,7 @@ class Settings {
       theme: chosenTheme,
       hiddenAgents: chosenHidden,
       splash: chosenSplash,
+      updateCheck: chosenUpdate,
       agents,
       ...rest,
     };
@@ -278,4 +318,4 @@ class Settings {
   }
 }
 
-module.exports = { Settings, CLI_AGENTS, FILE_NAME, EXAMPLES, THEMES, AGENT_ID };
+module.exports = { Settings, CLI_AGENTS, FILE_NAME, EXAMPLES, THEMES, UPDATE_CHECKS, AGENT_ID };

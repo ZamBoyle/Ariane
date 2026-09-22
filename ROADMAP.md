@@ -89,9 +89,22 @@ Windows en natif — [issue 1](https://github.com/ZamBoyle/Ariane/issues/1).
 
 ## 13. Se mettre à jour
 
-**Le problème.** Depuis la 0.2.0, Ariane se télécharge. Mais une fois installée, elle ne sait pas
-qu'une version plus récente existe, et rien ne le lui dira : il n'y a ni canal, ni notification, ni
-gestionnaire de paquets derrière elle.
+**Fait le 22 septembre 2026 : prévenir.** Réglages → Mises à jour propose d'interroger GitHub une
+fois au lancement, **éteint tant que personne ne l'allume**. La requête part du processus principal,
+interroge la redirection de `/releases/latest` — pas l'API, qui a un quota — et tout ce qu'elle
+produit est un numéro de version et un lien. Rien n'est téléchargé, rien n'est exécuté, et l'adresse
+ouverte est reconstruite depuis le manifeste : aucune URL choisie par la fenêtre n'atteint
+`shell.openExternal`.
+
+**Ce qui reste : l'AppImage peut se mettre à jour seule.** C'est la seule cible qui le puisse sans
+certificat et sans droits root, et `electron-updater` sait le faire. Deux raisons de l'avoir remis :
+la dépendance est lourde, et elle ne s'éprouve pas sans une vraie AppImage en fonctionnement.
+`process.env.APPIMAGE`, posé par le lanceur, reste le seul discriminant fiable pour savoir qu'on y
+est.
+
+**Le problème qu'il restait à régler.** Depuis la 0.2.0, Ariane se télécharge. Mais une fois
+installée, elle ne savait pas qu'une version plus récente existe, et rien ne le lui aurait dit : ni
+canal, ni notification, ni gestionnaire de paquets derrière elle.
 
 **Le piège, et c'est lui qui décide de toute la conception : rien n'est signé.**
 
@@ -124,8 +137,8 @@ bouge pas.
 Le huitième est fait depuis le 22 septembre 2026 : la CI tourne sur les trois systèmes et la 0.2.0
 est publiée. Ce qui reste tient en un chantier et quatre broutilles.
 
-**13.** Le seul vrai travail : **se mettre à jour**. Il attendait une release à interroger et ses
-manifestes ; les deux existent depuis le 22 septembre.
+**13.** À moitié fait : Ariane **prévient** depuis le 22 septembre 2026, sur les cinq paquets.
+Reste la mise à jour en place de l'AppImage, la seule cible qui le permette sans certificat.
 
 **Et quatre choses plus petites, par ce qu'elles coûtent :**
 

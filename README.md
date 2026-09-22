@@ -184,8 +184,13 @@ quarantines only what was downloaded.
 ## Your data stays on your machine
 
 - Ariane reads the assistants’ folders **read-only** and never writes to them.
-- **No network, at all.** The renderer’s content security policy is `connect-src 'none'`; there is
-  no telemetry, no update check, no account.
+- **The window reaches nothing.** Its content security policy is `connect-src 'none'`, and no
+  telemetry and no account exist anywhere in Ariane.
+- **One request, and only if you ask for it.** Settings → Updates offers to ask GitHub, once when
+  Ariane starts, whether a newer version exists. It is **off unless you turn it on**, the request
+  is made by the main process and never by the window, and all it does is show a version number
+  and a link: nothing is downloaded and nothing is run. Asking tells GitHub an address, a version
+  and how often this machine starts the app, which is why it is yours to decide and not ours.
 - Everything Ariane owns — the index, the archive, your settings and your marks — lives in the app’s
   user-data directory (`~/.config/Ariane` on Linux).
 

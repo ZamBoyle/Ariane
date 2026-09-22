@@ -298,6 +298,9 @@ const SEARCH_HITS = [
   },
 ];
 
+/** Combien de fois la page de la version a été demandée. */
+let releaseOpens = 0;
+
 contextBridge.exposeInMainWorld('api', {
   locale: async () => ({
     language: LANGUAGE,
@@ -481,6 +484,34 @@ contextBridge.exposeInMainWorld('api', {
       : { ok: true, display: 'claude --resume s1', exact: true, note: null },
   resume: async () => resumeReply || { ok: true, terminal: 'gnome-terminal', display: 'claude --resume s1' },
   settings: async () => copyOf(SETTINGS),
+
+  /**
+   * Ce que le processus principal aurait décidé, piloté par l'URL comme la
+   * langue l'est : `?update=0.9.9` annonce cette version, rien annonce qu'il
+   * n'y a rien. Le vrai réglage se lit dans le processus principal, donc il
+   * n'a aucune raison d'exister ici.
+   */
+  checkUpdate: async () => {
+    const asked = new URLSearchParams(
+      globalThis.location ? globalThis.location.search : ''
+    ).get('update');
+    return asked
+      ? { update: true, version: asked, url: `https://exemple.invalide/releases/tag/v${asked}` }
+      : { update: false, reason: 'up-to-date' };
+  },
+
+  /**
+   * Comptée plutôt qu'ouverte : aucun test n'envoie personne sur le web.
+   *
+   * Le compte repasse par le pont pour être lu. Le préchargement et la page
+   * n'ont pas le même `globalThis` — c'est tout le travail de contextBridge —
+   * donc un compteur posé ici serait invisible depuis le scénario.
+   */
+  openRelease: async () => {
+    releaseOpens += 1;
+    return { opened: true };
+  },
+  releaseOpens: async () => releaseOpens,
   checkCommand: async (id, command) => {
     const agent = SETTINGS.agents.find((a) => a.id === id);
     if (!command.trim()) return agent.check;

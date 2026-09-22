@@ -23,7 +23,8 @@ const { Marks, NOTE_MAX } = require('../core/marks');
 const { resumeCommand } = require('../core/resume');
 const { periodStart } = require('../core/period');
 const { openInTerminal, findExecutable, checkCommand } = require('./terminal');
-const { Settings, CLI_AGENTS, THEMES } = require('./settings');
+const { Settings, CLI_AGENTS, THEMES, UPDATE_CHECKS } = require('./settings');
+const { checkForUpdate } = require('./update-check');
 const { Locale } = require('./locale');
 const { exportSession, printHtmlToPdf, FORMATS } = require('./export');
 
@@ -76,6 +77,8 @@ const CHANNELS = [
   'settings:save',
   'settings:browse',
   'settings:openFile',
+  'update:check',
+  'update:open',
 ];
 
 /** What to do when the person closes the splash screen; main.js owns the window. */
@@ -480,9 +483,10 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
     for (const [id, command] of Object.entries(commands)) clean[asCliAgent(id)[0]] = asCommand(command);
     const language = payload.language === undefined ? undefined : asLanguage(payload.language);
     const theme = payload.theme === undefined ? undefined : asTheme(payload.theme);
+    const updateCheck = payload.updateCheck === undefined ? undefined : asUpdateCheck(payload.updateCheck);
 
     await state.localeReady;
-    const saved = state.settings.save({ commands: clean, language, theme }, detectAll());
+    const saved = state.settings.save({ commands: clean, language, theme, updateCheck }, detectAll());
     if (!saved.ok) throw new Error(t('error-settings-unreadable', { error: saved.error }));
     // Nothing to reload: the stylesheet paints both palettes from
     // prefers-color-scheme, and this makes that question answer differently.
@@ -520,6 +524,35 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
    * detection finds right now, so it reads as a record of this machine. A file
    * that cannot be read is opened all the same: that is where it gets fixed.
    */
+  /**
+   * Is there a newer Ariane? Answers a decision, never a sentence.
+   *
+   * The reply always has the same shape — `{update, ...}` — because the window
+   * has one question to ask and one thing to do with the answer. A network
+   * that did not respond, a setting that says never, a manifest with no
+   * repository: all of them are simply reasons not to show anything.
+   */
+  handle('update:check', async () => {
+    const answer = await checkForUpdate({ settings: state.settings, version: app.getVersion() });
+    return answer.ok ? answer.data : { update: false, reason: answer.error };
+  });
+
+  /**
+   * Open the release page in the person's browser. Ariane downloads nothing
+   * and runs nothing: what happens next is theirs.
+   *
+   * The url is not taken from the renderer — it is rebuilt here from the
+   * manifest. A window is untrusted, and `shell.openExternal` on a string it
+   * chose would hand it the machine.
+   */
+  handle('update:open', async () => {
+    const { repositoryUrl } = require('./update-check');
+    const repository = repositoryUrl();
+    if (!repository) return { opened: false, reason: 'no-repository' };
+    await shell.openExternal(`${repository}/releases/latest`);
+    return { opened: true };
+  });
+
   handle('settings:openFile', async () => {
     await state.localeReady;
     const recorded = state.settings.record(detectAll());
@@ -601,6 +634,7 @@ function settingsView() {
       available: state.locale.available(),
     },
     theme: state.settings.theme(),
+    updateCheck: state.settings.updateCheck(),
     agents: CLI_AGENTS.map(([id, name]) => {
       const entry = Object.hasOwn(theirs, id) ? theirs[id] : null;
       const command = entry && typeof entry.command === 'string' ? entry.command : '';
@@ -704,6 +738,19 @@ function asCommand(value) {
   if (typeof value !== 'string') throw new TypeError('command must be a string');
   if (value.length > 1024 || /[\x00-\x1f\x7f]/.test(value)) {
     throw new TypeError('command is not a usable path');
+  }
+  return value;
+}
+
+/**
+ * One of the two words the setting may hold, or a refusal.
+ *
+ * The window is untrusted like any other: a value that is not one of the two
+ * would otherwise reach settings.json and be read back on the next launch.
+ */
+function asUpdateCheck(value) {
+  if (typeof value !== 'string' || !UPDATE_CHECKS.includes(value)) {
+    throw new TypeError('updateCheck must be "never" or "startup"');
   }
   return value;
 }

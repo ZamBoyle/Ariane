@@ -3,6 +3,14 @@
   "version": "0.2.0",
   "description": "Le fil pour retrouver toutes vos conversations avec vos assistants de code, dossier par dossier.",
   "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZamBoyle/Ariane.git"
+  },
+  "homepage": "https://github.com/ZamBoyle/Ariane",
+  "bugs": {
+    "url": "https://github.com/ZamBoyle/Ariane/issues"
+  },
   "author": {
     "name": "Johnny Piette",
     "email": "johnny.piette@gmail.com"

@@ -1135,6 +1135,31 @@ async function languageChange() {
   return { before, after };
 }
 
+/**
+ * Une fenêtre à qui le faux pont annonce `version`, ou rien du tout.
+ * Le vrai réglage vit dans le processus principal : ici on n'éprouve que ce
+ * que la fenêtre fait d'une réponse.
+ */
+async function updateWindow(version, script) {
+  const win = new BrowserWindow({
+    width: 1100,
+    height: 760,
+    show: false,
+    webPreferences: {
+      preload: PRELOAD,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      partition: `render-update-${version || 'aucune'}`,
+    },
+  });
+  const query = version ? { lang: 'fr', update: version } : { lang: 'fr' };
+  await win.loadFile(INDEX, { query });
+  const result = await win.webContents.executeJavaScript(script);
+  win.destroy();
+  return result;
+}
+
 async function languageWindow(lang, script) {
   const win = new BrowserWindow({
     width: 1100,
@@ -1741,6 +1766,31 @@ async function run() {
     `transcription ${Math.round(w.transcript)} px sur ${Math.round(w.main)} px, plan affiché=${w.outlineShown}`);
   check('every row sits in one centred column',
     r.distinctLefts === 1, `${r.distinctLefts} alignements: ${[...new Set(r.lefts)].join(', ')}`);
+
+  // -- une version plus récente : on le dit, on ne télécharge rien ----------
+  const WAIT_TOAST = `(async () => {
+    const toast = document.getElementById('toast');
+    for (let i = 0; i < 80 && toast.hidden; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    const button = toast.querySelector('.toast-action');
+    const seen = { hidden: toast.hidden, text: toast.textContent, button: button ? button.textContent : null };
+    if (button) button.click();
+    await new Promise((r) => setTimeout(r, 80));
+    return { ...seen, opened: await window.api.releaseOpens() };
+  })()`;
+
+  const annonce = await updateWindow('0.9.9', WAIT_TOAST);
+  check('une version plus récente est annoncée, avec son numéro',
+    !annonce.hidden && annonce.text.includes('0.9.9'), JSON.stringify(annonce.text));
+  check('et un bouton mène à la page de la version',
+    Boolean(annonce.button), `bouton : ${annonce.button}`);
+  check('le bouton ouvre la page, et rien d\'autre ne part',
+    annonce.opened === 1, `ouvertures : ${annonce.opened}`);
+
+  const silence = await updateWindow(null, WAIT_TOAST);
+  check('à jour, rien n\'est dit',
+    silence.hidden && silence.opened === 0, `caché=${silence.hidden} ouvertures=${silence.opened}`);
 
   return report();
 }

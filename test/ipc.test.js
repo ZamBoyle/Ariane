@@ -122,7 +122,8 @@ test('registers exactly the documented channels', (t) => {
      'session:mark', 'session:markMessage', 'session:resume', 'session:resumeInfo',
      'sessions:favorites', 'sessions:list',
      'settings:browse', 'settings:check', 'settings:get', 'settings:openFile', 'settings:save',
-     'shell:openFolder', 'splash:close', 'splash:keep', 'splash:words']
+     'shell:openFolder', 'splash:close', 'splash:keep', 'splash:words',
+     'update:check', 'update:open']
   );
 });
 

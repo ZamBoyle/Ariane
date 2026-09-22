@@ -254,6 +254,41 @@ async function init() {
 
   const reopen = takeReopen();
   if (reopen) await openSession(reopen);
+
+  // Last, and never in the way: the conversations are on screen before anyone
+  // is told about a version. Nothing is awaited by what follows it either — a
+  // slow network must not hold the window.
+  announceUpdate();
+}
+
+/**
+ * Say that a newer Ariane exists, once, and offer the page that has it.
+ *
+ * Nothing is downloaded and nothing is run: none of Ariane's packages are
+ * signed, so fetching and executing a binary on its own would be asking to be
+ * trusted for something it cannot prove. The button opens the release page in
+ * the browser, and the rest is the person's.
+ *
+ * The main process decides whether to ask at all — the setting is read there,
+ * before any request leaves the machine. Every other answer, from a refusal to
+ * a silent network, is simply a reason to say nothing.
+ */
+async function announceUpdate() {
+  let answer;
+  try {
+    answer = await api.checkUpdate();
+  } catch {
+    return; // a bridge that did not answer is not news
+  }
+  // `call()` unwraps the envelope: what arrives is the decision itself.
+  if (!answer || !answer.update) return;
+
+  toast(t('update-available', { version: answer.version }), false, {
+    label: t('update-open'),
+    run: () => {
+      api.openRelease().catch(() => {});
+    },
+  });
 }
 
 /**

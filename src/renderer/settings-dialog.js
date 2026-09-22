@@ -70,6 +70,7 @@ export class SettingsDialog {
     this.onLanguageChange = onLanguageChange;
     this.languageSelect = dialog.querySelector('#settings-language');
     this.themeSelect = dialog.querySelector('#settings-theme');
+    this.updatesSelect = dialog.querySelector('#settings-updates');
     this.rows = dialog.querySelector('.settings-rows');
     this.banner = dialog.querySelector('.settings-banner');
     this.addButton = dialog.querySelector('.settings-add-btn');
@@ -150,6 +151,7 @@ export class SettingsDialog {
     this.addButton.disabled = locked;
     this.paintLanguages(view.language, locked);
     this.paintTheme(view.theme, locked);
+    this.paintUpdates(view.updateCheck, locked);
   }
 
   /** Automatic — the system's language, named — then every language that has a file, in itself. */
@@ -184,6 +186,25 @@ export class SettingsDialog {
     );
     this.themeSelect.value = theme;
     this.themeSelect.disabled = locked;
+  }
+
+  /**
+   * Whether Ariane may ask GitHub if a newer version exists.
+   *
+   * Off unless chosen, and the words say what it costs rather than what it
+   * does: the question travels to GitHub, and so does the fact of asking it.
+   */
+  paintUpdates(value, locked) {
+    const { t } = this.l10n;
+    this.updatesSelect.replaceChildren(
+      ...['never', 'startup'].map((choice) => {
+        const option = node('option', '', t(`settings-updates-${choice}`));
+        option.value = choice;
+        return option;
+      })
+    );
+    this.updatesSelect.value = value === 'startup' ? 'startup' : 'never';
+    this.updatesSelect.disabled = locked;
   }
 
   row(agent, hidden) {
@@ -333,6 +354,7 @@ export class SettingsDialog {
   isDirty() {
     if (this.languageSelect.value !== this.view.language.setting) return true;
     if (this.themeSelect.value !== this.view.theme) return true;
+    if (this.updatesSelect.value !== this.view.updateCheck) return true;
     return Object.entries(this.commands()).some(([id, value]) => value !== (this.loaded.get(id) ?? ''));
   }
 
@@ -347,11 +369,14 @@ export class SettingsDialog {
     const languageChanged = language !== this.view.language.setting;
     const theme = this.themeSelect.value;
     const themeChanged = theme !== this.view.theme;
+    const updates = this.updatesSelect.value;
+    const updatesChanged = updates !== this.view.updateCheck;
     try {
       const view = await this.api.saveSettings(
         this.commands(),
         languageChanged ? language : undefined,
-        themeChanged ? theme : undefined
+        themeChanged ? theme : undefined,
+        updatesChanged ? updates : undefined
       );
       if (languageChanged) {
         this.close();

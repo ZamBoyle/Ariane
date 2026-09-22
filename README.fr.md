@@ -348,8 +348,15 @@ date.
 
 Ariane **lit** les répertoires des assistants et n'y écrit jamais. Son index vit dans le répertoire
 de données de l'application (`~/.config/Ariane` sous Linux), **hors du dépôt** : aucune conversation
-n'est jamais versionnée ni distribuée. Aucun accès réseau : la fenêtre applique
+n'est jamais versionnée ni distribuée. La fenêtre, elle, n'atteint rien : elle applique
 `Content-Security-Policy: default-src 'none'; connect-src 'none'`.
+
+Une seule requête existe, et seulement si vous la demandez. **Réglages → Mises à jour** propose
+d'interroger GitHub, une fois au lancement, pour savoir s'il existe une version plus récente. Elle
+est **éteinte tant que vous ne l'allumez pas**, elle part du processus principal et jamais de la
+fenêtre, et tout ce qu'elle fait est d'afficher un numéro de version et un lien : rien n'est
+téléchargé, rien n'est exécuté. Demander apprend à GitHub une adresse, une version et la fréquence
+à laquelle cette machine démarre l'application — c'est pourquoi le choix vous revient.
 
 ---
 

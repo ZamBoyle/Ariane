@@ -51,8 +51,25 @@ contextBridge.exposeInMainWorld('api', {
   /**
    * @param {string} [language] "auto" or a language code; left out, the language stays.
    * @param {string} [theme] "auto", "light" or "dark"; left out, the theme stays.
+   * @param {string} [updateCheck] "never" or "startup"; left out, it stays.
    */
-  saveSettings: (commands, language, theme) => call('settings:save', { commands, language, theme }),
+  saveSettings: (commands, language, theme, updateCheck) =>
+    call('settings:save', { commands, language, theme, updateCheck }),
+
+  /**
+   * Is there a newer Ariane? Answers `{update, version?, url?, reason?}`.
+   *
+   * Asks nothing when the person did not ask for it: the setting is read in
+   * the main process, BEFORE any request leaves the machine.
+   */
+  checkUpdate: () => call('update:check'),
+
+  /**
+   * Open the release page in the browser. No url crosses the bridge — the main
+   * process rebuilds it from the manifest, because a window does not get to
+   * choose what `shell.openExternal` is handed.
+   */
+  openRelease: () => call('update:open'),
   /** The language to show, its words, and the English ones to fall back on. */
   locale: () => call('app:locale'),
   browseCommand: (id) => call('settings:browse', { id }),
