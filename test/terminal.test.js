@@ -118,31 +118,35 @@ test.describe('the environment the command runs in', () => {
   const { environmentFor } = require('../src/main/terminal');
   const NVM = '/home/zam/.nvm/versions/node/v22.12.0/bin';
 
+  // The platform and the base environment are handed over, which is what those
+  // two arguments exist for: these are POSIX rules and must be checkable from
+  // anywhere. Read from the real environment instead, the three below crashed
+  // on Windows rather than failed — the variable is spelled `Path` there, so
+  // `env.PATH` is undefined and `undefined.split()` throws.
+  const SEP = path.posix.delimiter;
+  const BASE = { PATH: `/usr/bin${SEP}/bin`, HOME: '/home/zam' };
+  const posix = (executable, base = BASE) => environmentFor(executable, [], 'linux', base);
+
   test('puts the executable own directory first', () => {
-    const env = environmentFor(`${NVM}/codex`);
+    const env = posix(`${NVM}/qwen`);
     assert.equal(
-      env.PATH.split(path.delimiter)[0],
+      env.PATH.split(SEP)[0],
       NVM,
       'so `env node` finds the runtime installed beside the tool'
     );
   });
 
   test('moves it to the front even when it is already present', () => {
-    const before = process.env.PATH;
     const other = '/home/zam/.nvm/versions/node/v20/bin';
-    process.env.PATH = `/usr/bin:${other}`;
-    try {
-      const parts = environmentFor(`${other}/qwen`).PATH.split(path.delimiter);
-      assert.equal(parts[0], other);
-      assert.equal(parts.filter((p) => p === other).length, 1, 'listed once, not twice');
-    } finally {
-      process.env.PATH = before;
-    }
+    const env = posix(`${other}/qwen`, { PATH: `/usr/bin${SEP}${other}`, HOME: '/home/zam' });
+    const parts = env.PATH.split(SEP);
+    assert.equal(parts[0], other);
+    assert.equal(parts.filter((part) => part === other).length, 1, 'listed once, not twice');
   });
 
   test('keeps the rest of the environment intact', () => {
-    const env = environmentFor('/usr/bin/claude');
-    assert.equal(env.HOME, process.env.HOME);
+    const env = posix('/usr/bin/claude');
+    assert.equal(env.HOME, BASE.HOME);
     assert.ok(env.PATH.includes('/usr/bin'));
   });
 });

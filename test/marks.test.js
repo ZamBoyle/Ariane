@@ -155,7 +155,13 @@ test('a star and a note survive the index being rebuilt from scratch', async (t)
   resetCounters();
   const fx = createFixture();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ariane-rebuild-'));
+  let index;
   t.after(() => {
+    // Closed BEFORE the directory goes. Hooks run in registration order, so a
+    // close registered further down would run after the removal — which Linux
+    // forgives and Windows does not: rmSync on a directory still holding an
+    // open SQLite file fails with EPERM there.
+    index?.close();
     fx.cleanup();
     fs.rmSync(dir, { recursive: true, force: true });
   });
@@ -167,7 +173,7 @@ test('a star and a note survive the index being rebuilt from scratch', async (t)
   const dbFile = path.join(dir, 'index.sqlite3');
   const marks = new Marks(dir);
 
-  let index = new Index(dbFile);
+  index = new Index(dbFile);
   await new Indexer(index, { env: fx.env }).run();
   const [session] = index.sessions(index.folders()[0].id);
   marks.set(session.id, { favorite: true, note: 'celle-ci compte' });
@@ -198,7 +204,6 @@ test('a star and a note survive the index being rebuilt from scratch', async (t)
   index = new Index(dbFile);
   assert.equal(index.stats().sessions, 0, 'the index really was emptied');
   await new Indexer(index, { env: fx.env }).run();
-  t.after(() => index.close());
 
   const rebuilt = index.sessions(index.folders()[0].id)[0];
   assert.equal(rebuilt.id, session.id, 'the global id is what survives a reindexing');
