@@ -75,11 +75,46 @@ const ARCHIVE_SESSION_SQL = `
          s.first_at, s.last_at, s.source, s.file_path,
          f.path AS folder_path, f.path_exact AS folder_exact
   FROM sessions s JOIN folders f ON f.id = s.folder_id`;
+const ARCHIVE_MESSAGE_COLUMNS = [
+  'seq', 'uuid', 'parent_uuid', 'role', 'ts', 'model',
+  'tok_input', 'tok_output', 'tok_cache_read', 'tok_cache_write', 'tok_reasoning',
+  'text', 'thinking', 'parts', 'is_meta', 'is_notice', 'is_sidechain', 'command',
+];
 const ARCHIVE_MESSAGES_SQL = `
-  SELECT seq, uuid, parent_uuid, role, ts, model,
-         tok_input, tok_output, tok_cache_read, tok_cache_write, tok_reasoning,
-         text, thinking, parts, is_meta, is_notice, is_sidechain, command
+  SELECT ${ARCHIVE_MESSAGE_COLUMNS.join(', ')}
   FROM messages WHERE session_id = ? ORDER BY seq`;
+
+/**
+ * The same SELECT, restricted to the columns this database actually has.
+ *
+ * **The migration reads an index written by an OLDER schema**, so it must never
+ * name a column of today's: one that does not exist aborts the whole save — the
+ * save that exists precisely to run BEFORE the tables are dropped. Measured the
+ * hard way when v10 added five token columns: "index v9 could not be read for
+ * the archive (no such column: tok_input)". It degraded to keeping a copy of
+ * the file, which is luck, not design.
+ */
+function archiveMessagesSql(db) {
+  const present = new Set(db.prepare('PRAGMA table_info(messages)').all().map((c) => c.name));
+  const columns = ARCHIVE_MESSAGE_COLUMNS.filter((name) => present.has(name));
+  return `SELECT ${columns.join(', ')} FROM messages WHERE session_id = ? ORDER BY seq`;
+}
+
+/**
+ * What an archived message may be missing, and what to put there.
+ *
+ * The archive format is migrated, never dropped, so a file written before a
+ * column existed comes back without it — and a named parameter the statement
+ * expects but the row does not carry is a throw, not a null. Every nullable
+ * column added after a message could be archived belongs here.
+ */
+const ARCHIVED_MESSAGE_DEFAULTS = {
+  tok_input: null,
+  tok_output: null,
+  tok_cache_read: null,
+  tok_cache_write: null,
+  tok_reasoning: null,
+};
 
 /**
  * Snippet delimiters. Deliberately NOT HTML: the renderer escapes the text and
@@ -161,7 +196,7 @@ class Index {
    */
   #saveBeforeRebuild(fromVersion) {
     try {
-      const messagesOf = this.db.prepare(ARCHIVE_MESSAGES_SQL);
+      const messagesOf = this.db.prepare(archiveMessagesSql(this.db));
       for (const session of this.db.prepare(ARCHIVE_SESSION_SQL).all()) {
         const file = session.file_path ? session.file_path.split('#')[0] : '';
         const proven = session.source !== 'archive' && file && fs.existsSync(file);
@@ -748,7 +783,9 @@ class Index {
         source: 'archive',
         file_path: session.file_path,
       });
-      for (const row of messages) this.s.insertMessage.run({ ...row, session_id: sessionId });
+      for (const row of messages) {
+        this.s.insertMessage.run({ ...ARCHIVED_MESSAGE_DEFAULTS, ...row, session_id: sessionId });
+      }
       this.s.touchSession.run(sessionId);
     })();
   }
