@@ -80,6 +80,34 @@ VS Code chat also covers **VSCodium and Cursor**, which share its storage.
 
 ## Install
 
+### Download
+
+Ready-made packages are attached to every release —
+**[the latest one](https://github.com/ZamBoyle/Ariane/releases/latest)**. Nothing else is needed:
+no Node, no compiler, no clone.
+
+| System | File | What to do with it |
+|---|---|---|
+| **Linux**, any distribution | `Ariane-<version>.AppImage` | `chmod +x`, then run it. No root, no package manager. |
+| **Debian**, Ubuntu | `ariane_<version>_amd64.deb` | `sudo dpkg -i ariane_*.deb` |
+| **Windows** | `Ariane.Setup.<version>.exe` | the installer |
+| **Windows**, installing nothing | `Ariane.<version>.exe` | portable — run it where it sits |
+| **macOS**, Apple Silicon | `Ariane-<version>-arm64.dmg` | open it, drag Ariane to Applications |
+
+**None of it is signed**, and the two systems that mind say so:
+
+- **Windows** raises SmartScreen's *unknown publisher*. More info → Run anyway.
+- **macOS** quarantines a downloaded `.dmg` and calls it damaged, which it is not:
+  `xattr -dr com.apple.quarantine /Applications/Ariane.app`
+
+A certificate would not make Ariane any safer — it would only make those two dialogs go away, for a
+few hundred euros a year. **An app you built yourself has neither problem**: macOS quarantines only
+what was downloaded.
+
+The `.dmg` is **Apple Silicon only** for now. An Intel Mac has to build from source.
+
+### From source
+
 ```bash
 git clone https://github.com/ZamBoyle/ariane
 cd ariane

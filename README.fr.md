@@ -145,6 +145,34 @@ ne soit pas reposée à zéro :
 
 ## Installation
 
+### Télécharger
+
+Les paquets prêts à l'emploi sont attachés à chaque version —
+**[la dernière](https://github.com/ZamBoyle/Ariane/releases/latest)**. Rien d'autre n'est
+nécessaire : ni Node, ni compilateur, ni clone.
+
+| Système | Fichier | Quoi en faire |
+|---|---|---|
+| **Linux**, toute distribution | `Ariane-<version>.AppImage` | `chmod +x`, puis on lance. Aucun droit root, aucun gestionnaire de paquets. |
+| **Debian**, Ubuntu | `ariane_<version>_amd64.deb` | `sudo dpkg -i ariane_*.deb` |
+| **Windows** | `Ariane.Setup.<version>.exe` | l'installeur |
+| **Windows**, sans rien installer | `Ariane.<version>.exe` | portable — on le lance là où il est |
+| **macOS**, Apple Silicon | `Ariane-<version>-arm64.dmg` | on l'ouvre, on glisse Ariane dans Applications |
+
+**Rien de tout cela n'est signé**, et les deux systèmes que ça regarde le disent :
+
+- **Windows** affiche « éditeur inconnu » via SmartScreen. Informations complémentaires → Exécuter
+  quand même.
+- **macOS** met un `.dmg` téléchargé en quarantaine et le déclare endommagé, ce qu'il n'est pas :
+  `xattr -dr com.apple.quarantine /Applications/Ariane.app`
+
+Un certificat ne rendrait pas Ariane plus sûre — il ferait seulement disparaître ces deux boîtes de
+dialogue, pour quelques centaines d'euros par an. **Une application qu'on a compilée soi-même n'a
+ni l'un ni l'autre problème** : macOS ne met en quarantaine que ce qui a été téléchargé.
+
+Le `.dmg` est **réservé aux Mac Apple Silicon** pour l'instant. Un Mac Intel doit construire depuis
+les sources.
+
 ### Depuis un clone
 
 ```bash
@@ -155,7 +183,7 @@ npm start
 ```
 
 C'est tout. Vérifié en clonant le dépôt dans un dossier vierge : `npm install`
-puis `npm test` passent les 673 tests sans autre préparatif.
+puis `npm test` passent les 684 tests sans autre préparatif.
 
 **Prérequis : Node 22.14 ou plus récent, et rien d'autre.** En particulier,
 *aucun compilateur C++ n'est nécessaire* — contrairement à ce qu'on attend d'un
