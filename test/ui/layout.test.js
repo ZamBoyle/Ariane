@@ -218,6 +218,13 @@ async function run() {
         await new Promise((r) => setTimeout(r, 50));
       }
     })()`);
+    // La taille demandée au constructeur n'est pas une taille obtenue : sous
+    // macOS une fenêtre `show: false` n'a pas encore la sienne au moment où la
+    // page répond, et les trois en-têtes traduits se mesuraient alors à la
+    // largeur d'une fenêtre étroite — 0 libellé sur 6, alors que le même
+    // en-tête en français en affichait 6 sur 6 deux lignes plus bas. `resizeTo`
+    // attend que `innerWidth` y soit vraiment, et lève s'il n'y arrive pas.
+    await resizeTo(other, 1400, 800);
     const wide = await other.webContents.executeJavaScript(HEADER);
     await resizeTo(other, 900, 480);
     const tight = await other.webContents.executeJavaScript(HEADER);
