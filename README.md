@@ -7,6 +7,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/ZamBoyle/Ariane/actions/workflows/test.yml"><img alt="Tests: Linux, Windows, macOS" src="https://github.com/ZamBoyle/Ariane/actions/workflows/test.yml/badge.svg" /></a>
   <img alt="License: GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-d97757" />
   <img alt="Platforms: Linux, Windows, macOS" src="https://img.shields.io/badge/platforms-Linux%20%C2%B7%20Windows%20%C2%B7%20macOS-5ba3a0" />
   <img alt="Electron 44" src="https://img.shields.io/badge/Electron-44-4f9bd6" />

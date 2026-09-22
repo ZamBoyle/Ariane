@@ -11,12 +11,34 @@ corpus, datés, vivent dans `ARCHITECTURE.fr.md` § 12.
 
 ## 8. Windows, macOS, et une CI
 
-**Le problème.** « Fonctionne partout » était l'exigence n°1, et l'app n'a jamais tourné ni sous
-Windows ni sous macOS. Toute la qualité mesurée ici repose sur quelqu'un qui lance les tests à la
-main, sur une seule machine.
+**Le problème.** « Fonctionne partout » était l'exigence n°1, et toute la qualité mesurée ici a
+longtemps reposé sur quelqu'un qui lançait les tests à la main, sur une seule machine.
 
-**Approche.** GitHub Actions, matrice Ubuntu / Windows / macOS, qui lance les trois suites :
-`npm test`, `npm run test:render`, `npm run test:ui` (sous `xvfb` pour Linux).
+**Fait le 22 septembre 2026 : la CI tourne, et les trois systèmes sont verts.**
+`.github/workflows/test.yml` lance les quatre suites sur Ubuntu, Windows et macOS à chaque poussée,
+`fail-fast` désactivé pour qu'un échec n'en cache pas un autre.
+
+| | Unitaires | Rendu | Mise en page | Accueil |
+|---|---|---|---|---|
+| linux | 684 / 684 | 155 | 26 | 7 |
+| macos | 684 / 684 | 155 | 26 | 7 |
+| windows | 668 / 669 | 155 | 26 | 7 |
+
+Sous Windows, quinze tests ne s'exécutent pas et un est compté sans être passé : ce sont les skips
+`POSIX_ONLY` de `terminal.test.js`, déclarés avec leur raison — bits d'exécution, shebangs,
+exécutables sans extension. Une abstention écrite, pas un trou.
+
+**Ce que la première exécution a trouvé, et ce qu'elle n'a pas trouvé.** Onze échecs sous Windows,
+trois sous macOS, et **pas un seul défaut du produit**. Le code gérait déjà la casse de `Path`, la
+résolution des variables d'environnement, la normalisation d'un chemin saisi ; ce sont quatorze
+tests qui avaient été écrits depuis une seule machine — dont un qui *plantait* au lieu d'échouer,
+`undefined.split()` sur un `env.PATH` que Windows épelle `Path`. Ils l'étaient depuis des mois sans
+que personne pût le savoir.
+
+Deux pièges du banc d'essai, notés parce qu'ils se reproduiront : `xvfb-run` ouvre un écran de
+1280x1024 alors que la suite de mise en page demande une fenêtre de 1402 px, et une fenêtre
+`show: false` n'a pas encore sa taille sous macOS au moment où sa page répond — une taille demandée
+n'est pas une taille obtenue.
 
 **Constaté en écrivant les réglages de CLI (voir le journal), à vérifier sur de vraies machines.**
 Le *lancement* du terminal n'a jamais tourné hors de Linux, et deux défauts se voient à la
@@ -38,9 +60,11 @@ reste est un plancher, Node-API 10 — Node 22.14 et Electron 44. Voir `ARCHITEC
 produit `Ariane 0.1.0.exe` (portable) et `Ariane Setup 0.1.0.exe` (installeur NSIS), 77 Mo chacun.
 Le piège ci-dessus était pire que prévu : electron-builder ne recompile que pour la machine qui
 construit, et il avait emporté le binaire **ELF** dans l'exécutable Windows sans un mot. La base ne
-se serait pas ouverte au premier lancement, chez quelqu'un d'autre. `build/after-pack.js` lit
-désormais les premiers octets de la liaison emballée, récupère celle que better-sqlite3 publie pour
-la cible, et **arrête la construction** si ce qui arrive ne correspond toujours pas.
+se serait pas ouverte au premier lancement, chez quelqu'un d'autre. Un contrôle à l'empaquetage
+veillait alors sur ce point ; il a été supprimé le 21 septembre avec le reste de la mécanique, la
+construction croisée étant devenue juste par construction — `better-sqlite3` livre les huit
+binaires dans son propre paquet, et `--win` depuis Linux emporte `win32-x64.node` parce que ce
+fichier était déjà là. Vérifié dans les octets du paquet produit.
 
 **Et elle tourne**, vérifié le même jour sous wine 9.0 64 bits, sur écran virtuel : `Ariane.exe`
 démarre, ouvre son index dans `C:\users\<nom>\AppData\Roaming\Ariane`, trouve les conversations
@@ -49,11 +73,19 @@ affiche — interface en français, dossiers groupés, comptes justes. C'est la 
 native se charge : sans elle, rien de tout cela n'existerait. Wine n'est pas Windows, mais un
 échec aurait tranché, et il n'y en a pas eu.
 
-**Ce qui reste donc à vérifier sur une vraie machine** : le lancement d'un terminal (`.cmd`,
+**Et elle tourne pour de vrai**, vérifié le 22 septembre 2026 sur une machine Windows et sous
+WSL : clone, `npm install`, `npm start`, conversations affichées.
+
+**Ce qui reste à vérifier, et que rien n'automatise** : le lancement d'un terminal (`.cmd`,
 `wt.exe`, découpage des arguments) et l'ouverture d'un dossier dans l'Explorateur — les deux
-endroits où Ariane sort d'elle-même, et les deux que wine ne juge pas. Il manque encore une
-signature : Windows affichera « éditeur inconnu », macOS mettra un `.dmg` téléchargé en
-quarantaine.
+endroits où Ariane sort d'elle-même, que ni wine ni la CI ne jugent, puisque aucun test ne peut
+atteindre un vrai terminal. Il manque aussi une signature : Windows affichera « éditeur inconnu »,
+macOS mettra un `.dmg` téléchargé en quarantaine.
+
+**Et un défaut d'affichage observé sous WSLg**, sur l'écran principal d'une installation à trois
+moniteurs identiques : une fenêtre maximisée ne peint qu'environ 70 % de sa largeur. Ni la mise à
+l'échelle ni la géométrie ne l'expliquent, et il n'a pas été reproduit sur un Linux natif ni sous
+Windows en natif — [issue 1](https://github.com/ZamBoyle/Ariane/issues/1).
 
 ## Ordre proposé
 
