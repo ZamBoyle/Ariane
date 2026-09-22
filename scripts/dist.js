@@ -34,7 +34,14 @@ const { spawnSync } = require('child_process');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-const BUILDER = path.join(ROOT, 'node_modules', '.bin', 'electron-builder');
+// The package's own entry, resolved rather than guessed. `node_modules/.bin/`
+// holds a shell script on POSIX and a `.cmd` on Windows, and spawnSync refuses
+// to run the second without a shell: the first native Windows build died on
+// "spawnSync …\node_modules\.bin\electron-builder ENOENT", having been told
+// to launch a file that does not exist under that name there. Handing the
+// script to this very Node needs neither shim nor shell, and behaves the same
+// on the three systems.
+const BUILDER = require.resolve('electron-builder/cli.js');
 
 const env = { ...process.env };
 if (env.LD_PRELOAD) {
@@ -55,7 +62,7 @@ if (!args.some((a) => a === '--publish' || a === '-p' || a.startsWith('--publish
 
 console.log(`[dist] electron-builder ${args.join(' ')}`);
 
-const result = spawnSync(BUILDER, args, { cwd: ROOT, env, stdio: 'inherit', shell: false });
+const result = spawnSync(process.execPath, [BUILDER, ...args], { cwd: ROOT, env, stdio: 'inherit', shell: false });
 
 if (result.error) {
   console.error(`[dist] impossible de lancer electron-builder : ${result.error.message}`);
