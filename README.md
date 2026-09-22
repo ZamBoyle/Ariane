@@ -63,6 +63,8 @@ three busiest:
 - **Export** to Markdown or PDF, crediting each speaker exactly as the screen does.
 - **Nine languages**, chosen or following the system, and a light, dark or system theme.
 - **Nothing is lost**: when an assistant deletes a transcript, Ariane keeps the only copy left.
+- **Told when a newer Ariane exists** — if you ask to be. Off unless you turn it on, one request
+  at startup, a button that waits beside the gear: nothing is downloaded and nothing is run.
 
 ## Supported assistants
 

@@ -151,5 +151,9 @@ Reste la mise à jour en place de l'AppImage, la seule cible qui le permette san
 - **Le lancement d'un terminal et l'ouverture d'un dossier** sous Windows et macOS : les deux seuls
   endroits où Ariane sort d'elle-même, jamais essayés là-bas, et qu'aucun test ne peut atteindre
   puisque aucun n'a le droit de toucher un vrai terminal.
+- **Vérifier maintenant.** Le réglage des mises à jour dit « au lancement » ou « jamais » ; rien
+  ne permet de demander sur-le-champ. C'est gênant précisément là où on se trouve quand on vient
+  d'allumer l'option : dans les réglages, à se demander si elle fonctionne. Un bouton et un appel
+  de plus, le canal existe déjà.
 - **Le saut à une date** *dans* une conversation ouverte (reste du point 3) : les dates sont dans
   l'infobulle de chaque trait du plan, mais rien ne permet d'y aller.

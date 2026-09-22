@@ -61,6 +61,9 @@ deux par cinq d'entre eux :
   plus important du projet.
 - **Récupération des conversations purgées** : quand une transcription disparaît, vos prompts
   survivent souvent ailleurs et restent consultables.
+- **Prévenue quand une version plus récente existe** — si vous le demandez. Éteint tant que vous
+  ne l'allumez pas, une requête au lancement, un bouton qui attend à côté de l'engrenage : rien
+  n'est téléchargé, rien n'est exécuté.
 - **Lecture seule.** Ariane n'écrit jamais dans les répertoires des assistants.
 
 ---

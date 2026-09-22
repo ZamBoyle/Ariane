@@ -13,6 +13,70 @@ Les chiffres du corpus de référence vivent dans `ARCHITECTURE.fr.md` § 12, da
 
 ## 22 septembre 2026
 
+### Prévenue qu'une version existe, sans rien télécharger
+
+**La question qui a ouvert deux jours de travail.** Une fois installée, Ariane ne savait pas qu'une
+version plus récente existait, et rien ne le lui aurait dit : ni canal, ni notification, ni
+gestionnaire de paquets derrière elle.
+
+**Ce que ça change.** Réglages → Mises à jour propose d'interroger GitHub une fois au lancement.
+Quand une version plus récente existe, un bouton apparaît dans l'entête de la barre latérale, juste
+avant l'engrenage, et **il attend** : son infobulle porte le numéro, un clic ouvre la page dans le
+navigateur. Rien n'est téléchargé, rien n'est exécuté.
+
+**Pourquoi ça s'arrête là.** Aucun paquet n'est signé. Une application qui récupérerait et
+exécuterait un binaire toute seule réclamerait une confiance qu'elle ne peut pas prouver — et les
+systèmes qui s'en soucient le lui diraient : SmartScreen sur chaque `.exe` téléchargé, Gatekeeper
+sur chaque `.dmg`. Seule l'AppImage pourrait se mettre à jour en place sans certificat ; elle reste
+au point 13 de la feuille de route, faute d'une vraie AppImage pour l'éprouver.
+
+**Le réglage est éteint par défaut, et il est lu AVANT toute requête.** Demander apprend à GitHub
+une adresse, une version et la fréquence de démarrage de la machine ; un réglage qui se contenterait
+de masquer le résultat aurait déjà prévenu de notre passage. Deux tests vérifient qu'aucun appel
+n'est émis quand la réponse est non. La requête interroge la redirection de `/releases/latest`
+plutôt que l'API — pas de quota par adresse, quelques centaines d'octets d'en-têtes — et le lien
+ouvert est reconstruit depuis le manifeste : aucune URL choisie par la fenêtre n'atteint
+`shell.openExternal`.
+
+**Le défaut que seule la suite de rendu a vu.** `call()` déballe déjà l'enveloppe `{ok, data}`, et
+le renderer testait `answer.ok`. **Le bandeau ne serait jamais apparu.** Aucun test unitaire ne
+pouvait le montrer : les deux moitiés étaient justes, c'est leur jonction qui ne l'était pas.
+
+**Un premier essai jeté en route.** L'annonce passait d'abord par le `toast` existant, qui dure dix
+secondes. C'est la bonne durée pour une erreur qu'on corrige tout de suite, la mauvaise pour une
+version disponible : qui regardait ailleurs ne la revoyait qu'au lancement suivant, et le message
+s'affichait par-dessus la barre de recherche au moment précis où quelqu'un vient chercher quelque
+chose.
+
+**Mesuré.** 23 tests unitaires, 5 vérifications de rendu — dont deux qui gardent la conception
+plutôt que le code : le bouton est bien le voisin de l'engrenage, et rien ne s'affiche par-dessus la
+barre de recherche. Les huit messages existent dans les neuf langues.
+
+### L'icône que le bureau refusait à la fenêtre
+
+**Signalé à l'usage.** La barre des tâches n'affichait pas Ariane mais une icône générique de
+fenêtre applicative.
+
+**Une majuscule.** Lu sur la vraie fenêtre, sur écran virtuel :
+
+```
+WM_CLASS(STRING) = "ariane", "ariane"     ce que la fenêtre annonce
+StartupWMClass=Ariane                      ce que le .desktop cherchait
+```
+
+La correspondance est sensible à la casse. Le bureau ne reliait donc jamais la fenêtre ouverte à
+l'entrée qui porte l'icône, et se rabattait sur la générique faute de savoir à qui appartenait cette
+fenêtre.
+
+**Deux fausses pistes, notées parce qu'elles coûtent du temps.** `syncDesktopName: true` seul ne
+corrige rien — il nomme le *fichier*, pas la classe. Et `desktopName` sous `build.linux` fait
+**échouer la construction** : le schéma l'y refuse. La clé se pose à la **racine** de `package.json`,
+ce que l'avertissement d'electron-builder ne disait pas, bien qu'il l'ait réclamée à chaque
+construction Linux depuis des semaines.
+
+**Mesuré.** Dans le paquet produit : `StartupWMClass=ariane`, et zéro avertissement là où il y en
+avait deux.
+
 ### Ariane se télécharge
 
 **Trouvé en jouant l'utilisateur.** « Je suis un simple utilisateur, j'ai nodejs parce qu'on le
