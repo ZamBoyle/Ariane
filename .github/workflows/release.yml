@@ -123,6 +123,11 @@ jobs:
       - name: attach the packages to the release
         env:
           GH_TOKEN: ${{ github.token }}
+          # Named rather than deduced. This job holds artefacts and nothing
+          # else — no checkout — and `gh` otherwise looks for a git remote it
+          # cannot find: "failed to run git: fatal: not a git repository".
+          # Cloning the whole repository just to satisfy that would be a waste.
+          GH_REPO: ${{ github.repository }}
         shell: bash
         run: |
           # Read the paths into an array: "Ariane 0.1.0.exe" holds a space, and
