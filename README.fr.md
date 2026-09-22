@@ -180,11 +180,15 @@ npm error notsup Actual:   {"node":"v20.19.0","npm":"10.8.2"}
 C'est tout le prérequis. Rien d'autre à installer, aucun gestionnaire de
 versions à apprendre.
 
-Sur Linux, `python3` et `make` doivent tout de même être présents : npm lance un
-`node-gyp rebuild` implicite, qui réclame ces deux outils avant de constater
-qu'il n'a rien à faire. Il ne compile rien — il ne produit que des fichiers
-témoins, et c'est bien le binaire livré qui est chargé. Sur une Ubuntu nue :
-`sudo apt install -y make`.
+Ni Python, ni `make`. npm lance un `node-gyp rebuild` implicite pour tout paquet
+portant un `binding.gyp`, et `better-sqlite3` en porte un alors que son binaire
+est déjà livré. Sous Linux, cela réclamait python3 et make pour ne rien
+construire ; sous Windows, cela échoue franchement — gyp trouve un Python qu'il
+ne peut pas exécuter et emporte toute l'installation. `.npmrc` pose donc
+`ignore-scripts=true`. Rien dans l'arbre n'a besoin d'un script : le seul autre
+appartient à electron-winstaller, pour une cible Squirrel que ces paquets
+n'utilisent pas, et Electron n'en déclare aucun — il télécharge son binaire au
+premier usage.
 
 ### Si Electron refuse de démarrer sur une bibliothèque manquante (Linux)
 

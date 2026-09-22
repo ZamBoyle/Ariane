@@ -105,10 +105,13 @@ npm error notsup Actual:   {"node":"v20.19.0","npm":"10.8.2"}
 
 That is the whole requirement. There is nothing else to install, and no version manager to learn.
 
-On Linux, `python3` and `make` must still be on the machine: npm runs an implicit
-`node-gyp rebuild`, and node-gyp wants both before it can find out it has nothing to do. It builds
-no object file — only stamp files — and the binary that gets loaded is the published one. On a bare
-Ubuntu: `sudo apt install -y make`.
+No Python either, and no `make`. npm runs an implicit `node-gyp rebuild` for any package holding a
+`binding.gyp`, and `better-sqlite3` holds one although its binary is already inside the package.
+On Linux that wanted python3 and make to build nothing; on Windows it fails outright — gyp finds a
+Python it cannot run and takes the whole install down with it. `.npmrc` therefore sets
+`ignore-scripts=true`. Nothing in the tree needs a script: the only other one belongs to
+electron-winstaller, for a Squirrel target these packages do not use, and Electron declares none at
+all — it fetches its binary on first use.
 
 On a minimal Linux — WSL, a container, a CI image — Electron also needs system libraries that
 `npm install` does not bring: a desktop Ubuntu already has them, a bare one does not. They are the
