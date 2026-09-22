@@ -72,6 +72,13 @@ CREATE TABLE IF NOT EXISTS messages (
   role         TEXT NOT NULL,
   ts           TEXT,
   model        TEXT,
+  -- What the turn cost, in the contract's words (agents/contract.js). NULL is
+  -- "the agent did not record it" and is never to be shown as 0.
+  tok_input       INTEGER,
+  tok_output      INTEGER,
+  tok_cache_read  INTEGER,
+  tok_cache_write INTEGER,
+  tok_reasoning   INTEGER,
   text         TEXT NOT NULL DEFAULT '',
   thinking     TEXT NOT NULL DEFAULT '',
   parts        TEXT NOT NULL DEFAULT '[]',

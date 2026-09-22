@@ -13,6 +13,7 @@ const path = require('path');
 const Database = require('better-sqlite3');
 
 const { toMatchQuery } = require('./query');
+const { USAGE_FIELDS } = require('./agents/contract');
 
 /**
  * Bumped for a schema change OR a change in what the adapters extract.
@@ -22,6 +23,7 @@ const { toMatchQuery } = require('./query');
  * already stored. Raising this version drops the index and rebuilds it, which
  * takes about ten seconds.
  *
+ * 10: what each turn cost, when the agent recorded it
  * 9: a compacted conversation remembers the transcript it continues
  * 8: folder paths flagged exact or approximate; away summaries kept
  * 7: queued prompts written as content blocks recovered
@@ -32,7 +34,34 @@ const { toMatchQuery } = require('./query');
  * 2: multi-agent schema
  * 1: initial
  */
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
+/** The five token columns of one message, from the contract's shape. */
+function usageColumns(usage) {
+  const u = usage || {};
+  return {
+    tok_input: u.input ?? null,
+    tok_output: u.output ?? null,
+    tok_cache_read: u.cacheRead ?? null,
+    tok_cache_write: u.cacheWrite ?? null,
+    tok_reasoning: u.reasoning ?? null,
+  };
+}
+
+/**
+ * And back again. Null when every column is null: a turn the agent never
+ * measured must not come back looking like one measured at zero.
+ */
+function usageFromRow(row) {
+  const usage = {
+    input: row.tok_input,
+    output: row.tok_output,
+    cacheRead: row.tok_cache_read,
+    cacheWrite: row.tok_cache_write,
+    reasoning: row.tok_reasoning,
+  };
+  return USAGE_FIELDS.some((field) => usage[field] != null) ? usage : null;
+}
+
 const SCHEMA_SQL = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
 
 /**
@@ -47,8 +76,9 @@ const ARCHIVE_SESSION_SQL = `
          f.path AS folder_path, f.path_exact AS folder_exact
   FROM sessions s JOIN folders f ON f.id = s.folder_id`;
 const ARCHIVE_MESSAGES_SQL = `
-  SELECT seq, uuid, parent_uuid, role, ts, model, text, thinking, parts,
-         is_meta, is_notice, is_sidechain, command
+  SELECT seq, uuid, parent_uuid, role, ts, model,
+         tok_input, tok_output, tok_cache_read, tok_cache_write, tok_reasoning,
+         text, thinking, parts, is_meta, is_notice, is_sidechain, command
   FROM messages WHERE session_id = ? ORDER BY seq`;
 
 /**
@@ -195,8 +225,12 @@ class Index {
       `),
       insertMessage: db.prepare(`
         INSERT INTO messages (session_id, seq, uuid, parent_uuid, role, ts, model,
+                              tok_input, tok_output, tok_cache_read, tok_cache_write,
+                              tok_reasoning,
                               text, thinking, parts, is_meta, is_notice, is_sidechain, command)
         VALUES (@session_id, @seq, @uuid, @parent_uuid, @role, @ts, @model,
+                @tok_input, @tok_output, @tok_cache_read, @tok_cache_write,
+                @tok_reasoning,
                 @text, @thinking, @parts, @is_meta, @is_notice, @is_sidechain, @command)
         ON CONFLICT(session_id, uuid) WHERE uuid IS NOT NULL AND uuid <> ''
         DO NOTHING
@@ -291,7 +325,9 @@ class Index {
         FROM sessions s JOIN folders f ON f.id = s.folder_id WHERE s.id = ?
       `),
       getMessages: db.prepare(`
-        SELECT id, seq, uuid, parent_uuid AS parentUuid, role, ts, model, text, thinking,
+        SELECT id, seq, uuid, parent_uuid AS parentUuid, role, ts, model,
+               tok_input, tok_output, tok_cache_read, tok_cache_write, tok_reasoning,
+               text, thinking,
                parts, is_meta AS isMeta, is_notice AS isNotice,
                is_sidechain AS isSidechain, command
         FROM messages WHERE session_id = ? ORDER BY seq
@@ -371,6 +407,7 @@ class Index {
       role: m.role,
       ts: m.timestamp || '',
       model: m.model || '',
+      ...usageColumns(m.usage),
       text: m.text || '',
       thinking: m.thinking || '',
       parts: JSON.stringify(m.parts || []),
@@ -563,8 +600,10 @@ class Index {
   }
 
   messages(sessionId) {
-    return this.s.getMessages.all(sessionId).map((m) => ({
+    return this.s.getMessages.all(sessionId).map(({ tok_input, tok_output, tok_cache_read,
+                                                     tok_cache_write, tok_reasoning, ...m }) => ({
       ...m,
+      usage: usageFromRow({ tok_input, tok_output, tok_cache_read, tok_cache_write, tok_reasoning }),
       isMeta: Boolean(m.isMeta),
       isNotice: Boolean(m.isNotice),
       isSidechain: Boolean(m.isSidechain),

@@ -104,6 +104,93 @@
  *           Omitted means "always resumable".
  */
 
+/**
+ * ── Token usage ───────────────────────────────────────────────────────────
+ *
+ * Four agents record what a turn cost, and all four use different words for the
+ * same five ideas. The dictionary is written down here — but a mapping of NAMES
+ * is not enough on its own, which the `input` row shows:
+ *
+ * | canonical    | Claude Code                             | Codex                       | Gemini     | Copilot CLI        |
+ * |--------------|-----------------------------------------|-----------------------------|------------|--------------------|
+ * | `input`      | `input_tokens`                          | `input_tokens` MINUS cached | `input`    | `inputTokens`      |
+ * | `output`     | `output_tokens`                         | `output_tokens`             | `output`   | `outputTokens`     |
+ * | `cacheRead`  | `cache_read_input_tokens`               | `cached_input_tokens`       | `cached`   | `cacheReadTokens`  |
+ * | `cacheWrite` | `cache_creation_input_tokens`           | `cache_write_input_tokens`  | —          | `cacheWriteTokens` |
+ * | `reasoning`  | `output_tokens_details.thinking_tokens` | `reasoning_output_tokens`   | `thoughts` | `reasoningTokens`  |
+ *
+ * Claude's `input_tokens` EXCLUDES what was served from cache — measured on a
+ * real turn, 2 fresh against 24 641 read. Codex's INCLUDES it: 2 692, of which
+ * 1 920 cached. Summing the two columns as though the name meant one thing
+ * yields a number with no meaning. So the contract states what each field MEANS
+ * and the adapter subtracts where it must:
+ *
+ *   input       prompt tokens billed fresh — never counting cache reads
+ *   output      tokens generated, reasoning included
+ *   cacheRead   prompt tokens served from cache
+ *   cacheWrite  prompt tokens written to cache for later turns
+ *   reasoning   the part of `output` spent thinking
+ *
+ * Where the numbers live is the adapter's business, not the dictionary's:
+ * `message.usage` for Claude, `tokens` at the record root for Gemini, and for
+ * Codex `payload.info.last_token_usage` — the per-turn one. Never Codex's
+ * `total_token_usage`, which is cumulative: summing it counts every turn again.
+ *
+ * **Absence is not zero.** An agent that recorded nothing yields `null`, and a
+ * field it does not keep stays `null`. A 0 would claim the agent did the thing
+ * and measured none of it, which is invariant 1 in another costume.
+ *
+ * Three agents record no usage at all, and two of them are worth naming:
+ *
+ *   Antigravity  keeps the model — `"model": "gemini-3.7-flash-high"` — but only
+ *                inside the protobuf store, never in transcript.jsonl, and no
+ *                token count anywhere. Its log's "token" strings are a Python
+ *                venv it happened to index. The cause is commercial, not
+ *                technical: agy is billed as a flat-rate subscription, so no
+ *                per-token figure is surfaced to the client at all. Tools that
+ *                display one ESTIMATE it, by counting turns per model inside
+ *                the gen_metadata BLOBs. Ariane does not: an estimate wearing a
+ *                measurement's clothes is the number this app exists not to
+ *                show. `usage` stays null, and the screen says "not recorded".
+ *   VS Code      records `max_output_tokens`, `max_prompt_tokens`,
+ *                `max_context_window_tokens` and `token_prices`. These are what
+ *                the model CAN do and what it COSTS per token — never what a
+ *                turn consumed. Reading them as usage yields numbers that look
+ *                right and mean nothing. Do not.
+ *
+ * @typedef {object} Usage
+ * @property {number|null} input
+ * @property {number|null} output
+ * @property {number|null} cacheRead
+ * @property {number|null} cacheWrite
+ * @property {number|null} reasoning
+ */
+
+/** The canonical fields, in the order the dictionary above lists them. */
+const USAGE_FIELDS = ['input', 'output', 'cacheRead', 'cacheWrite', 'reasoning'];
+
+/**
+ * Build the canonical usage from what an adapter managed to read.
+ *
+ * @param {Record<string, unknown>} counts  Canonical names to numbers. Anything
+ *   absent, negative or not a finite number is treated as not recorded.
+ * @returns {Usage|null}  Null when nothing at all was recorded, so a message
+ *   the agent never measured stays distinguishable from one measured at zero.
+ */
+function usageOf(counts) {
+  if (!counts || typeof counts !== 'object') return null;
+
+  const usage = { input: null, output: null, cacheRead: null, cacheWrite: null, reasoning: null };
+  let recorded = false;
+  for (const field of USAGE_FIELDS) {
+    const value = counts[field];
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) continue;
+    usage[field] = Math.trunc(value);
+    recorded = true;
+  }
+  return recorded ? usage : null;
+}
+
 /** Every field an adapter must provide, checked at registration time. */
 const REQUIRED = ['id', 'label', 'root', 'detect', 'discover', 'read'];
 
@@ -142,4 +229,4 @@ function globalSessionId(agentId, sessionId) {
   return `${agentId}:${sessionId}`;
 }
 
-module.exports = { assertAdapter, globalSessionId, REQUIRED };
+module.exports = { assertAdapter, globalSessionId, usageOf, REQUIRED, USAGE_FIELDS };

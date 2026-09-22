@@ -17,6 +17,8 @@
  */
 
 /** Tool payloads are kept only as a preview; the full text is never stored. */
+const { usageOf } = require('./agents/contract');
+
 const TOOL_PREVIEW_LIMIT = 2000;
 
 /** Record types that carry no conversational value. */
@@ -245,6 +247,7 @@ function noticeMessage(raw, text, detail) {
     gitBranch: str(raw.gitBranch),
     version: str(raw.version),
     model: '',
+    usage: null,
     text,
     thinking: '',
     parts: [{ type: 'text', text }],
@@ -272,6 +275,7 @@ function queuedMessage(raw, text) {
     gitBranch: '',
     version: '',
     model: '',
+    usage: null,
     text: cleaned,
     thinking: '',
     parts: cleaned ? [{ type: 'text', text: cleaned }] : [],
@@ -281,6 +285,25 @@ function queuedMessage(raw, text) {
     command,
     queued: true,
   };
+}
+
+/**
+ * Claude's `usage`, said in the contract's words.
+ *
+ * Nothing is subtracted: Claude's `input_tokens` already excludes what was
+ * served from cache, which is not true of every agent. The dictionary and the
+ * reason live in agents/contract.js.
+ */
+function claudeUsage(usage) {
+  if (!usage || typeof usage !== 'object') return null;
+  const details = usage.output_tokens_details || {};
+  return usageOf({
+    input: usage.input_tokens,
+    output: usage.output_tokens,
+    cacheRead: usage.cache_read_input_tokens,
+    cacheWrite: usage.cache_creation_input_tokens,
+    reasoning: details.thinking_tokens,
+  });
 }
 
 function extractMessage(raw) {
@@ -328,6 +351,7 @@ function extractMessage(raw) {
     gitBranch: str(raw.gitBranch),
     version: str(raw.version),
     model: str(message.model),
+    usage: claudeUsage(message.usage),
     text: joinedText,
     thinking: joined(thinkings),
     parts,
