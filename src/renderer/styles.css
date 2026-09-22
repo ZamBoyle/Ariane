@@ -191,6 +191,18 @@ body {
   cursor: pointer;
 }
 
+/* Le bouton des mises à jour : présent seulement quand il y a quelque chose à
+   dire, et coloré parce qu'il annonce plutôt qu'il ne commande. Il attend —
+   contrairement à un message qui s'efface, que personne ne revoit. */
+.update-btn {
+  color: var(--accent);
+}
+
+.update-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .icon-btn:hover {
   background: var(--bg-hover);
   color: var(--text);

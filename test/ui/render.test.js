@@ -1767,29 +1767,40 @@ async function run() {
   check('every row sits in one centred column',
     r.distinctLefts === 1, `${r.distinctLefts} alignements: ${[...new Set(r.lefts)].join(', ')}`);
 
-  // -- une version plus récente : on le dit, on ne télécharge rien ----------
-  const WAIT_TOAST = `(async () => {
-    const toast = document.getElementById('toast');
-    for (let i = 0; i < 80 && toast.hidden; i++) {
+  // -- une version plus récente : un bouton qui attend, rien qui s'efface ---
+  const WAIT_UPDATE = `(async () => {
+    const button = document.getElementById('update');
+    for (let i = 0; i < 80 && button.hidden; i++) {
       await new Promise((r) => setTimeout(r, 50));
     }
-    const button = toast.querySelector('.toast-action');
-    const seen = { hidden: toast.hidden, text: toast.textContent, button: button ? button.textContent : null };
-    if (button) button.click();
+    const gear = document.getElementById('settings');
+    const seen = {
+      hidden: button.hidden,
+      title: button.title,
+      label: button.getAttribute('aria-label') || '',
+      icon: button.dataset.iconOnly || '',
+      besideGear: button.nextElementSibling === gear,
+      toast: document.getElementById('toast').hidden,
+    };
+    if (!button.hidden) button.click();
     await new Promise((r) => setTimeout(r, 80));
     return { ...seen, opened: await window.api.releaseOpens() };
   })()`;
 
-  const annonce = await updateWindow('0.9.9', WAIT_TOAST);
-  check('une version plus récente est annoncée, avec son numéro',
-    !annonce.hidden && annonce.text.includes('0.9.9'), JSON.stringify(annonce.text));
-  check('et un bouton mène à la page de la version',
-    Boolean(annonce.button), `bouton : ${annonce.button}`);
-  check('le bouton ouvre la page, et rien d\'autre ne part',
+  const annonce = await updateWindow('0.9.9', WAIT_UPDATE);
+  check('une version plus récente fait apparaître un bouton, à côté de l\'engrenage',
+    !annonce.hidden && annonce.besideGear,
+    `caché=${annonce.hidden} voisin de l'engrenage=${annonce.besideGear} icône=${annonce.icon}`);
+  check('son infobulle porte le numéro, et son nom dit quoi en faire',
+    annonce.title.includes('0.9.9') && annonce.label.includes('0.9.9') && annonce.label.length > annonce.title.length,
+    `${JSON.stringify(annonce.title)} · ${JSON.stringify(annonce.label)}`);
+  check('rien ne s\'affiche par-dessus la barre de recherche',
+    annonce.toast, `toast caché=${annonce.toast}`);
+  check('un clic ouvre la page, et rien d\'autre ne part',
     annonce.opened === 1, `ouvertures : ${annonce.opened}`);
 
-  const silence = await updateWindow(null, WAIT_TOAST);
-  check('à jour, rien n\'est dit',
+  const silence = await updateWindow(null, WAIT_UPDATE);
+  check('à jour, le bouton n\'apparaît jamais',
     silence.hidden && silence.opened === 0, `caché=${silence.hidden} ouvertures=${silence.opened}`);
 
   return report();

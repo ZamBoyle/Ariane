@@ -167,6 +167,7 @@ const el = {
   filter: document.getElementById('filter'),
   refresh: document.getElementById('refresh'),
   settings: document.getElementById('settings'),
+  update: document.getElementById('update'),
   settingsDialog: document.getElementById('settings-dialog'),
   favorite: document.getElementById('favorite'),
   part: document.getElementById('part'),
@@ -283,12 +284,15 @@ async function announceUpdate() {
   // `call()` unwraps the envelope: what arrives is the decision itself.
   if (!answer || !answer.update) return;
 
-  toast(t('update-available', { version: answer.version }), false, {
-    label: t('update-open'),
-    run: () => {
-      api.openRelease().catch(() => {});
-    },
-  });
+  // A button rather than a message that fades. Ten seconds is the right life
+  // for a failure someone can fix now; an available version is not urgent and
+  // must still be there when they look up. It sits beside the gear that turned
+  // the check on, so whoever wonders where it came from has the answer within
+  // reach.
+  const said = t('update-available', { version: answer.version });
+  el.update.title = said;
+  el.update.setAttribute('aria-label', `${said} ${t('update-open')}`);
+  el.update.hidden = false;
 }
 
 /**
@@ -363,6 +367,12 @@ function wireEvents() {
   decorate();
   el.refresh.addEventListener('click', () => refresh());
   el.settings.addEventListener('click', () => settingsDialog.open());
+  // The page, in the browser. Ariane downloads nothing and runs nothing: the
+  // packages are unsigned, and an app that installed its own binary would be
+  // asking to be trusted for something it cannot prove.
+  el.update.addEventListener('click', () => {
+    api.openRelease().catch(() => {});
+  });
   el.favorite.addEventListener('click', onToggleFavorite);
   el.partPrevious.addEventListener('click', () => goToPart(-1));
   el.partNext.addEventListener('click', () => goToPart(1));
