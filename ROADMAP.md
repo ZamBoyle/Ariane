@@ -18,15 +18,8 @@ longtemps reposé sur quelqu'un qui lançait les tests à la main, sur une seule
 `.github/workflows/test.yml` lance les quatre suites sur Ubuntu, Windows et macOS à chaque poussée,
 `fail-fast` désactivé pour qu'un échec n'en cache pas un autre.
 
-| | Unitaires | Rendu | Mise en page | Accueil |
-|---|---|---|---|---|
-| linux | 684 / 684 | 155 | 26 | 7 |
-| macos | 684 / 684 | 155 | 26 | 7 |
-| windows | 668 / 669 | 155 | 26 | 7 |
-
-Sous Windows, quinze tests ne s'exécutent pas et un est compté sans être passé : ce sont les skips
-`POSIX_ONLY` de `terminal.test.js`, déclarés avec leur raison — bits d'exécution, shebangs,
-exécutables sans extension. Une abstention écrite, pas un trou.
+Les chiffres des quatre suites, par système, vivent dans `ARCHITECTURE.fr.md` § 12 — mesurés,
+datés, et à un seul endroit.
 
 **Ce que la première exécution a trouvé, et ce qu'elle n'a pas trouvé.** Onze échecs sous Windows,
 trois sous macOS, et **pas un seul défaut du produit**. Le code gérait déjà la casse de `Path`, la
@@ -134,20 +127,21 @@ bouge pas.
 
 ## Ordre proposé
 
-Le huitième est fait depuis le 22 septembre 2026 : la CI tourne sur les trois systèmes et la 0.2.0
-est publiée. Ce qui reste tient en un chantier et quatre broutilles.
+Le huitième est fait depuis le 22 septembre 2026 : la CI tourne sur les trois systèmes, et la
+0.3.1 est publiée. Ce qui reste tient en un chantier et quatre broutilles.
 
 **13.** À moitié fait : Ariane **prévient** depuis le 22 septembre 2026, sur les cinq paquets.
 Reste la mise à jour en place de l'AppImage, la seule cible qui le permette sans certificat.
 
-**Et quatre choses plus petites, par ce qu'elles coûtent :**
+**Et cinq choses plus petites, par ce qu'elles coûtent :**
 
 - **Le `.dmg` est arm64 uniquement.** Les runners macOS sont en Apple Silicon, donc un Mac Intel ne
   peut pas l'ouvrir. Se règle par une cible universelle ou une seconde construction x64.
-- **Une trentaine de mégaoctets inutiles** dans chaque paquet : 9,1 Mo de code source C que rien ne
-  compilera jamais, 15 Mo de binaires pour d'autres systèmes, 7 Mo de langues que l'application
-  n'affiche pas. Le premier est gratuit à retirer ; le deuxième est exactement le genre de filtrage
-  malin qui a déjà expédié un binaire faux ici, et ne se fait qu'avec vérification.
+- **Une vingtaine de mégaoctets encore inutiles** dans chaque paquet : 15 Mo de binaires pour
+  d'autres systèmes, 7 Mo de langues que l'application n'affiche pas. Les 9,9 Mo de sources C sont
+  partis le 23 septembre 2026 (0.3.1), mais les binaires sont un autre travail : c'est exactement le
+  genre de filtrage malin qui a déjà expédié un binaire faux ici, et il ne se fait qu'avec la
+  vérification octet par octet.
 - **Le lancement d'un terminal et l'ouverture d'un dossier** sous Windows et macOS : les deux seuls
   endroits où Ariane sort d'elle-même, jamais essayés là-bas, et qu'aucun test ne peut atteindre
   puisque aucun n'a le droit de toucher un vrai terminal.

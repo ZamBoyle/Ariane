@@ -1,10 +1,11 @@
 # Runs the four suites on the three systems Ariane claims to support.
 #
 # "Works everywhere" was requirement number one and had never been checked
-# anywhere but on one developer's Linux machine. Expect Windows to be red at
-# first: eight unit tests hardcode POSIX paths in their expectations, and
-# marks.test.js fails on a file lock Windows does not forgive. Both are real
-# portability defects, and this workflow exists to stop them hiding.
+# anywhere but on one developer's Linux machine. Its first run found fourteen
+# failures — eleven on Windows, three on macOS — and not one of them was a
+# defect of the product: the expectations had been written from a single
+# machine. All are fixed, and the three systems have been green since
+# 22 September 2026. Keep them that way.
 #
 # fail-fast is off on purpose. A Windows failure must not cancel the macOS run:
 # a matrix that stops at the first red tells you less than one that finishes.

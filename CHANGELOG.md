@@ -7,9 +7,79 @@ Chaque entrée dit trois choses : **ce que ça change** pour la personne qui s'e
 été mesuré**, et **ce qu'on a trouvé de cassé en chemin** — car presque aucun de ces travaux n'a
 révélé ce qu'on croyait.
 
-Les chiffres du corpus de référence vivent dans `ARCHITECTURE.fr.md` § 12, datés.
+Les chiffres du corpus **et ceux des suites** vivent dans `ARCHITECTURE.fr.md` § 12, mesurés et
+datés. Ils ne sont recopiés nulle part ailleurs : quatre documents en ont déjà porté trois
+différents.
+
+## Versions publiées
+
+Les entrées ci-dessous sont classées par date, parce que c'est la date qui explique une décision.
+Voici à quelle version chacune appartient.
+
+| Version | Date | Ce qu'elle apporte |
+|---|---|---|
+| [0.3.1](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.1) | 23 sept. 2026 | le paquet n'emporte plus les sources C : −2,2 Mo |
+| [0.3.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.0) | 23 sept. 2026 | Ariane prévient qu'une version existe ; l'icône de la barre des tâches |
+| [0.2.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.2.0) | 22 sept. 2026 | la première version téléchargeable ; la CI sur trois systèmes ; les jetons indexés |
 
 ---
+
+## 23 septembre 2026
+
+### Le paquet n'emporte plus ce que rien ne compilera
+
+**Ce que ça change.** Le `.deb` passe de 109 778 632 à 107 526 488 octets, l'AppImage de 131,5 à
+128,9 Mo. Personne ne téléchargera plus 2,2 Mo pour rien.
+
+**Ce qui partait pour rien.** `better-sqlite3` livre son binaire déjà construit, **et aussi de quoi
+le construire** : 9,9 Mo dans `deps/`, dont 9,1 de source C de SQLite, plus des `gypi`, des patches
+et un script de téléchargement ; et 172 Ko de C++ dans `src/`. Tout cela voyageait dans chaque
+paquet depuis toujours, pour une chaîne de compilation qui ne tourne jamais — c'était tout le sens
+du passage à Node-API l'avant-veille.
+
+**Vérifié avant d'exclure**, parce qu'un paquet allégé qui ne s'ouvre plus serait pire : rien dans
+`lib/` ne référence `deps/`, et le paquet produit ouvre toujours une base — `better-sqlite3` chargé
+depuis `app.asar.unpacked`, une ligne écrite, SQLite 3.53.4.
+
+**Ce qui reste, et pourquoi.** Les 17 Mo de `prebuilds/` : sept des huit binaires sont inutiles sur
+un système donné, mais ce sont eux qui rendent la construction croisée juste par construction. Les
+filtrer demande la vérification octet par octet qu'on réserve à un travail à part.
+
+### Ce que la documentation racontait de faux
+
+**Une session d'IA a relu les documents sans rien savoir du projet**, en répondant deux fois à
+chaque question — ce que dit la documentation, puis ce que dit le code — et en signalant chaque
+écart. Le résultat vaut d'être gardé, parce qu'il dit comment une documentation pourrit.
+
+**Le pire était un piège de perte de données.** `ARCHITECTURE` § 15 disait : ajouter une donnée
+indexée, c'est `extract.js` **et** hausser `SCHEMA_VERSION`. C'est nécessaire et **insuffisant** : il
+faut aussi `ARCHIVE_MESSAGE_COLUMNS` et `ARCHIVED_MESSAGE_DEFAULTS`, dont les noms n'apparaissaient
+dans aucun document. Quelqu'un qui suivait l'architecture à la lettre reproduisait exactement le
+défaut expédié l'avant-veille — `no such column: tok_input` — et le reproduisait dans le seul code
+dont le travail est d'empêcher qu'on perde des conversations. La § 4 le dit maintenant, dans les
+deux langues.
+
+**Le reste était de la pourriture par recopie.** Quatre documents portaient trois totaux de tests
+différents — 673, 684, 707 — et `README.fr.md` se contredisait lui-même à 240 lignes d'écart. Le
+plus cinglant : la § 12 de l'architecture avait prévu ça par écrit, *« trois documents ont déjà
+porté trois totaux différents »*, et s'était instituée seule dépositaire. Quatre documents ont
+continué à recopier. Les chiffres sont désormais **au seul endroit qui les réclamait**, et les
+autres y renvoient.
+
+**Et une leçon sur les demi-corrections.** `CLAUDE.md` annonçait « 707/707 sous Linux, 668/669 sous
+Windows » : le second chiffre est l'arithmétique d'un total de 684. Une moitié de phrase avait été
+mise à jour, l'autre non — une erreur qu'aucun test ne peut attraper et qu'aucune relecture rapide
+ne voit.
+
+**Restaient enfin trois affirmations devenues fausses** : le commentaire en tête de `test.yml`
+annonçait un Windows rouge réparé la veille ; la ROADMAP donnait la 0.2.0 pour dernière version et
+listait comme « gratuits à retirer » les 9,1 Mo retirés deux heures plus tôt ; et `CLAUDE.md`
+comptait deux suites Electron là où il y en a trois, plus trois points de feuille de route tous
+livrés.
+
+**Ce qui manquait.** Un `CONTRIBUTING.md` : la procédure de publication n'existait que dans
+`CLAUDE.md`, qui est ignoré par git et ne partira jamais. Un dépôt public sous GPL n'avait aucune
+mécanique de contribution écrite.
 
 ## 22 septembre 2026
 

@@ -213,9 +213,13 @@ and what it cost to measure; [`ROADMAP.md`](ROADMAP.md) what is left.
 
 ## Development
 
+How to run it, what must pass before a change is sent, and how a version is published:
+[`CONTRIBUTING.md`](CONTRIBUTING.md). The long form — the data path, the invariants, the traps —
+is in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
 ```bash
-npm test              # 673 unit tests, no framework (node --test)
-npm run test:render   # 155 renderer checks, under Electron
+npm test              # the unit suite, no framework (node --test)
+npm run test:render   # the real renderer, under Electron
 npm run test:ui       # 26 layout checks
 npm run test:splash   # 7 checks on the splash screen
 npm run test:all      # all four

@@ -187,6 +187,22 @@ forward. The other assistants compact in place — measured — and are unaffect
 unchanged file is skipped and would never see the new rules. That is precisely why the archive
 exists.
 
+**A new column is four places, not two, and the two extra ones are the archive’s.** Adding one to
+`messages` means: the column in `schema.sql`, the `INSERT` in `db.js` (both its column list and its
+`@named` parameters), **`ARCHIVE_MESSAGE_COLUMNS`**, and **`ARCHIVED_MESSAGE_DEFAULTS`**. Forgetting
+either of the last two breaks the machinery whose only job is to stop conversations being lost:
+
+- The migration reads an index written by an **older** schema, so it must never name a column of
+  today’s — one that does not exist aborts the whole save, the save that runs *before* the tables
+  are dropped. `archiveMessagesSql()` builds its SELECT from `PRAGMA table_info` for that reason.
+  Measured the hard way when v10 added five token columns:
+  `index v9 could not be read for the archive (no such column: tok_input)`.
+- An archive file is **migrated, never dropped**, so one written before a column existed comes back
+  without it — and a named parameter the statement expects but the row does not carry is a throw,
+  not a null. Hence the defaults.
+
+`test/db.migration.test.js` holds both cases, and both were verified to fail without the fix.
+
 ---
 
 ## 5. Search
@@ -371,6 +387,22 @@ Two rules hold up everything else:
 **This is where the project’s numbers live.** The other documents point here rather than copying
 them: the corpus grows every day, and three documents have already carried three different totals.
 
+### The suites, measured by the CI on 23 September 2026
+
+| | Unit | Renderer | Layout | Splash |
+|---|---|---|---|---|
+| linux | 707 / 707 | 155 | 26 | 7 |
+| macos | 707 / 707 | 155 | 26 | 7 |
+| windows | 691 / 692 | 155 | 26 | 7 |
+
+Windows runs fifteen fewer and counts one without passing it: the `POSIX_ONLY` skips in
+`terminal.test.js`, declared with their reason — execute bits, shebang lines, executables with no
+extension. A stated abstention, not a hole. The renderer suite counts 160 checks at the time of
+writing; the number above is what the run reported and is the one to trust.
+
+**Do not copy these figures elsewhere.** Four documents have already carried three different totals,
+which is what this section exists to stop.
+
 The corpus, measured on **20 September 2026** on the development machine:
 
 | Assistant | Conversations | On disk | Prose |
@@ -465,6 +497,8 @@ the output of `git status` — passed every unit test of `speakerOf()` while the
 |---|---|
 | add an assistant | a module under `src/core/agents/`, then `agents/index.js`; read `contract.js` first |
 | change what gets indexed | `extract.js` or the agent’s `*-extract.js`, **and raise `SCHEMA_VERSION`** |
+| add a column to `messages` | `schema.sql`, the `INSERT` in `db.js`, **and both archive constants** — see § 4 |
+| touch marks | `src/core/marks.js`; they live in `marks.json`, never in the index |
 | add a sentence on screen | `src/locales/en.ftl` **and every other file**; never in the code |
 | add a language | drop in `src/locales/<tag>.ftl`; nothing else |
 | add an IPC channel | `src/main/ipc.js` (+ the `CHANNELS` list), then `src/preload/preload.js` |

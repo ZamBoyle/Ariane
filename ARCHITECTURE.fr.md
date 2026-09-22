@@ -193,6 +193,23 @@ montée **jette toutes les tables et reconstruit** depuis les fichiers des agent
 de secondes — car un fichier inchangé est ignoré et ne verrait jamais les nouvelles règles. C'est
 justement pourquoi l'archive existe.
 
+**Une colonne neuve, ce sont quatre endroits et non deux — et les deux qu'on oublie sont ceux de
+l'archive.** En ajouter une à `messages` demande : la colonne dans `schema.sql`, l'`INSERT` de
+`db.js` (sa liste de colonnes **et** ses paramètres `@nommés`), **`ARCHIVE_MESSAGE_COLUMNS`** et
+**`ARCHIVED_MESSAGE_DEFAULTS`**. En oublier un des deux derniers casse précisément la mécanique dont
+le seul travail est d'empêcher qu'on perde des conversations :
+
+- La migration lit un index écrit par un schéma **antérieur**, donc elle ne peut jamais nommer une
+  colonne d'aujourd'hui — une qui n'existe pas fait échouer la sauvegarde entière, celle-là même qui
+  doit précéder le vidage des tables. C'est pourquoi `archiveMessagesSql()` construit sa requête
+  depuis `PRAGMA table_info`. Constaté à la dure quand la v10 a ajouté cinq colonnes de jetons :
+  `index v9 could not be read for the archive (no such column: tok_input)`.
+- Un fichier d'archive est **migré, jamais jeté**, donc un fichier écrit avant l'existence d'une
+  colonne revient sans cette clé — et un paramètre nommé que la requête attend mais que la ligne ne
+  porte pas fait **lever**, pas `null`. D'où les valeurs par défaut.
+
+`test/db.migration.test.js` garde les deux cas, tous deux vérifiés en échec sans le correctif.
+
 ---
 
 ## 5. La recherche
@@ -386,6 +403,21 @@ dans `ipc.js`) et la partage avec tout appel qui arrive pendant qu'elle tourne.
 plutôt que de les recopier : le corpus grossit tous les jours, et trois documents ont déjà porté
 trois totaux différents.
 
+### Les suites, mesurées par la CI le 23 septembre 2026
+
+| | Unitaires | Rendu | Mise en page | Accueil |
+|---|---|---|---|---|
+| linux | 707 / 707 | 155 | 26 | 7 |
+| macos | 707 / 707 | 155 | 26 | 7 |
+| windows | 691 / 692 | 155 | 26 | 7 |
+
+Windows en exécute quinze de moins et en compte un sans le passer : ce sont les `POSIX_ONLY` de
+`terminal.test.js`, déclarés avec leur raison — bits d'exécution, shebangs, exécutables sans
+extension. Une abstention écrite, pas un trou.
+
+**Ne recopiez pas ces chiffres ailleurs.** Quatre documents en ont déjà porté trois différents, et
+c'est précisément ce que cette section existe pour empêcher.
+
 Le corpus, mesuré le **20 septembre 2026** sur la machine de développement :
 
 | Assistant | Conversations | Sur disque | Prose |
@@ -480,6 +512,8 @@ de `git status` — passait tous les tests unitaires de `speakerOf()` pendant qu
 |---|---|
 | ajouter un assistant | un module sous `src/core/agents/`, puis `agents/index.js` ; lire `contract.js` d'abord |
 | changer ce qui est indexé | `extract.js` ou le `*-extract.js` de l'agent, **et hausser `SCHEMA_VERSION`** |
+| ajouter une colonne à `messages` | `schema.sql`, l'`INSERT` de `db.js`, **et les deux constantes d'archive** — voir § 4 |
+| toucher aux marques | `src/core/marks.js` ; elles vivent dans `marks.json`, jamais dans l'index |
 | ajouter une phrase à l'écran | `src/locales/en.ftl` **et tous les autres fichiers** ; jamais dans le code |
 | ajouter une langue | déposer `src/locales/<étiquette>.ftl` ; rien d'autre |
 | ajouter un canal IPC | `src/main/ipc.js` (+ la liste `CHANNELS`), puis `src/preload/preload.js` |

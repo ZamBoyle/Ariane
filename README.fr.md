@@ -186,7 +186,8 @@ npm start
 ```
 
 C'est tout. Vérifié en clonant le dépôt dans un dossier vierge : `npm install`
-puis `npm test` passent les 684 tests sans autre préparatif.
+puis `npm test` passent sans autre préparatif. Les chiffres des suites vivent dans
+[`ARCHITECTURE.fr.md`](ARCHITECTURE.fr.md) § 12, mesurés et datés.
 
 **Prérequis : Node 22.14 ou plus récent, et rien d'autre.** En particulier,
 *aucun compilateur C++ n'est nécessaire* — contrairement à ce qu'on attend d'un
@@ -427,9 +428,13 @@ oblige désormais chaque type écarté à prouver qu'il ne contient rien de vous
 
 ## Développement
 
+Comment lancer le projet, ce qui doit passer avant d'envoyer un changement, et comment une version
+est publiée : [`CONTRIBUTING.md`](CONTRIBUTING.md). La version longue — le chemin de données, les
+invariants, les pièges — vit dans [`ARCHITECTURE.fr.md`](ARCHITECTURE.fr.md).
+
 ```bash
-npm test              # 673 tests unitaires, sans framework (node --test)
-npm run test:render   # 155 vérifications de rendu, sous Electron
+npm test              # la suite unitaire, sans framework (node --test)
+npm run test:render   # le vrai moteur de rendu, sous Electron
 npm run test:ui       # 26 vérifications de mise en page
 npm run test:splash   # 7 vérifications de l'écran d'accueil
 npm run test:all      # les quatre
