@@ -22,8 +22,11 @@ test('configDir ignores a blank override', () => {
 
 test('derived paths hang off the config dir', () => {
   const env = { CLAUDE_CONFIG_DIR: '/c' };
-  assert.equal(paths.projectsDir(env, '/h'), path.join('/c', 'projects'));
-  assert.equal(paths.historyFile(env, '/h'), path.join('/c', 'history.jsonl'));
+  // `configDir` résout le chemin donné, ce qui sous Windows lui ajoute une
+  // lettre de lecteur : l'attendu doit résoudre aussi, pas seulement joindre.
+  const racine = path.resolve('/c');
+  assert.equal(paths.projectsDir(env, '/h'), path.join(racine, 'projects'));
+  assert.equal(paths.historyFile(env, '/h'), path.join(racine, 'history.jsonl'));
   assert.equal(paths.sessionsIndexFile('/c/projects/-a-b'),
     path.join('/c/projects/-a-b', 'sessions-index.json'));
 });

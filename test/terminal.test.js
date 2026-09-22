@@ -19,6 +19,11 @@ const path = require('node:path');
 
 const { findExecutable, LINUX_TERMINALS } = require('../src/main/terminal');
 
+// Ce que Windows ne peut pas jouer : un bit d'exécution, une ligne shebang,
+// un exécutable sans extension. Défini ici plutôt que plus bas, pour servir
+// dès le premier bloc.
+const POSIX_ONLY = { skip: process.platform === 'win32' && 'execute bits and shebang lines are POSIX' };
+
 test.describe('finding a command', () => {
   test('resolves something on PATH to an absolute path', () => {
     const found = findExecutable('sh');
@@ -27,7 +32,9 @@ test.describe('finding a command', () => {
   });
 
   test('accepts an absolute path that is executable', () => {
-    assert.equal(findExecutable('/bin/sh'), '/bin/sh');
+    // Le binaire de Node : le seul exécutable dont on soit certain sur les
+    // trois systèmes. `/bin/sh` n'existe pas sous Windows.
+    assert.equal(findExecutable(process.execPath), process.execPath);
   });
 
   test('refuses an absolute path that is not', () => {
@@ -40,7 +47,9 @@ test.describe('finding a command', () => {
 
   // The actual bug: the binary exists, but only in a per-user directory that a
   // desktop session never has on its PATH.
-  test('finds a command installed outside PATH, under a version manager', (t) => {
+  // L'arborescence est celle de nvm, et l'outil est un script sans extension
+  // avec un shebang : rien de cela n'a de sens sous Windows.
+  test('finds a command installed outside PATH, under a version manager', POSIX_ONLY, (t) => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ccb-home-'));
     const bin = path.join(home, '.nvm', 'versions', 'node', 'v22.12.0', 'bin');
     fs.mkdirSync(bin, { recursive: true });
@@ -191,8 +200,6 @@ function fakeHome(t) {
   });
   return home;
 }
-
-const POSIX_ONLY = { skip: process.platform === 'win32' && 'execute bits and shebang lines are POSIX' };
 
 test.describe('the command the person chose', POSIX_ONLY, () => {
   test('is used as stated, even where detection would find another', (t) => {

@@ -645,7 +645,13 @@ test.describe('the settings', () => {
     assert.equal(data.agents.qwen.command, '/opt/qwen', 'an assistant not named is left alone');
     assert.equal(data.theme, 'sombre');
     const codex = reply.data.agents.find((a) => a.id === 'codex');
-    assert.deepEqual(codex.check, { ok: false, reason: 'setting-unusable', detail: '/nulle/part/codex' });
+    // `detail` est le chemin tel que l'application le comprend, donc normalisé
+    // pour le système : sous Windows, des antislashs.
+    assert.deepEqual(codex.check, {
+      ok: false,
+      reason: 'setting-unusable',
+      detail: path.normalize('/nulle/part/codex'),
+    });
   });
 
   test('saving over an unreadable file is refused, and the file left as it was', async (t) => {
@@ -666,8 +672,10 @@ test.describe('the settings', () => {
     const ctx = setupIpc();
     t.after(ctx.teardown);
     ctx.start();
-    const sh = (await invoke('settings:check', { id: 'claude', command: '/bin/sh' })).data;
-    assert.deepEqual(sh, { ok: true, executable: '/bin/sh', chosen: true });
+    // Le binaire de Node plutôt que /bin/sh : il existe sur les trois systèmes.
+    const exe = process.execPath;
+    const sh = (await invoke('settings:check', { id: 'claude', command: exe })).data;
+    assert.deepEqual(sh, { ok: true, executable: exe, chosen: true });
     const relative = (await invoke('settings:check', { id: 'claude', command: 'bin/claude' })).data;
     assert.equal(relative.reason, 'setting-not-absolute');
   });
@@ -736,7 +744,7 @@ test.describe('the settings', () => {
     assert.equal(reply.ok, true);
     assert.equal(reply.data.ok, false);
     assert.equal(reply.data.reason, 'setting-unusable');
-    assert.equal(reply.data.detail, '/nulle/part/claude');
+    assert.equal(reply.data.detail, path.normalize('/nulle/part/claude'));
     assert.equal(reply.data.command, 'claude');
     assert.equal(reply.data.agentId, 'claude', 'so the window opens on that assistant');
     assert.match(reply.data.display, /^claude --resume s1$/);

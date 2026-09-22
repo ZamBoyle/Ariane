@@ -312,10 +312,15 @@ test.describe('the rest of the app', () => {
     const { ctx } = setup(t);
     const gemini = registry.byId('gemini');
     assert.notEqual(adapter.root(ctx), gemini.root(ctx));
-    assert.equal(adapter.root({ env: {}, home: '/home/ada' }), '/home/ada/.gemini/antigravity-cli');
+    // `path.join` des deux côtés : l'attendu doit être construit comme le
+    // code le construit, sinon il n'est vrai que là où le séparateur est `/`.
+    assert.equal(
+      adapter.root({ env: {}, home: '/home/ada' }),
+      path.join('/home/ada', '.gemini', 'antigravity-cli')
+    );
     assert.equal(
       adapter.root({ env: { GEMINI_CONFIG_DIR: '/ailleurs' }, home: '/home/ada' }),
-      '/ailleurs/antigravity-cli'
+      path.join('/ailleurs', 'antigravity-cli')
     );
     assert.equal(adapter.root({ env: { ANTIGRAVITY_CLI_DIR: '/precis' } }), '/precis');
   });
