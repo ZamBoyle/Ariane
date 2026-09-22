@@ -49,6 +49,7 @@
     "prettier": "~3.4.2"
   },
   "productName": "Ariane",
+  "desktopName": "ariane.desktop",
   "build": {
     "appId": "net.zam.ariane",
     "productName": "Ariane",
@@ -79,7 +80,8 @@
       "category": "Utility",
       "maintainer": "Johnny Piette <johnny.piette@gmail.com>",
       "synopsis": "Browse and search your past AI coding conversations",
-      "description": "Ariane indexes the conversation history left on disk by Claude Code, Codex, Copilot CLI, Qwen, Gemini, the Antigravity CLI and the VS Code chat panel, and presents it grouped by the working directory each conversation happened in."
+      "description": "Ariane indexes the conversation history left on disk by Claude Code, Codex, Copilot CLI, Qwen, Gemini, the Antigravity CLI and the VS Code chat panel, and presents it grouped by the working directory each conversation happened in.",
+      "syncDesktopName": true
     },
     "win": {
       "target": [
