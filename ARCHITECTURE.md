@@ -226,7 +226,13 @@ copy left. The rules, each held up by a test:
 
 - Window: `contextIsolation`, `sandbox`, no Node integration.
 - A CSP set on every response (`main.js`): `default-src 'none'`, `script-src 'self'`,
-  `connect-src 'none'`. No remote code, no `eval`, no network.
+  `connect-src 'none'`. No remote code, no `eval`, and the window reaches nothing.
+- **One request exists, and only if the person asked for it.** `settings.json`'s `updateCheck` —
+  `never` unless turned on — lets the MAIN process ask GitHub once per launch whether a newer
+  version exists (`src/main/update-check.js`). It is read before anything leaves the machine, so a
+  refusal makes no request at all rather than hiding its result. What comes back is a version and a
+  link; nothing is downloaded and nothing is run, because no package is signed. The url opened is
+  rebuilt from the manifest, never taken from the window.
 - Navigation and external windows refused: a link opens in the system browser.
 - **The renderer is not trusted**: every channel validates its payload (`asInt` rejects objects,
   `asId` refuses a doubtful id, only a real `true` counts as true). Handlers return `{ok, data}` or
@@ -465,3 +471,4 @@ the output of `git status` — passed every unit test of `speakerOf()` while the
 | touch search | `src/core/query.js` (the expression), `db.search` (the filters), `app.js` (the display) |
 | touch export | `src/renderer/export-document.js` (layout), `src/main/export.js` (file, PDF) |
 | change how a CLI is found | `src/main/terminal.js`, remembering that the settings win |
+| touch the update check | `src/core/update.js` (comparing), `src/main/update-check.js` (asking), `app.js` (the button) |

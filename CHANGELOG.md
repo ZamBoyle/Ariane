@@ -52,6 +52,10 @@ chose.
 plutôt que le code : le bouton est bien le voisin de l'engrenage, et rien ne s'affiche par-dessus la
 barre de recherche. Les huit messages existent dans les neuf langues.
 
+**Et éprouvé contre le vrai monde, le 23 septembre 2026** : une 0.3.0 installée, le réglage allumé,
+l'application relancée — le bouton est apparu, il annonçait la 0.3.1, et le clic a ouvert sa page.
+C'est le seul maillon qu'aucun test ne peut couvrir, puisque aucun n'a le droit d'atteindre GitHub.
+
 ### L'icône que le bureau refusait à la fenêtre
 
 **Signalé à l'usage.** La barre des tâches n'affichait pas Ariane mais une icône générique de

@@ -234,7 +234,14 @@ seule copie. Les règles, chacune tenue par un test :
 
 - Fenêtre : `contextIsolation`, `sandbox`, pas d'intégration Node.
 - CSP posée sur chaque réponse (`main.js`) : `default-src 'none'`, `script-src 'self'`,
-  `connect-src 'none'`. Aucun code distant, aucun `eval`, aucun réseau.
+  `connect-src 'none'`. Aucun code distant, aucun `eval`, et la fenêtre n'atteint rien.
+- **Une seule requête existe, et seulement si la personne l'a demandée.** La clé `updateCheck` de
+  `settings.json` — `never` tant qu'on ne l'allume pas — autorise le processus PRINCIPAL à demander
+  à GitHub, une fois par lancement, s'il existe une version plus récente
+  (`src/main/update-check.js`). Elle est lue avant que quoi que ce soit ne quitte la machine : un
+  refus ne fait aucune requête, plutôt que d'en masquer le résultat. Ce qui revient est un numéro et
+  un lien ; rien n'est téléchargé et rien n'est exécuté, aucun paquet n'étant signé. L'adresse
+  ouverte est reconstruite depuis le manifeste, jamais reçue de la fenêtre.
 - Navigation et fenêtres extérieures refusées : un lien s'ouvre dans le navigateur du système.
 - **Le moteur de rendu n'est pas digne de confiance** : chaque canal valide sa charge
   (`asInt` rejette les objets, `asId` refuse un identifiant douteux, seul un `true` vaut vrai).
@@ -479,3 +486,4 @@ de `git status` — passait tous les tests unitaires de `speakerOf()` pendant qu
 | toucher à la recherche | `src/core/query.js` (expression), `db.search` (filtres), `app.js` (affichage) |
 | toucher à l'export | `src/renderer/export-document.js` (mise en page), `src/main/export.js` (fichier, PDF) |
 | changer la façon dont une CLI est trouvée | `src/main/terminal.js`, et se souvenir que les réglages priment |
+| toucher à la vérification de version | `src/core/update.js` (comparer), `src/main/update-check.js` (demander), `app.js` (le bouton) |
