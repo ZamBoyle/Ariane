@@ -20,8 +20,31 @@ permissions:
   contents: write
 
 jobs:
+  # The tag names the release; package.json names the files inside it. Nothing
+  # confronted the two, so a tag pushed one bump too early would publish
+  # "v0.2.0" holding "Ariane 0.1.0.exe" — and the logs would say nothing.
+  guard:
+    name: the tag says what package.json says
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          if [[ "$GITHUB_REF" != refs/tags/* ]]; then
+            echo "not a tag: nothing to compare"
+            exit 0
+          fi
+          declared=$(node -p "require('./package.json').version")
+          tagged="${GITHUB_REF_NAME#v}"
+          echo "package.json says $declared, the tag says $tagged"
+          if [[ "$declared" != "$tagged" ]]; then
+            echo "::error::the tag says $tagged and package.json says $declared"
+            exit 1
+          fi
+
   build:
     name: ${{ matrix.name }}
+    needs: guard
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -66,6 +89,12 @@ jobs:
 
       # ignore-scripts=true lives in .npmrc: nothing here needs building.
       - run: npm ci
+
+      # A last gate on this system, before anything is packaged. The four
+      # suites already run on every push (test.yml); this one runs again here
+      # because a tag can point at any commit, including one that never went
+      # through main. The display-free suite is enough to catch a broken build.
+      - run: npm test
 
       - run: npm run ${{ matrix.script }}
         env:
