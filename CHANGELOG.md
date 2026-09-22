@@ -11,6 +11,149 @@ Les chiffres du corpus de référence vivent dans `ARCHITECTURE.fr.md` § 12, da
 
 ---
 
+## 22 septembre 2026
+
+### Ariane se télécharge
+
+**Trouvé en jouant l'utilisateur.** « Je suis un simple utilisateur, j'ai nodejs parce qu'on le
+demande souvent et je n'ai rien d'autre. Je saurai installer Ariane ? » La réponse était **non** :
+aucune version n'était publiée, et les deux README faisaient commencer par `git clone`, c'est-à-dire
+par le chemin du développeur présenté comme le seul. Un Node de distribution — 18 sur Ubuntu 24.04,
+20 sur les plus récentes — passe sous le plancher et l'application serait morte à la première
+requête, sans un mot.
+
+**Ce que ça change.** La **0.2.0** attache neuf fichiers à sa release : l'AppImage qui ne réclame ni
+droits root ni gestionnaire de paquets, le `.deb`, l'installeur NSIS, le portable Windows, le `.dmg`,
+et les trois manifestes `latest*.yml` que lira un jour l'updater. 583 Mo au total. Le README
+« Installation » se lit désormais dans l'ordre où on en a besoin : télécharger d'abord, cloner
+ensuite.
+
+**Chaque cible est construite sur son propre système**, ce qui n'était jamais arrivé — les paquets
+Windows étaient croisés depuis Linux et vérifiés sous wine, et macOS n'avait jamais rien construit
+du tout.
+
+**Quatre tentatives, et chacune a appris quelque chose.** electron-builder **publie de lui-même**
+dès qu'une étiquette git est présente, et meurt alors sur un jeton qu'on ne lui a jamais donné —
+après avoir produit des paquets corrects ; `scripts/dist.js` lui impose désormais `--publish never`,
+parce que construire et publier sont deux décisions. Puis Windows est tombé sur
+`node_modules/.bin/electron-builder`, nom sans extension qui n'existe pas là-bas : le défaut était
+**consigné depuis la veille** dans une note de passation, avec la mention qu'il n'avait jamais gêné
+puisque tout était construit depuis Linux. Il a cessé d'être théorique le jour où la CI a construit
+nativement. Enfin `gh` cherchait un dépôt git dans un job qui n'en contient aucun.
+
+**Mesuré.** Les neuf artefacts sont rassemblés correctement, espaces compris — `Ariane 0.2.0.exe` a
+traversé un tableau bash sans se couper en deux. Le `.dmg` est **arm64 uniquement** : les runners
+macOS sont en Apple Silicon, et un Mac Intel ne pourra pas l'ouvrir. C'est écrit dans le README.
+
+### Trois systèmes, vérifiés à chaque poussée
+
+**Le problème.** « Fonctionne partout » était l'exigence n°1, et toute la qualité mesurée ici
+reposait sur quelqu'un qui lançait les suites à la main, sur une machine.
+
+**Ce que ça change.** `test.yml` lance les quatre suites sur Ubuntu, Windows et macOS à chaque
+poussée, `fail-fast` désactivé pour qu'un échec n'en cache pas un autre. `release.yml` construit sur
+étiquette, après un garde-fou qui refuse de publier si l'étiquette et `package.json` divergent — sans
+quoi une release « v0.2.0 » aurait pu contenir `Ariane 0.1.0.exe` sans que rien ne le dise.
+
+**Ce qu'elle a trouvé au premier tour, et c'est le plus intéressant.** Onze échecs sous Windows,
+trois sous macOS, et **pas un seul défaut du produit**. Le code gérait déjà la casse de `Path`, la
+résolution des variables d'environnement, la normalisation d'un chemin saisi. C'étaient quatorze
+tests écrits depuis une seule machine — dont trois qui **plantaient au lieu d'échouer**,
+`undefined.split()` sur un `env.PATH` que Windows épelle `Path`. Un autre supprimait un répertoire
+pendant que sa base SQLite était encore ouverte : Node exécute les crochets `after` dans l'ordre
+d'enregistrement, et la fermeture avait été enregistrée après la suppression. Linux pardonne,
+Windows répond `EPERM`.
+
+**Deux pièges du banc d'essai, notés parce qu'ils se reproduiront.** `xvfb-run` ouvre un écran de
+1280x1024 alors que la suite de mise en page demande une fenêtre de 1402 px — rognée, les six
+libellés néerlandais se serrent et le titre tombe à 195 px sous un seuil de 200. Et une fenêtre
+`show: false` n'a pas encore sa taille sous macOS quand sa page répond : **une taille demandée n'est
+pas une taille obtenue**, ce que la fenêtre principale savait déjà puisqu'elle passait par un
+`resizeTo` qui attend et lève.
+
+**Mesuré.** 684/684 sous Linux et macOS, 668/669 sous Windows, et 155 · 26 · 7 partout. Les quinze
+tests qui ne s'exécutent pas sous Windows sont les skips `POSIX_ONLY`, déclarés avec leur raison :
+une abstention écrite, pas un trou.
+
+### Ce que chaque tour a coûté
+
+**Ce que ça change.** L'index garde désormais les jetons d'un tour quand l'agent les a mesurés :
+entrée, sortie, cache lu, cache écrit, raisonnement. Le modèle, lui, était stocké depuis toujours et
+n'avait jamais été affiché.
+
+**Le dictionnaire, et pourquoi il ne suffit pas.** Quatre agents sur sept enregistrent des jetons,
+chacun avec ses mots — `cache_read_input_tokens` chez Claude, `cached_input_tokens` chez Codex,
+`cached` chez Gemini, `cacheReadTokens` chez Copilot. Le contrat porte la table de correspondance,
+mais surtout la **définition** de chaque champ : `input_tokens` exclut le cache chez Claude — mesuré,
+2 frais contre 24 641 lus — et l'**inclut** chez Codex, 2 692 dont 1 920 cachés. Additionner les deux
+colonnes parce qu'elles portent le même nom produirait un nombre sans signification.
+
+**Ce qu'Ariane refuse d'inventer.** Antigravity est facturé au forfait, donc aucun chiffre par jeton
+n'est exposé au client ; les outils qui en affichent un l'**estiment** depuis des BLOBs protobuf.
+Ariane ne l'estime pas. Et VS Code garde `max_output_tokens` et `token_prices`, qui disent ce que le
+modèle *peut* faire et ce qu'il *coûte* au jeton, jamais ce qu'un tour a consommé : les lire comme un
+usage donnerait des nombres justes d'allure et vides de sens. Une absence rend `null`, jamais zéro —
+l'invariant n°1 sous un autre costume.
+
+**Mesuré.** Claude enregistre un usage sur **32 376 messages assistant sur 32 376**, répartis en 429
+fichiers. Couverture totale.
+
+**Et un défaut expédié le soir, réparé le matin.** Les cinq nouvelles colonnes étaient nommées dans
+la requête que la migration utilise pour **sauver avant de vider** — sur une base qui ne les a pas :
+*« index v9 could not be read for the archive (no such column: tok_input) »*. La sauvegarde a échoué
+en entier et n'a dégradé proprement que par chance. La migration lit désormais ce que la base
+contient réellement, et la restauration tolère une archive écrite avant l'existence d'une colonne.
+
+### L'installation n'exécute plus aucun script
+
+**Le problème, remonté depuis un vrai poste Windows.** `npm install` échouait sur un `node-gyp
+rebuild` réclamant un Python introuvable — alors que `better-sqlite3` 13 ne déclare **aucun script**
+d'installation. C'est npm qui lance un `node-gyp rebuild` de lui-même pour tout paquet portant un
+`binding.gyp`, et il reconstruisait un binaire déjà livré dans le paquet.
+
+**Ce que ça change.** `.npmrc` pose `ignore-scripts=true`. L'arbre ne contient qu'un seul
+`binding.gyp` et qu'un seul autre script d'installation — celui d'electron-winstaller, pour une
+cible Squirrel que ces paquets n'utilisent pas. Ni Python, ni `make`, ni compilateur, sur aucun
+système. Le même fichier pose `engine-strict=true`, pour que npm **refuse** au lieu d'avertir sous un
+Node trop ancien.
+
+**Le détail cruel.** La machine en question *avait* Python 3.11, à deux emplacements. gyp les trouve
+et les rejette tous les deux — `version is ""`, *could not be run*. Installer Python n'y aurait rien
+changé.
+
+**Mesuré.** `npm ci` refait de zéro sans exécuter un seul script, puis les 870 vérifications des
+quatre suites passent. Sous un Node 22.12, l'installation s'arrête sur `EBADENGINE` en nommant les
+deux versions.
+
+---
+
+## 21 septembre 2026
+
+### Le piège ABI n'existe plus
+
+**Ce que c'était.** `better-sqlite3` était lié à un `NODE_MODULE_VERSION`, et Electron n'expose pas
+le même que le Node qui lance les tests. Charger le mauvais binaire n'est pas une erreur qu'on
+rattrape : le processus meurt d'un `SIGILL`, sans exception et sans message. Le dépôt portait donc
+deux binaires, un cache à sa racine, un module de sélection par chemin et un contrôle à
+l'empaquetage. Il avait quand même expédié deux paquets faux : un ELF dans `Ariane.exe`, puis une
+ABI 127 dans un `.deb` Electron qui s'installait, s'ouvrait, et mourait à sa première requête.
+
+**Ce que ça change.** `better-sqlite3` 13 est passé en **Node-API** : un binaire par système, livré
+dans le paquet, choisi par la bibliothèque elle-même. `new Database(chemin)` suffit. Cinq fichiers et
+vingt-et-une vérifications disparaissent avec le piège, ainsi que les scripts `postinstall` et
+`rebuild:*`. Une construction croisée devient juste **par construction** : `--win` depuis Linux
+emporte `win32-x64.node` parce que ce fichier était déjà dans `node_modules`.
+
+**Ce qui le remplace est un plancher.** Node-API 10, c'est-à-dire Node 22.14 et Electron 44. Il mord
+en silence : `better-sqlite3` déclare `engines: node >= 22`, plus large que ce qu'il supporte — un
+22.12 s'installe sans broncher puis meurt à la première requête.
+
+**Mesuré.** La liaison Linux du paquet installé importe **60 symboles `napi_` et zéro symbole V8** :
+elle ne peut structurellement plus être attachée à une version d'ABI. Le paquet transporte les huit
+binaires, chacun du bon type — ELF pour Linux, DLL PE32+ pour Windows, Mach-O pour macOS.
+
+---
+
 ## 20 septembre 2026
 
 ### Le mot cherché est surligné là où il se trouve

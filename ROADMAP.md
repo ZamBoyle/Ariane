@@ -87,12 +87,56 @@ moniteurs identiques : une fenêtre maximisée ne peint qu'environ 70 % de sa la
 l'échelle ni la géométrie ne l'expliquent, et il n'a pas été reproduit sur un Linux natif ni sous
 Windows en natif — [issue 1](https://github.com/ZamBoyle/Ariane/issues/1).
 
+## 13. Se mettre à jour
+
+**Le problème.** Depuis la 0.2.0, Ariane se télécharge. Mais une fois installée, elle ne sait pas
+qu'une version plus récente existe, et rien ne le lui dira : il n'y a ni canal, ni notification, ni
+gestionnaire de paquets derrière elle.
+
+**Le piège, et c'est lui qui décide de toute la conception : rien n'est signé.**
+
+| Cible | Mise à jour automatique sans certificat |
+|---|---|
+| **AppImage** | **oui** — `electron-updater` la fait sans signature ni droits root |
+| `.deb` | possible via `pkexec`, mais se bat avec dpkg et réclame un mot de passe |
+| **NSIS** | techniquement oui, mais chaque `.exe` téléchargé rouvre SmartScreen — et l'application exécuterait seule un binaire non signé |
+| **`.dmg`** | **non** — Squirrel.Mac exige une application signée. Blocage dur |
+
+D'où **un mécanisme, deux modes**, décidés à l'exécution par la manière dont l'application a été
+installée : `process.env.APPIMAGE` est posé par le lanceur AppImage, et c'est le seul discriminant
+fiable. En AppImage, mise à jour complète et en place. Ailleurs, un bandeau qui prévient et un
+bouton vers la page de la release — **rien n'est téléchargé, rien n'est exécuté**.
+
+**Ce qui existe déjà et n'est pas à écrire.** La release attache ses `latest-linux.yml`,
+`latest-mac.yml` et `latest.yml` : ce sont les manifestes que lit `electron-updater`, produits par
+electron-builder sans qu'on lui demande. Et `resources/app-update.yml` est écrit dans chaque paquet,
+avec le dépôt déjà nommé.
+
+**La réserve, et elle n'est pas technique.** Le README promet aujourd'hui *« no telemetry, no update
+check, no account »*. Une vérification de mise à jour est une requête réseau : elle apprend à GitHub
+une adresse IP, une version et une fréquence de lancement. On ne contourne pas cette phrase, on la
+réécrit — et le réglage qui va avec vit dans `settings.json`, **par défaut éteint**, validé comme
+`theme` l'est. La requête vit dans le processus principal : le `connect-src 'none'` de la fenêtre ne
+bouge pas.
+
 ## Ordre proposé
 
-Onze points sur douze sont faits. Il en reste un, plus un morceau.
+Le huitième est fait depuis le 22 septembre 2026 : la CI tourne sur les trois systèmes et la 0.2.0
+est publiée. Ce qui reste tient en un chantier et quatre broutilles.
 
-**8.** Le huitième attend le `push` et apporte la seule chose qui manque vraiment à la qualité
-d'ici : une CI, parce qu'aujourd'hui la CI c'est la personne qui lance les suites à la main.
+**13.** Le seul vrai travail : **se mettre à jour**. Il attendait une release à interroger et ses
+manifestes ; les deux existent depuis le 22 septembre.
 
-**Reste aussi**, plus petit, le saut à une date *dans* une conversation ouverte (point 3) : les
-dates sont dans l'infobulle de chaque trait du plan, mais rien ne permet d'y aller.
+**Et quatre choses plus petites, par ce qu'elles coûtent :**
+
+- **Le `.dmg` est arm64 uniquement.** Les runners macOS sont en Apple Silicon, donc un Mac Intel ne
+  peut pas l'ouvrir. Se règle par une cible universelle ou une seconde construction x64.
+- **Une trentaine de mégaoctets inutiles** dans chaque paquet : 9,1 Mo de code source C que rien ne
+  compilera jamais, 15 Mo de binaires pour d'autres systèmes, 7 Mo de langues que l'application
+  n'affiche pas. Le premier est gratuit à retirer ; le deuxième est exactement le genre de filtrage
+  malin qui a déjà expédié un binaire faux ici, et ne se fait qu'avec vérification.
+- **Le lancement d'un terminal et l'ouverture d'un dossier** sous Windows et macOS : les deux seuls
+  endroits où Ariane sort d'elle-même, jamais essayés là-bas, et qu'aucun test ne peut atteindre
+  puisque aucun n'a le droit de toucher un vrai terminal.
+- **Le saut à une date** *dans* une conversation ouverte (reste du point 3) : les dates sont dans
+  l'infobulle de chaque trait du plan, mais rien ne permet d'y aller.
