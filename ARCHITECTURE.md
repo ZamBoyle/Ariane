@@ -403,6 +403,15 @@ writing; the number above is what the run reported and is the one to trust.
 **Do not copy these figures elsewhere.** Four documents have already carried three different totals,
 which is what this section exists to stop.
 
+### Coverage, 23 September 2026
+
+`npm run test:coverage` — **96.58 % of lines, 87.26 % of branches, 94.39 % of functions.**
+
+**It measures the unit suite alone.** The five Electron suites are not counted, so a file exercised
+only by them reads low: `src/main/update-check.js` shows 62 % because `electronRequest` — the one
+function in Ariane that speaks to the network — is covered by `test/ui/net.test.js`, which the
+coverage run does not see. Read the figure as "what `npm test` proves", not as "what is tested".
+
 The corpus, measured on **20 September 2026** on the development machine:
 
 | Assistant | Conversations | On disk | Prose |

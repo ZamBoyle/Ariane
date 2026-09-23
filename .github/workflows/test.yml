@@ -63,14 +63,15 @@ jobs:
       # labels. Clamped to 1280 the labels crowd, the Dutch title drops to 195px
       # against a threshold of 200, and the suite fails for a reason that has
       # nothing to do with the code. Measured: 25/26 at the default, 26/26 here.
-      - name: renderer, layout and splash suites (linux)
+      - name: the four Electron suites (linux)
         if: matrix.name == 'linux'
         run: |
           run() { xvfb-run -a --server-args="-screen 0 1920x1080x24" "$@"; }
           run npm run test:render
           run npm run test:ui
           run npm run test:splash
+          run npm run test:net
 
-      - name: renderer, layout and splash suites
+      - name: the four Electron suites
         if: matrix.name != 'linux'
-        run: npm run test:render && npm run test:ui && npm run test:splash
+        run: npm run test:render && npm run test:ui && npm run test:splash && npm run test:net

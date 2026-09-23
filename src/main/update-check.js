@@ -58,9 +58,10 @@ function repositoryUrl(pkg) {
  * GitHub. Answers `{status, location}` and never throws.
  *
  * @param {string} url
+ * @param {number} [timeoutMs] Overridable so a test need not wait five seconds.
  * @returns {Promise<{status: number, location: string|null}>}
  */
-function electronRequest(url) {
+function electronRequest(url, timeoutMs = TIMEOUT_MS) {
   const { net } = require('electron');
   return new Promise((resolve) => {
     let settled = false;
@@ -86,7 +87,7 @@ function electronRequest(url) {
         /* already gone */
       }
       done({ status: 0, location: null });
-    }, TIMEOUT_MS);
+    }, timeoutMs);
 
     request.on('response', (response) => {
       clearTimeout(timer);
@@ -159,4 +160,4 @@ async function checkForUpdate({ settings, version, request = electronRequest, pk
   };
 }
 
-module.exports = { checkForUpdate, repositoryUrl, TIMEOUT_MS };
+module.exports = { checkForUpdate, repositoryUrl, electronRequest, TIMEOUT_MS };

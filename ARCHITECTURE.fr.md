@@ -418,6 +418,16 @@ extension. Une abstention écrite, pas un trou.
 **Ne recopiez pas ces chiffres ailleurs.** Quatre documents en ont déjà porté trois différents, et
 c'est précisément ce que cette section existe pour empêcher.
 
+### Couverture, 23 septembre 2026
+
+`npm run test:coverage` — **96,58 % des lignes, 87,26 % des branches, 94,39 % des fonctions.**
+
+**Elle ne mesure que la suite unitaire.** Les cinq suites Electron n'y sont pas comptées, donc un
+fichier qu'elles seules éprouvent paraît bas : `src/main/update-check.js` affiche 62 % parce que
+`electronRequest` — la seule fonction d'Ariane qui parle au réseau — est couverte par
+`test/ui/net.test.js`, que la mesure ne voit pas. Ce chiffre dit « ce que `npm test` prouve », pas
+« ce qui est testé ».
+
 Le corpus, mesuré le **20 septembre 2026** sur la machine de développement :
 
 | Assistant | Conversations | Sur disque | Prose |

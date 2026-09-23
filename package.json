@@ -40,9 +40,10 @@
     "dist:exe": "node scripts/dist.js --win portable",
     "dist:mac": "node scripts/dist.js --mac dmg",
     "test:ui": "electron test/ui/layout.test.js --no-sandbox",
-    "test:all": "npm test && npm run test:ui && npm run test:render && npm run test:splash",
+    "test:all": "npm test && npm run test:ui && npm run test:render && npm run test:splash && npm run test:net",
     "test:render": "electron test/ui/render.test.js --no-sandbox",
     "test:splash": "electron test/ui/splash.test.js --no-sandbox",
+    "test:net": "electron test/ui/net.test.js --no-sandbox",
     "audit:noise": "node scripts/audit-noise.js",
     "audit": "node scripts/audit-noise.js"
   },
