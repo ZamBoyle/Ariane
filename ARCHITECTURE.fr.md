@@ -252,6 +252,11 @@ seule copie. Les règles, chacune tenue par un test :
 - Fenêtre : `contextIsolation`, `sandbox`, pas d'intégration Node.
 - CSP posée sur chaque réponse (`main.js`) : `default-src 'none'`, `script-src 'self'`,
   `connect-src 'none'`. Aucun code distant, aucun `eval`, et la fenêtre n'atteint rien.
+- **Un lien dans une conversation s'ouvre dans le navigateur, jamais dans Ariane.** `renderMarkdown`
+  ne donne d'adresse qu'à `http(s)`, avec `target="_blank"` ; le clic arrive à
+  `setWindowOpenHandler`, qui refuse toujours la fenêtre et ne confie l'adresse à
+  `shell.openExternal` que si le processus principal y lit `http:` ou `https:`. `will-navigate`
+  refuse tout ce qui n'est pas le `file:` de l'application (`test/links.test.js`).
 - **Une seule requête existe, et seulement si la personne l'a demandée.** La clé `updateCheck` de
   `settings.json` — `never` tant qu'on ne l'allume pas — autorise le processus PRINCIPAL à demander
   à GitHub, une fois par lancement, s'il existe une version plus récente
@@ -530,4 +535,5 @@ de `git status` — passait tous les tests unitaires de `speakerOf()` pendant qu
 | toucher à la recherche | `src/core/query.js` (expression), `db.search` (filtres), `app.js` (affichage) |
 | toucher à l'export | `src/renderer/export-document.js` (mise en page), `src/main/export.js` (fichier, PDF) |
 | changer la façon dont une CLI est trouvée | `src/main/terminal.js`, et se souvenir que les réglages priment |
+| changer le rendu du Markdown | `renderMarkdown` dans `src/renderer/format.js`, son style dans `styles.css` **et** dans `export-document.js` (papier) ; comparer l'ancien et le nouveau sur tout le corpus |
 | toucher à la vérification de version | `src/core/update.js` (comparer), `src/main/update-check.js` (demander), `app.js` (le bouton) |

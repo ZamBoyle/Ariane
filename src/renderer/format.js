@@ -29,10 +29,22 @@ export function renderSnippet(snippet) {
 }
 
 /**
- * A deliberately small Markdown subset: fenced code, inline code, bold, italic,
- * headings, lists, blockquotes. Anything else renders as plain text.
+ * The Markdown the assistants actually write: fenced code, headings, lists
+ * (nested, and numbered from wherever they start), blockquotes, GFM tables and
+ * rules; inline code, bold, italic, strikethrough and links. Anything else
+ * renders as plain text.
  *
- * Fenced blocks are extracted before inline rules run, so `**` inside code is
+ * Written here rather than taken from a library, on a measure: on a corpus of
+ * 9 379 messages (23 September 2026), tables appeared in 483, links in 226,
+ * nested lists in 205, rules in 183, strikethrough in 31 — task lists,
+ * level-5 headings and `_underscore_` emphasis in none. marked or markdown-it
+ * would bring the whole of GFM, but they emit raw HTML, which makes a sanitiser
+ * mandatory: two dependencies inside the sandbox, standing in for the one rule
+ * that keeps it safe. Should the list of gaps start growing again — maths,
+ * footnotes, HTML inside Markdown — that trade becomes the right one, and it
+ * stays contained: this function has two callers.
+ *
+ * Fenced blocks are extracted before anything else, so `**` inside code is
  * never mistaken for emphasis.
  */
 export function renderMarkdown(text) {
@@ -61,17 +73,12 @@ export function renderMarkdown(text) {
 }
 
 function renderParagraph(raw) {
-  const chunk = raw.trim();
-  if (!chunk) return '';
+  // Dedented rather than trimmed: trimming only the first line would make
+  // the second item of an indented list look nested under the first.
+  const lines = dedent(raw.split('\n'));
+  if (!lines.length) return '';
+  const chunk = lines.join('\n');
   if (/^\u0000BLOCK\d+\u0000$/.test(chunk)) return chunk;
-
-  const heading = /^(#{1,4})\s+(.*)$/.exec(chunk);
-  if (heading) {
-    const level = heading[1].length + 1; // h1 is reserved for the app chrome
-    return `<h${level}>${inline(heading[2])}</h${level}>`;
-  }
-
-  const lines = chunk.split('\n');
 
   if (lines.every((l) => /^\s*>/.test(l))) {
     return `<blockquote>${inline(lines.map((l) => l.replace(/^\s*>\s?/, '')).join('\n'))}</blockquote>`;
@@ -80,10 +87,25 @@ function renderParagraph(raw) {
   return renderLines(lines);
 }
 
+/** Drop blank lines at both ends, and the indentation every line shares. */
+function dedent(lines) {
+  let start = 0;
+  let end = lines.length;
+  while (start < end && !lines[start].trim()) start++;
+  while (end > start && !lines[end - 1].trim()) end--;
+  const kept = lines.slice(start, end);
+  const shared = Math.min(...kept.filter((l) => l.trim()).map((l) => /^\s*/.exec(l)[0].length));
+  return kept.map((l) => l.slice(shared).trimEnd());
+}
+
+/** A heading, on a line of its own: "# " to "#### ". */
+const HEADING = /^(#{1,4})\s+(.*)$/;
+/** A thematic break: three or more of the same mark, alone on its line. */
+const RULE = /^\s{0,3}(?:-{3,}|\*{3,}|_{3,})$/;
 /** A bullet item: "- ", "* " or "+ " opening a line. */
-const BULLET = /^\s*[-*+]\s+/;
-/** An ordered item: "1. " or "1) ". */
-const ORDERED = /^\s*\d+[.)]\s+/;
+const BULLET = /^(\s*)[-*+]\s+/;
+/** An ordered item: "1. " or "1) ". Nine digits at most, as in CommonMark. */
+const ORDERED = /^(\s*)(\d{1,9})[.)]\s+/;
 /**
  * Only an item numbered 1 may interrupt prose, as in CommonMark: a sentence
  * that happens to wrap onto "2004. Cette année-là…" must stay a sentence.
@@ -91,14 +113,15 @@ const ORDERED = /^\s*\d+[.)]\s+/;
 const ORDERED_START = /^\s*1[.)]\s+/;
 
 /**
- * Prose and lists, in the order they come.
+ * Prose, lists, tables, headings and rules, in the order they come.
  *
  * A list may follow a line of prose directly, with no blank line between —
  * which is how Claude writes nearly every list: "Deux options :\n- a\n- b".
  * Requiring the blank line left 1017 of 7629 real messages showing raw dashes
  * — 613 from the assistant, and 404 typed by the person. Compared before and
  * after on that corpus: every one of them gained a list, and no word changed.
- * An indented line right after an item is that item wrapping.
+ * An indented line right after an item that is not itself an item is that
+ * item wrapping. A table and a heading may follow prose the same way.
  */
 function renderLines(lines) {
   // A diff pasted without a fence would otherwise become bullets, and the
@@ -110,37 +133,51 @@ function renderLines(lines) {
 
   const close = () => {
     if (!run) return;
-    out.push(
-      run.kind === 'p'
-        ? `<p>${inline(run.lines.join('\n'))}</p>`
-        : `<${run.kind}>${run.lines.map((item) => `<li>${inline(item)}</li>`).join('')}</${run.kind}>`
-    );
+    out.push(run.kind === 'p' ? `<p>${inline(run.lines.join('\n'))}</p>` : renderList(run.items));
     run = null;
   };
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     if (!line.trim()) {
       if (run && run.kind === 'p') run.lines.push(line);
       continue;
     }
 
-    const kind = BULLET.test(line)
-      ? 'ul'
-      : ORDERED.test(line) && (!run || run.kind === 'ol' || ORDERED_START.test(line))
-        ? 'ol'
-        : null;
-
-    if (kind) {
-      if (!run || run.kind !== kind) {
-        close();
-        run = { kind, lines: [] };
-      }
-      run.lines.push(line.replace(kind === 'ul' ? BULLET : ORDERED, ''));
+    const table = tableAt(lines, i);
+    if (table) {
+      close();
+      out.push(table.html);
+      i = table.end - 1;
       continue;
     }
 
-    if (run && run.kind !== 'p' && /^\s+\S/.test(line)) {
-      run.lines[run.lines.length - 1] += `\n${line.trim()}`;
+    if (RULE.test(line)) {
+      close();
+      out.push('<hr>');
+      continue;
+    }
+
+    const heading = HEADING.exec(line);
+    if (heading) {
+      close();
+      const level = heading[1].length + 1; // h1 is reserved for the app chrome
+      out.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+      continue;
+    }
+
+    const item = listItem(line, run);
+    if (item) {
+      if (!run || run.kind !== 'list') {
+        close();
+        run = { kind: 'list', items: [] };
+      }
+      run.items.push(item);
+      continue;
+    }
+
+    if (run && run.kind === 'list' && /^\s+\S/.test(line)) {
+      run.items[run.items.length - 1].text += `\n${line.trim()}`;
       continue;
     }
 
@@ -155,6 +192,136 @@ function renderLines(lines) {
   return out.join('');
 }
 
+/** A tab counts as four columns, as in CommonMark. */
+function indentOf(line) {
+  return /^\s*/.exec(line)[0].replace(/\t/g, '    ').length;
+}
+
+/**
+ * The line as a list item, or null.
+ *
+ * A bullet always opens an item. A number does only where it cannot be a
+ * sentence: at 1, at the start of a block, nested under an item, or where the
+ * last item at its own depth was numbered too — "2." after the bullets nested
+ * under "1." continues the steps.
+ */
+function listItem(line, run) {
+  const bullet = BULLET.exec(line);
+  if (bullet) {
+    return { kind: 'ul', indent: indentOf(line), text: line.slice(bullet[0].length) };
+  }
+  const ordered = ORDERED.exec(line);
+  if (!ordered) return null;
+  const indent = indentOf(line);
+  const items = run && run.kind === 'list' ? run.items : [];
+  const last = items[items.length - 1];
+  const sibling = items.findLast((it) => it.indent <= indent + 1);
+  const accepted =
+    !run ||
+    ORDERED_START.test(line) ||
+    (last && indent > last.indent) ||
+    (sibling && sibling.kind === 'ol' && indent >= sibling.indent - 1);
+  if (!accepted) return null;
+  return {
+    kind: 'ol',
+    indent,
+    number: Number(ordered[2]),
+    text: line.slice(ordered[0].length),
+  };
+}
+
+/**
+ * Items become nested lists by their indentation. Two columns deeper than
+ * the list above opens a list inside its last item; one column either way is
+ * the same list, written unevenly. A numbered list keeps its first number,
+ * so "3." after a blank line does not start again at 1.
+ */
+function renderList(items) {
+  let html = '';
+  const open = [];
+  const openTag = (item) =>
+    item.kind === 'ol' && item.number !== 1 ? `<ol start="${item.number}">` : `<${item.kind}>`;
+
+  for (const item of items) {
+    while (open.length && item.indent < open[open.length - 1].indent - 1) {
+      html += `</li></${open.pop().kind}>`;
+    }
+    const top = open[open.length - 1];
+    if (!top || item.indent >= top.indent + 2) {
+      html += openTag(item);
+      open.push({ kind: item.kind, indent: item.indent });
+    } else if (top.kind !== item.kind) {
+      html += `</li></${top.kind}>${openTag(item)}`;
+      top.kind = item.kind;
+    } else {
+      html += '</li>';
+    }
+    html += `<li>${inline(item.text)}`;
+  }
+  while (open.length) html += `</li></${open.pop().kind}>`;
+  return html;
+}
+
+/**
+ * A GFM table starting at line i, or null: a row holding a pipe, then a
+ * delimiter row with as many cells. It runs until a line with no pipe — GFM
+ * would take such a line as one more row, but prose written straight under a
+ * table is prose.
+ *
+ * A row shorter than the header is padded, as GFM does. A longer one keeps its
+ * extra cells, where GFM drops them: a viewer of conversations must not drop
+ * words. Measured: one table in 483 had such a row, and lost "12 ✓" with it.
+ * The table sits in its own box, which scrolls: a wide table must not push
+ * the conversation sideways.
+ */
+function tableAt(lines, i) {
+  if (i + 1 >= lines.length || !lines[i].includes('|')) return null;
+  const head = cellsOf(lines[i]);
+  const align = alignmentsOf(lines[i + 1]);
+  if (!align || align.length !== head.length) return null;
+
+  let end = i + 2;
+  const rows = [];
+  while (end < lines.length && lines[end].includes('|')) {
+    rows.push(cellsOf(lines[end]));
+    end++;
+  }
+
+  const cell = (tag, text, how) =>
+    `<${tag}${how ? ` class="align-${how}"` : ''}>${inline(text)}</${tag}>`;
+  const headRow = head.map((text, k) => cell('th', text, align[k])).join('');
+  const body = rows
+    .map((row) => {
+      const width = Math.max(row.length, head.length);
+      const cells = Array.from({ length: width }, (_, k) => cell('td', row[k] ?? '', align[k]));
+      return `<tr>${cells.join('')}</tr>`;
+    })
+    .join('');
+
+  return {
+    end,
+    html:
+      `<div class="table-wrap"><table><thead><tr>${headRow}</tr></thead>` +
+      `${body ? `<tbody>${body}</tbody>` : ''}</table></div>`,
+  };
+}
+
+/** The cells of a table row. "\|" is a pipe inside a cell, not a border. */
+function cellsOf(line) {
+  let row = line.trim();
+  if (row.startsWith('|')) row = row.slice(1);
+  if (row.endsWith('|') && !row.endsWith('\\|')) row = row.slice(0, -1);
+  return row.split(/(?<!\\)\|/).map((c) => c.trim().replace(/\\\|/g, '|'));
+}
+
+/** A delimiter row's alignments ('center', 'right' or null), or null if it is not one. */
+function alignmentsOf(line) {
+  if (!line.includes('|')) return null;
+  const cells = cellsOf(line);
+  if (!cells.every((c) => /^:?-+:?$/.test(c))) return null;
+  return cells.map((c) => (c.endsWith(':') ? (c.startsWith(':') ? 'center' : 'right') : null));
+}
+
 /**
  * Both a removed and an added line, or a hunk header: a unified diff, not a
  * list. Defensive — no such block exists in the corpus this was measured on —
@@ -165,13 +332,81 @@ function looksLikeDiff(lines) {
   return lines.some((l) => /^-(?!-)/.test(l)) && lines.some((l) => /^\+(?!\+)/.test(l));
 }
 
+/**
+ * Stands in for markup already built, so that no later rule reaches into it:
+ * a `*` in a url is not emphasis, and a url inside code is not a link.
+ */
+const KEPT = /\u0003(\d+)\u0003/g;
+
+/** A link: [label](url). One level of parentheses inside the url, for Wikipedia. */
+const LINK = /\[([^\]\n]+)\]\(((?:[^\s()]|\([^\s()]*\))+)\)/g;
+
+/**
+ * A url written bare. It must follow a space, an opening bracket, a quote or
+ * an emphasis mark — never a letter — and stops at the escaped form of any
+ * character that could close an attribute.
+ */
+const BARE_URL =
+  /(^|[\s(*_~]|&lt;|&quot;|&#39;)(https?:\/\/(?:(?!&(?:lt|gt|quot|#39);)[^\s\u0003])+)/g;
+
+/**
+ * Only the web is a link. Anything else — a path in the project, `file:`,
+ * `javascript:` — keeps its label and loses its target. The window's own
+ * guard (main.js, setWindowOpenHandler) checks the same thing again in the
+ * main process: a link opens in the browser, never in Ariane.
+ */
+const WEB = /^https?:\/\//i;
+
+const anchor = (url, label) =>
+  `<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+
 /** Inline rules, applied to already-escaped text. */
 function inline(raw) {
-  return escapeHtml(raw)
-    .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+  const kept = [];
+  const keep = (html) => `\u0003${kept.push(html) - 1}\u0003`;
+  const restore = (s) => s.replace(KEPT, (_m, i) => restore(kept[Number(i)] ?? ''));
+
+  const text = emphasis(
+    escapeHtml(raw)
+      .replace(/\u0003/g, '')
+      .replace(/`([^`\n]+)`/g, (_m, code) => keep(`<code>${code}</code>`))
+      .replace(LINK, (_m, label, url) =>
+        WEB.test(url) ? keep(anchor(url, emphasis(label))) : label
+      )
+      .replace(BARE_URL, (_m, before, found) => {
+        const { url, tail } = splitTrailing(found);
+        return `${before}${keep(anchor(url, url))}${tail}`;
+      })
+  ).replace(/\n/g, '<br>');
+
+  return restore(text);
+}
+
+function emphasis(s) {
+  return s
     .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[\s(])\*([^*\n]+)\*/g, '$1<em>$2</em>')
-    .replace(/\n/g, '<br>');
+    .replace(/~~([^~\n]+)~~/g, '<del>$1</del>');
+}
+
+/**
+ * The punctuation that ends a sentence is not part of the url it follows, nor
+ * is a closing bracket the url never opened. An entity's own semicolon stays.
+ */
+function splitTrailing(found) {
+  let url = found;
+  let tail = '';
+  for (;;) {
+    const last = url.slice(-1);
+    const unopened = last === ')' && url.split('(').length < url.split(')').length;
+    const entity = last === ';' && /&#?\w+;$/.test(url);
+    if (unopened || (/[.,:;!?*_~]/.test(last) && !entity)) {
+      tail = last + tail;
+      url = url.slice(0, -1);
+    } else {
+      return { url, tail };
+    }
+  }
 }
 
 // -- display helpers ---------------------------------------------------------

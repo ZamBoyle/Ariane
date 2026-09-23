@@ -243,6 +243,11 @@ copy left. The rules, each held up by a test:
 - Window: `contextIsolation`, `sandbox`, no Node integration.
 - A CSP set on every response (`main.js`): `default-src 'none'`, `script-src 'self'`,
   `connect-src 'none'`. No remote code, no `eval`, and the window reaches nothing.
+- **A link in a conversation opens in the browser, never in Ariane.** `renderMarkdown` gives an
+  address only to `http(s)`, with `target="_blank"`; the click reaches `setWindowOpenHandler`, which
+  always denies the window and hands the url to `shell.openExternal` only if the main process reads
+  `http:` or `https:`. `will-navigate` refuses anything that is not the app's own `file:`
+  (`test/links.test.js`).
 - **One request exists, and only if the person asked for it.** `settings.json`'s `updateCheck` —
   `never` unless turned on — lets the MAIN process ask GitHub once per launch whether a newer
   version exists (`src/main/update-check.js`). It is read before anything leaves the machine, so a
@@ -514,4 +519,5 @@ the output of `git status` — passed every unit test of `speakerOf()` while the
 | touch search | `src/core/query.js` (the expression), `db.search` (the filters), `app.js` (the display) |
 | touch export | `src/renderer/export-document.js` (layout), `src/main/export.js` (file, PDF) |
 | change how a CLI is found | `src/main/terminal.js`, remembering that the settings win |
+| change how Markdown renders | `renderMarkdown` in `src/renderer/format.js`, its style in `styles.css` **and** in `export-document.js` (paper); compare old and new on the whole corpus |
 | touch the update check | `src/core/update.js` (comparing), `src/main/update-check.js` (asking), `app.js` (the button) |

@@ -27,9 +27,38 @@ test.describe('escaping is the security boundary', () => {
    * "onerror=" — inert, because the surrounding "<" became "&lt;".
    */
   const ALLOWED_TAGS = new Set([
-    'p', 'br', 'code', 'pre', 'strong', 'em', 'ul', 'ol', 'li',
-    'blockquote', 'mark', 'h2', 'h3', 'h4', 'h5',
+    'p', 'br', 'code', 'pre', 'strong', 'em', 'del', 'ul', 'ol', 'li',
+    'blockquote', 'mark', 'h2', 'h3', 'h4', 'h5', 'hr', 'a',
+    'div', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
   ]);
+
+  /**
+   * Every attribute the renderer may write, and what its value may be. A
+   * tag's inside must parse as exactly these and nothing else, so no payload
+   * can slip a handler in beside them.
+   */
+  const ALLOWED_ATTRIBUTES = {
+    class: /^(code|table-wrap|align-(center|right))$/,
+    'data-lang': /^[^"<>]*$/,
+    start: /^\d{1,9}$/,
+    href: /^https?:\/\/[^"<>\s]+$/i,
+    target: /^_blank$/,
+    rel: /^noopener noreferrer$/,
+  };
+
+  const attributesIn = (html) =>
+    [...html.matchAll(/<[a-z][a-z0-9]*((?:\s[^>]*)?)>/g)].map((m) => m[1]);
+
+  const assertAttributesAllowed = (html, payload) => {
+    for (const inside of attributesIn(html)) {
+      const rest = inside.replace(/\s([a-z-]+)="([^"]*)"/g, (_m, name, value) => {
+        assert.ok(name in ALLOWED_ATTRIBUTES, `payload ${payload} produced attribute ${name}`);
+        assert.match(value, ALLOWED_ATTRIBUTES[name], `payload ${payload}: ${name}="${value}"`);
+        return '';
+      });
+      assert.equal(rest.trim(), '', `payload ${payload} left "${rest}" inside a tag`);
+    }
+  };
 
   const tagsIn = (html) =>
     [...html.matchAll(/<\/?([a-zA-Z][a-zA-Z0-9]*)/g)].map((m) => m[1].toLowerCase());
@@ -46,15 +75,52 @@ test.describe('escaping is the security boundary', () => {
       '- <script>li</script>',
       '> <script>quote</script>',
       '<a href="javascript:alert(1)">x</a>',
+      '| <script>a</script> | b |\n|---|---|\n| <img src=x onerror=alert(1)> | c |',
+      '[<img src=x onerror=alert(1)>](https://example.com)',
+      '~~<script>del</script>~~',
+      '- a\n  - <script>nested</script>',
+      '<b>x</b>\n\n---\n\n<i>y</i>',
     ];
     for (const payload of payloads) {
       const html = F.renderMarkdown(payload);
       for (const tag of tagsIn(html)) {
         assert.ok(ALLOWED_TAGS.has(tag), `payload ${payload} produced <${tag}>`);
       }
+      assertAttributesAllowed(html, payload);
       // The injected "<" must have been escaped, not merely dropped.
       assert.ok(html.includes('&lt;'), `payload ${payload} lost its escaped bracket`);
     }
+  });
+
+  test('a link can carry no attribute of its own making', () => {
+    const payloads = [
+      '[x](https://a.test/"onmouseover="alert(1))',
+      "[x](https://a.test/'onmouseover='alert(1))",
+      'https://a.test/"onmouseover="alert(1)',
+      '[x](https://a.test/><script>alert(1)</script>)',
+      '```js" onload="alert(1)\ncode\n```',
+      '1. a\n2. b\n\n3" onclick="x. c',
+    ];
+    for (const payload of payloads) {
+      const html = F.renderMarkdown(payload);
+      assertAttributesAllowed(html, payload);
+      assert.ok(!/<script/i.test(html), `payload ${payload} produced a script`);
+    }
+  });
+
+  test('only the web becomes a link: any other scheme keeps its label and loses its target', () => {
+    for (const url of ['javascript:alert(1)', 'file:///etc/passwd', 'data:text/html,x', 'vbscript:x']) {
+      const html = F.renderMarkdown(`[voir](${url})`);
+      assert.equal(html, '<p>voir</p>', url);
+    }
+    // A path in the project, as an assistant writes it: the label says enough.
+    assert.equal(F.renderMarkdown('[format.js:38](src/renderer/format.js#L38)'), '<p>format.js:38</p>');
+  });
+
+  test('a control character in the text cannot stand in for built markup', () => {
+    // inline() parks built markup behind \u0003n\u0003; the text's own are removed first.
+    const html = F.renderMarkdown('`a` \u00030\u0003 b');
+    assert.equal(html, '<p><code>a</code> 0 b</p>');
   });
 
   test('event-handler text survives only as inert escaped content', () => {
@@ -183,6 +249,204 @@ test.describe('a list written the way Claude writes it', () => {
     const html = F.renderMarkdown('Attention :\n- <script>alert(1)</script>');
     assert.ok(!html.includes('<script>'));
     assert.ok(html.includes('<li>&lt;script&gt;alert(1)&lt;/script&gt;</li>'));
+  });
+});
+
+test.describe('GFM tables', () => {
+  const wrap = (inner) => `<div class="table-wrap"><table>${inner}</table></div>`;
+
+  test('a header, a delimiter and rows make a table', () => {
+    assert.equal(
+      F.renderMarkdown('| Agent | Messages |\n|---|---|\n| Claude | 4 |\n| Codex | 24 |'),
+      wrap(
+        '<thead><tr><th>Agent</th><th>Messages</th></tr></thead>' +
+          '<tbody><tr><td>Claude</td><td>4</td></tr><tr><td>Codex</td><td>24</td></tr></tbody>'
+      )
+    );
+  });
+
+  test('outer pipes are optional, and a header alone is still a table', () => {
+    assert.equal(
+      F.renderMarkdown('a | b\n--- | ---'),
+      wrap('<thead><tr><th>a</th><th>b</th></tr></thead>')
+    );
+  });
+
+  test('colons in the delimiter row align the column', () => {
+    const html = F.renderMarkdown('| g | c | d |\n|:--|:-:|--:|\n| 1 | 2 | 3 |');
+    assert.ok(html.includes('<th>g</th><th class="align-center">c</th><th class="align-right">d</th>'));
+    assert.ok(html.includes('<td>1</td><td class="align-center">2</td><td class="align-right">3</td>'));
+  });
+
+  test('cells take inline markup, already escaped', () => {
+    const html = F.renderMarkdown('| x |\n|---|\n| **gras** `a<b` |');
+    assert.ok(html.includes('<td><strong>gras</strong> <code>a&lt;b</code></td>'));
+  });
+
+  test('an escaped pipe is a pipe inside a cell, not a border', () => {
+    const html = F.renderMarkdown('| grep |\n|---|\n| `a\\|b` |');
+    assert.ok(html.includes('<td><code>a|b</code></td>'), html);
+  });
+
+  test('a short row is padded, and a long one keeps its words', () => {
+    // Measured: one table in 483 had a row wider than its header, and GFM would
+    // have dropped "12 ✓" with the extra cell.
+    const html = F.renderMarkdown('| a | b |\n|---|---|\n| 1 |\n| 2 | 3 | 12 ✓ |');
+    assert.ok(html.includes('<tr><td>1</td><td></td></tr>'), html);
+    assert.ok(html.includes('<tr><td>2</td><td>3</td><td>12 ✓</td></tr>'), html);
+  });
+
+  test('a table may follow a line of prose, and prose may follow it', () => {
+    assert.equal(
+      F.renderMarkdown('Voici :\n| a |\n|---|\n| 1 |\nEt après.'),
+      '<p>Voici :</p>' + wrap('<thead><tr><th>a</th></tr></thead><tbody><tr><td>1</td></tr></tbody>') +
+        '<p>Et après.</p>'
+    );
+  });
+
+  test('pipes in prose without a delimiter row stay prose', () => {
+    assert.equal(F.renderMarkdown('a | b\nc | d'), '<p>a | b<br>c | d</p>');
+  });
+
+  test('a delimiter row with a different number of cells is not a table', () => {
+    assert.ok(!F.renderMarkdown('| a | b |\n|---|\n| 1 | 2 |').includes('<table>'));
+  });
+});
+
+test.describe('rules, strikethrough and headings', () => {
+  test('three dashes, stars or underscores alone draw a rule', () => {
+    assert.equal(F.renderMarkdown('a\n\n---\n\nb'), '<p>a</p><hr><p>b</p>');
+    assert.equal(F.renderMarkdown('***'), '<hr>');
+    assert.equal(F.renderMarkdown('___'), '<hr>');
+  });
+
+  test('a rule may sit between two lines of the same block', () => {
+    assert.equal(F.renderMarkdown('a\n---\nb'), '<p>a</p><hr><p>b</p>');
+  });
+
+  test('two dashes, or dashes among words, are not a rule', () => {
+    assert.equal(F.renderMarkdown('--'), '<p>--</p>');
+    assert.equal(F.renderMarkdown('a --- b'), '<p>a --- b</p>');
+  });
+
+  test('strikethrough', () => {
+    assert.equal(F.renderMarkdown('~~faux~~ vrai'), '<p><del>faux</del> vrai</p>');
+  });
+
+  test('a heading followed directly by text is still a heading', () => {
+    // 546 messages had one: the heading stayed as raw "##" when a line followed it.
+    assert.equal(F.renderMarkdown('## Titre\ntexte'), '<h3>Titre</h3><p>texte</p>');
+  });
+
+  test('a hash without a space is not a heading', () => {
+    assert.equal(F.renderMarkdown('#1 du classement'), '<p>#1 du classement</p>');
+  });
+
+  test('markup inside inline code stays literal', () => {
+    assert.equal(F.renderMarkdown('`a **b** ~~c~~`'), '<p><code>a **b** ~~c~~</code></p>');
+  });
+});
+
+test.describe('nested lists', () => {
+  test('an indented item opens a list inside the one above', () => {
+    assert.equal(
+      F.renderMarkdown('- a\n  - b\n  - c\n- d'),
+      '<ul><li>a<ul><li>b</li><li>c</li></ul></li><li>d</li></ul>'
+    );
+  });
+
+  test('bullets under a numbered item, the way Claude writes steps', () => {
+    assert.equal(
+      F.renderMarkdown('1. a\n   - x\n2. b'),
+      '<ol><li>a<ul><li>x</li></ul></li><li>b</li></ol>'
+    );
+  });
+
+  test('three levels, and back out two at once', () => {
+    assert.equal(
+      F.renderMarkdown('- a\n  - b\n    - c\n- d'),
+      '<ul><li>a<ul><li>b<ul><li>c</li></ul></li></ul></li><li>d</li></ul>'
+    );
+  });
+
+  test('one column of difference is the same list, written unevenly', () => {
+    assert.equal(F.renderMarkdown('- a\n - b'), '<ul><li>a</li><li>b</li></ul>');
+  });
+
+  test('a block indented as a whole is not nested', () => {
+    assert.equal(F.renderMarkdown('  - a\n  - b'), '<ul><li>a</li><li>b</li></ul>');
+  });
+
+  test('a tab counts as four columns', () => {
+    assert.equal(F.renderMarkdown('- a\n\t- b'), '<ul><li>a<ul><li>b</li></ul></li></ul>');
+  });
+
+  test('a numbered list keeps its first number', () => {
+    // 177 messages: a list split by a blank line started again at 1.
+    assert.equal(F.renderMarkdown('3. c\n4. d'), '<ol start="3"><li>c</li><li>d</li></ol>');
+    assert.equal(
+      F.renderMarkdown('1. a\n\n2. b'),
+      '<ol><li>a</li></ol><ol start="2"><li>b</li></ol>'
+    );
+  });
+});
+
+test.describe('links', () => {
+  const a = (url, label) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+
+  test('a link opens in a new window, which main.js hands to the browser', () => {
+    assert.equal(
+      F.renderMarkdown('[Ariane](https://github.com/ZamBoyle/Ariane)'),
+      `<p>${a('https://github.com/ZamBoyle/Ariane', 'Ariane')}</p>`
+    );
+  });
+
+  test('a label may carry emphasis and code', () => {
+    assert.equal(
+      F.renderMarkdown('[**gras** et `code`](https://a.test)'),
+      `<p>${a('https://a.test', '<strong>gras</strong> et <code>code</code>')}</p>`
+    );
+  });
+
+  test('one level of parentheses belongs to the url', () => {
+    assert.equal(
+      F.renderMarkdown('[Foo](https://en.wikipedia.org/wiki/Foo_(bar))'),
+      `<p>${a('https://en.wikipedia.org/wiki/Foo_(bar)', 'Foo')}</p>`
+    );
+  });
+
+  test('a bare url becomes a link, without the punctuation that ends the sentence', () => {
+    assert.equal(
+      F.renderMarkdown('voir https://a.test/x?b=1&c=2.'),
+      `<p>voir ${a('https://a.test/x?b=1&amp;c=2', 'https://a.test/x?b=1&amp;c=2')}.</p>`
+    );
+    assert.equal(
+      F.renderMarkdown('(https://a.test/x)'),
+      `<p>(${a('https://a.test/x', 'https://a.test/x')})</p>`
+    );
+  });
+
+  test('a bare url in bold or quotes loses the marks around it', () => {
+    assert.equal(
+      F.renderMarkdown('**https://a.test**'),
+      `<p><strong>${a('https://a.test', 'https://a.test')}</strong></p>`
+    );
+    assert.equal(
+      F.renderMarkdown('"https://a.test"'),
+      `<p>&quot;${a('https://a.test', 'https://a.test')}&quot;</p>`
+    );
+  });
+
+  test('a url in code, or glued to a word, is not a link', () => {
+    assert.equal(F.renderMarkdown('`https://a.test`'), '<p><code>https://a.test</code></p>');
+    assert.ok(!F.renderMarkdown('xhttps://a.test').includes('<a '));
+  });
+
+  test('emphasis marks inside a url are not emphasis', () => {
+    assert.equal(
+      F.renderMarkdown('https://a.test/*x*/y'),
+      `<p>${a('https://a.test/*x*/y', 'https://a.test/*x*/y')}</p>`
+    );
   });
 });
 

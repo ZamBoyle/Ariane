@@ -268,6 +268,16 @@ section.assistant .who { color: #c2603c; }
 .body h2, .body h3, .body h4, .body h5 { margin: 8pt 0 4pt; font-size: 11pt; }
 .body ul, .body ol { margin: 0 0 6pt; padding-left: 16pt; }
 .body blockquote { margin: 0 0 6pt; padding-left: 8pt; border-left: 2px solid #d8d4cc; color: #6b6862; }
+.body li > ul, .body li > ol { margin: 0; }
+.body hr { margin: 6pt 0; border: 0; border-top: 1px solid #d8d4cc; }
+.body del { color: #6b6862; }
+.body a { color: #c2603c; }
+.body table { margin: 0 0 6pt; border-collapse: collapse; font-size: 9pt; }
+.body th, .body td { padding: 2pt 5pt; border: 1px solid #d8d4cc; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.body th { background: #f4f2ec; }
+.body .align-center { text-align: center; }
+.body .align-right { text-align: right; }
+.body tr { break-inside: avoid; }
 code { font: 9pt/1.4 "JetBrains Mono", "DejaVu Sans Mono", Consolas, monospace; background: #f4f2ec; padding: 0 2pt; border-radius: 2px; }
 pre { margin: 0 0 6pt; padding: 6pt 8pt; background: #f4f2ec; border-radius: 3px; white-space: pre-wrap; overflow-wrap: anywhere; font: 8.5pt/1.45 "JetBrains Mono", "DejaVu Sans Mono", Consolas, monospace; }
 pre code { padding: 0; background: none; }

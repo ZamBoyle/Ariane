@@ -812,6 +812,62 @@ kbd {
   color: var(--text-soft);
 }
 
+/* Une liste dans un élément de liste : pas de marge en plus, le retrait suffit. */
+.msg-body li > ul,
+.msg-body li > ol {
+  margin: 2px 0 0;
+}
+
+.msg-body hr {
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.msg-body del {
+  color: var(--text-soft);
+}
+
+/* Un lien s'ouvre dans le navigateur : main.js ne laisse passer que http(s). */
+.msg-body a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Le tableau défile dans sa propre boîte : un tableau large ne doit pas pousser
+   la conversation de côté. */
+.msg-body .table-wrap {
+  margin: 0 0 9px;
+  overflow-x: auto;
+}
+
+.msg-body table {
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.msg-body th,
+.msg-body td {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.msg-body th {
+  background: var(--bg-code);
+  font-weight: 600;
+}
+
+.msg-body .align-center {
+  text-align: center;
+}
+
+.msg-body .align-right {
+  text-align: right;
+}
+
 .msg-body code {
   padding: 1px 4px;
   border-radius: 4px;

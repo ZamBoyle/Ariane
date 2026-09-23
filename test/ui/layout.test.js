@@ -76,7 +76,26 @@ const MEASURE = `(() => {
   const para = document.createElement('p');
   para.style.height = '4000px';
   para.textContent = 'contenu long';
-  transcript.replaceChildren(para);
+  // Un tableau bien plus large que la conversation, dans la structure exacte
+  // d'un message : il doit défiler dans sa boîte, jamais élargir la page.
+  const wide = document.createElement('article');
+  wide.className = 'msg msg-assistant';
+  const wideBody = document.createElement('div');
+  wideBody.className = 'msg-body';
+  const heads = Array.from({ length: 14 }, (_, i) => '<th>colonne_' + i + '_plutot_longue</th>').join('');
+  wideBody.innerHTML = '<div class="table-wrap"><table><thead><tr>' + heads + '</tr></thead></table></div>';
+  wide.append(wideBody);
+  transcript.replaceChildren(wide, para);
+  const tableWrap = wideBody.querySelector('.table-wrap');
+  const wideTable = {
+    wrapScroll: tableWrap.scrollWidth,
+    wrapClient: tableWrap.clientWidth,
+    wrapOverflowX: getComputedStyle(tableWrap).overflowX,
+    bodyScroll: wideBody.scrollWidth,
+    bodyClient: wideBody.clientWidth,
+    transcriptScroll: transcript.scrollWidth,
+    transcriptClient: transcript.clientWidth,
+  };
 
   const measure = (el) => {
     const style = getComputedStyle(el);
@@ -104,6 +123,7 @@ const MEASURE = `(() => {
     viewportHeight: window.innerHeight,
     tree: measure(tree),
     transcript: measure(transcript),
+    wideTable,
     composerBox,
     resultsBox,
     sidebarHeight: Math.round(document.querySelector('.sidebar').getBoundingClientRect().height),
@@ -393,6 +413,15 @@ async function run() {
     `client ${m.transcript.clientHeight} < scroll ${m.transcript.scrollHeight}`
   );
   check('transcript actually scrolls', m.transcript.maxScrollTop > 0, `maxScrollTop ${m.transcript.maxScrollTop}`);
+
+  // -- un tableau large défile dans sa boîte ---------------------------------
+  const t = m.wideTable;
+  check('a wide table scrolls inside its own box',
+    t.wrapOverflowX === 'auto' && t.wrapScroll > t.wrapClient,
+    `overflow-x ${t.wrapOverflowX}, ${t.wrapScroll} dans ${t.wrapClient}`);
+  check('and neither the message nor the conversation grows sideways',
+    t.bodyScroll <= t.bodyClient && t.transcriptScroll <= t.transcriptClient,
+    `message ${t.bodyScroll}/${t.bodyClient}, conversation ${t.transcriptScroll}/${t.transcriptClient}`);
 
   // -- the window's own background, which no stylesheet can fix -------------
   check('main.js states its two backgrounds where this test can read them',

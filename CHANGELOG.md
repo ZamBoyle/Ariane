@@ -18,6 +18,7 @@ Voici à quelle version chacune appartient.
 
 | Version | Date | Ce qu'elle apporte |
 |---|---|---|
+| [0.3.2](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.2) | 23 sept. 2026 | le Markdown des assistants : tableaux, liens, listes imbriquées ; un dossier se lit par date ; la fenêtre porte son icône |
 | [0.3.1](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.1) | 23 sept. 2026 | le paquet n'emporte plus les sources C : −2,2 Mo |
 | [0.3.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.0) | 23 sept. 2026 | Ariane prévient qu'une version existe ; l'icône de la barre des tâches |
 | [0.2.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.2.0) | 22 sept. 2026 | la première version téléchargeable ; la CI sur trois systèmes ; les jetons indexés |
@@ -25,6 +26,71 @@ Voici à quelle version chacune appartient.
 ---
 
 ## 23 septembre 2026
+
+### Le Markdown que les assistants écrivent vraiment
+
+**Signalé à l'usage.** Un tableau dans une réponse de Claude s'affichait en lignes de barres
+verticales et de tirets. Le moteur de rendu, écrit à la main, ne connaissait que les blocs de code,
+les titres, les citations, les listes simples, le gras, l'italique et le code en ligne.
+
+**Mesuré avant de rien écrire**, sur les 9 379 messages du corpus qui portent du texte : des
+tableaux dans **483** (dont 464 écrits par un assistant), des liens dans 226, des listes imbriquées
+dans 205, des filets `---` dans 183, du barré dans 31. Cases à cocher, titres de niveau 5 et
+emphase `_ainsi_` : **zéro**, donc rien d'écrit pour eux. Les formules mathématiques : huit.
+
+**Ce que ça change.** Les tableaux s'affichent, alignement compris, et défilent dans leur propre
+boîte au lieu d'élargir la conversation. Les listes s'imbriquent, et une liste numérotée coupée par
+une ligne vide reprend à son numéro au lieu de repartir de 1 (177 messages). Un titre suivi
+directement d'une ligne de texte est un titre (546 messages le laissaient en `##` brut). Les filets,
+le barré, et les liens — qui s'ouvrent dans le navigateur. Les exports reçoivent le même rendu, avec
+leur propre style pour le papier.
+
+**Pourquoi pas une bibliothèque.** Le concurrent le plus avancé assemble `react-markdown` et
+`remark-gfm` ; Ariane n'a ni React ni empaqueteur. Les autres candidats, `marked` ou
+`markdown-it`, produisent du HTML brut, ce qui rend un désinfectant obligatoire : deux dépendances
+dans le bac à sable, à la place de la règle qui le protège — échapper, puis décorer. Cinq
+constructions mesurées tenaient en quelques centaines de lignes. Le seuil auquel ce choix
+s'inverserait est écrit dans `format.js`.
+
+**Un lien ne peut rien ouvrir d'autre qu'une page web.** Seul `http(s)` reçoit une adresse ; un
+lien vers `file:`, `javascript:` ou un chemin du projet garde son libellé et perd sa cible. Et un
+clic ne navigue pas : il demande une fenêtre, que `main.js` refuse toujours, après avoir confié
+l'adresse au navigateur si le processus principal — pas la fenêtre — la reconnaît comme web. Ce
+garde existait sans test ; il en a quatre, chacun vu échouer quand on retire ce qu'il protège.
+
+**Comparé sur tout le corpus, ancien moteur contre nouveau.** 1 810 messages changent de rendu.
+Un seul perdait un vrai mot : une ligne de tableau plus large que son en-tête, dont GFM jette la
+cellule en trop — « 12 ✓ » disparaissait. Ariane la garde : une visionneuse de conversations ne
+jette pas de mots. Les autres écarts sont voulus et conformes à GFM : `\|` devient `|` dans une
+cellule, et `**` à l'intérieur de `` `code` `` reste littéral — l'ancien moteur mettait en gras
+*dans* le code, c'était lui qui avait tort.
+
+**Trouvé en chemin.** Un « 2. » qui suit les sous-puces d'un « 1. » n'était pas reconnu, parce que
+la règle regardait le dernier élément (la puce) et non le dernier du même niveau. Et les 546
+nouveaux titres ont été relus un par un côté personne, à la recherche d'un commentaire shell collé
+sans bloc de code qui serait devenu un titre : aucun.
+
+### Un dossier se lit par date, pas par assistant
+
+**Ce que ça change.** Les conversations d'un dossier étaient regroupées par assistant, le groupe le
+plus fourni en tête : dans un dossier où Codex avait écrit quarante fois et Claude trois, une
+conversation de Claude vieille de dix minutes passait sous quarante plus anciennes. C'est
+maintenant une seule liste, la plus récente en haut, et chaque ligne porte la pastille de son
+assistant — celle des dossiers.
+
+**Aucune requête n'a changé** : `db.sessions` répondait déjà dans cet ordre, le regroupement le
+défaisait.
+
+### La fenêtre porte enfin son icône
+
+**La correction de la veille ne suffisait pas.** `StartupWMClass` relie une fenêtre à son lanceur ;
+il ne peint rien. Lu sur la fenêtre en marche, `xprop _NET_WM_ICON` répondait `not found` :
+Electron ne donne aucune icône à une fenêtre Linux de lui-même, et les images ne partaient même pas
+dans le paquet — `build/` est exclu par electron-builder, `/opt/Ariane` n'en contenait aucune.
+
+**Ce que ça change.** Les deux fenêtres reçoivent `icon:`, en huit tailles de 16 à 512 px, que le
+gestionnaire de fenêtres choisit selon la place. C'est le mécanisme freedesktop que lisent Mutter,
+KWin, Marco, Xfwm, Openbox, Fluxbox et i3 — pas une astuce propre à un bureau.
 
 ### Le paquet n'emporte plus ce que rien ne compilera
 
