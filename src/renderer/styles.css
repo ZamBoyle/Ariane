@@ -399,8 +399,22 @@ body {
   font-weight: 500;
 }
 
+/* Une rangée : la marque de l'assistant, l'étoile, le nom, les badges. Seul le
+   nom est élastique — `min-width: 0` sans quoi un élément flex refuse de
+   descendre sous la largeur de son texte et l'ellipse ne se déclenche jamais. */
 .session-title {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.session-title > .agent-dot {
+  flex: none;
+}
+
+.session-name {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1821,13 +1835,6 @@ details.fold pre {
   margin: 2px 0 6px;
 }
 
-.agent-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 8px 2px 14px;
-}
-
 .agent-chip {
   padding: 1px 7px;
   border-radius: 9px;
@@ -1836,12 +1843,6 @@ details.fold pre {
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.02em;
-}
-
-.agent-count {
-  font-size: 10.5px;
-  color: var(--text-faint);
-  font-variant-numeric: tabular-nums;
 }
 
 /* La barre colorée reprend la teinte de l'agent, pour que l'œil ne mélange

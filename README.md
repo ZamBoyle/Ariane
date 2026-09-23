@@ -48,8 +48,8 @@ three busiest:
 
 - **Every working folder**, with its real path — accents included, never the mangled encoded name
   some assistants write on disk.
-- **A chip per assistant** on each folder, and separate lists in the panel: Codex and Claude
-  conversations never blend into one another.
+- **A chip per assistant** on each folder, and one on every conversation: a folder reads as a
+  single list, newest first, whichever assistant wrote it.
 - **Instant full-text search**, accent-insensitive: `mathematiques` finds `Mathématiques`.
   Everywhere, or narrowed to one assistant, one folder, one conversation — and to a period: 7 days,
   30 days, this year. Open a result and **the words you searched for are highlighted** wherever they

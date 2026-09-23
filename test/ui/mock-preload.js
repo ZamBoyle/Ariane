@@ -204,7 +204,8 @@ const SESSIONS = [
     lastAt: '2026-09-17T23:06:00.000Z',
     source: 'transcript',
   },
-  // Two Codex sessions in the SAME folder: they must render as their own group.
+  // Deux sessions Codex dans le MÊME dossier, et plus anciennes que celle de
+  // Claude : la liste doit les entremêler par date, la plus récente en tête.
   {
     id: 'codex:c1', agentId: 'codex', title: 'Session Codex A', gitBranch: 'main',
     firstPrompt: 'refactor', messageCount: 5,

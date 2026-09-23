@@ -395,30 +395,6 @@ test.describe('agent identity and separation', () => {
     assert.equal(F.agentTheme(null).label, 'Agent');
     assert.equal(F.agentTheme(undefined).initial, 'A');
   });
-
-  // The point of the whole feature: two agents in one folder must not merge.
-  test('sessions are split by agent, busiest first', () => {
-    const groups = F.groupSessionsByAgent([
-      { id: 'claude:a', agentId: 'claude' },
-      { id: 'codex:b', agentId: 'codex' },
-      { id: 'codex:c', agentId: 'codex' },
-      { id: 'codex:d', agentId: 'codex' },
-      { id: 'claude:e', agentId: 'claude' },
-    ]);
-    assert.deepEqual(groups.map((g) => g.agentId), ['codex', 'claude']);
-    assert.equal(groups[0].sessions.length, 3);
-    assert.equal(groups[1].sessions.length, 2);
-  });
-
-  test('a session with no agent lands in a named bucket, not lost', () => {
-    const groups = F.groupSessionsByAgent([{ id: 'x' }]);
-    assert.deepEqual(groups.map((g) => g.agentId), ['unknown']);
-  });
-
-  test('handles empty and malformed input', () => {
-    assert.deepEqual(F.groupSessionsByAgent([]), []);
-    assert.deepEqual(F.groupSessionsByAgent(null), []);
-  });
 });
 
 test.describe('search never crashes on what can be typed', () => {

@@ -42,8 +42,8 @@ deux par cinq d'entre eux :
 
 - **Tous vos dossiers de travail**, avec le vrai chemin — accents compris, jamais le nom encodé
   illisible que certains assistants utilisent sur disque.
-- **Une pastille par assistant** sur chaque dossier, et des listes séparées dans le panneau : les
-  conversations Codex et Claude ne se mélangent jamais.
+- **Une pastille par assistant** sur chaque dossier, et une sur chaque conversation : un dossier se
+  lit comme une seule liste, la plus récente en tête, quel que soit l'assistant qui l'a écrite.
 - **Recherche plein texte instantanée**, insensible aux accents : `mathematiques` trouve
   `Mathématiques`. Partout, ou ciblée sur un assistant, un dossier, une conversation — et sur
   une période : 7 jours, 30 jours, cette année.

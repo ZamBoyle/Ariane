@@ -41,16 +41,16 @@ const SCRIPT = `(async () => {
   // a node captured earlier is detached and answers nothing.
   const firstFolder = tree.querySelector('.folder');
 
-  // What the sidebar shows once a folder holding two agents is open.
-  const agentGroups = [...firstFolder.querySelectorAll('.agent-head .agent-chip')].map((c) => ({
-    label: c.textContent,
-    agent: c.dataset.agent,
-  }));
-  const sessionLists = [...firstFolder.querySelectorAll('.sessions')].map((l) => ({
-    agent: l.dataset.agent,
-    count: l.querySelectorAll('.session-btn').length,
-  }));
-  const folderDots = [...firstFolder.querySelectorAll('.agent-dot')].map((d) => d.dataset.agent);
+  // What the sidebar shows once a folder holding two agents is open: ONE list,
+  // newest first, each row carrying its own mark.
+  const sessionRows = [...firstFolder.querySelectorAll('.sessions .session-btn')].map((b) => {
+    const dot = b.querySelector('.agent-dot');
+    return { agent: dot ? dot.dataset.agent : '', title: b.textContent };
+  });
+  const sessionLists = firstFolder.querySelectorAll('.sessions').length;
+  // Celles du dossier seulement : depuis que chaque conversation porte la
+  // sienne, un querySelectorAll large ramasserait les deux.
+  const folderDots = [...firstFolder.querySelectorAll('.agent-marks .agent-dot')].map((d) => d.dataset.agent);
 
   sessionButton.click();
   const transcript = document.getElementById('transcript');
@@ -949,7 +949,7 @@ const SCRIPT = `(async () => {
     afterAuto,
     afterManual,
     messages,
-    agentGroups,
+    sessionRows,
     sessionLists,
     folderDots,
     otherAgent,
@@ -1386,21 +1386,21 @@ async function run() {
   check('its header names the agent too',
     r.otherAgent.meta && r.otherAgent.meta.startsWith('Codex'), r.otherAgent.meta);
 
-  // -- agents: the folder holds two, and they must never be interleaved -----
-  check('each agent gets its own labelled group',
-    r.agentGroups.length === 2 && r.agentGroups.some((g) => g.agent === 'claude')
-      && r.agentGroups.some((g) => g.agent === 'codex'),
-    r.agentGroups.map((g) => `${g.agent}:${g.label}`).join(' | '));
-  check('the busiest agent is listed first',
-    r.agentGroups[0] && r.agentGroups[0].agent === 'codex',
-    r.agentGroups.map((g) => g.agent).join(' > '));
-  check('sessions are split into one list per agent',
-    r.sessionLists.length === 2 && r.sessionLists.every((l) => l.agent),
-    r.sessionLists.map((l) => `${l.agent}=${l.count}`).join(' '));
-  check('no list mixes two agents',
-    r.sessionLists.find((l) => l.agent === 'codex')?.count === 2
-      && r.sessionLists.find((l) => l.agent === 'claude')?.count === 1,
-    r.sessionLists.map((l) => `${l.agent}=${l.count}`).join(' '));
+  // -- agents: one list, newest first, whoever wrote it ---------------------
+  // The fixture is built for this: the Claude session is the most recent
+  // (23:06) and the two Codex ones older (22:00, 21:00). Grouped by agent and
+  // ordered by size, Codex came first and the newest was buried under two.
+  check('une seule liste, pas une par assistant',
+    r.sessionLists === 1, `${r.sessionLists} liste(s)`);
+  check('la conversation la plus récente est en tête, quel que soit son assistant',
+    r.sessionRows[0] && r.sessionRows[0].agent === 'claude',
+    r.sessionRows.map((s) => s.agent).join(' > '));
+  check('les assistants sont entremêlés dans la même liste',
+    new Set(r.sessionRows.map((s) => s.agent)).size === 2 && r.sessionRows.length === 3,
+    `${r.sessionRows.length} lignes : ${r.sessionRows.map((s) => s.agent).join(', ')}`);
+  check('chaque ligne porte sa marque d\'assistant',
+    r.sessionRows.every((s) => s.agent),
+    r.sessionRows.map((s) => s.agent || '(aucune)').join(' '));
   check('the folder row marks which agents worked there',
     r.folderDots.length === 2, r.folderDots.join(','));
 

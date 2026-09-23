@@ -471,21 +471,3 @@ export function agentTheme(agentId, fallbackLabel = '') {
   const label = fallbackLabel || agentId || 'Agent';
   return { id: agentId || 'unknown', label, initial: label.slice(0, 1).toUpperCase() };
 }
-
-/**
- * Split a folder's sessions by agent, so Claude and Codex conversations are
- * never interleaved in one undifferentiated list.
- *
- * @returns {Array<{agentId: string, sessions: object[]}>} Busiest agent first.
- */
-export function groupSessionsByAgent(sessions) {
-  const byAgent = new Map();
-  for (const session of Array.isArray(sessions) ? sessions : []) {
-    const id = session.agentId || 'unknown';
-    if (!byAgent.has(id)) byAgent.set(id, []);
-    byAgent.get(id).push(session);
-  }
-  return [...byAgent.entries()]
-    .map(([agentId, group]) => ({ agentId, sessions: group }))
-    .sort((a, b) => b.sessions.length - a.sessions.length || a.agentId.localeCompare(b.agentId));
-}

@@ -19,7 +19,6 @@ import {
   groupMessages,
   describeToolRun,
   agentTheme,
-  groupSessionsByAgent,
   findRanges,
   foldForSearch,
 } from './format.js';
@@ -779,31 +778,43 @@ function renderFolder(folder) {
   return wrapper;
 }
 
+/**
+ * One list, newest first, whatever assistant wrote it.
+ *
+ * They used to be grouped by agent, busiest group first — which buried a
+ * conversation from ten minutes ago under forty older ones from a chattier
+ * assistant. What someone looks for in a folder is what they last worked on,
+ * and `db.sessions` already answers in that order (`ORDER BY last_at DESC`);
+ * grouping was throwing it away.
+ *
+ * Each row carries its own agent mark instead, the same one the folder rows
+ * use. Telling them apart is a glance, not a heading.
+ */
 function renderSessions(sessions) {
   const wrapper = node('div', 'sessions-wrap');
-  // Two agents in one folder must read as two lists, not one mixed one.
-  for (const group of groupSessionsByAgent(sessions)) {
-    const theme = agentTheme(group.agentId, labelOfAgent(group.agentId));
-    const head = node('div', 'agent-head');
-    const chip = node('span', 'agent-chip', theme.label);
-    chip.dataset.agent = group.agentId;
-    head.append(chip, node('span', 'agent-count', String(group.sessions.length)));
-    wrapper.append(head, sessionList(group.sessions, group.agentId));
-  }
+  wrapper.append(sessionList(sessions));
   return wrapper;
 }
 
-function sessionList(sessions, agentId) {
+function sessionList(sessions) {
   const list = node('ul', 'sessions');
-  list.dataset.agent = agentId;
   for (const session of sessions) {
     const button = node('button', 'session-btn');
     button.type = 'button';
     if (session.id === state.currentSessionId) button.setAttribute('aria-current', 'true');
 
     const title = node('span', 'session-title');
+    const theme = agentTheme(session.agentId, labelOfAgent(session.agentId));
+    const mark = node('span', 'agent-dot', theme.initial);
+    mark.dataset.agent = session.agentId;
+    mark.title = theme.label;
+    title.append(mark);
     if (session.favorite) title.append(starMark());
-    title.append(session.title || preview(session.firstPrompt, 60) || t('session-untitled'));
+    // Le texte dans son propre élément : la rangée porte aussi la pastille,
+    // l'étoile et les badges, et seul le nom doit se tronquer.
+    title.append(
+      node('span', 'session-name', session.title || preview(session.firstPrompt, 60) || t('session-untitled'))
+    );
     if (session.source === 'archive') {
       title.append(nodeFrom('span', 'badge-history badge-saved', 'session-badge-saved'));
     } else if (session.source === 'history') {
