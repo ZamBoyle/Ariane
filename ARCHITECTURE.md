@@ -394,16 +394,15 @@ them: the corpus grows every day, and three documents have already carried three
 
 ### The suites, measured by the CI on 23 September 2026
 
-| | Unit | Renderer | Layout | Splash |
-|---|---|---|---|---|
-| linux | 707 / 707 | 155 | 26 | 7 |
-| macos | 707 / 707 | 155 | 26 | 7 |
-| windows | 691 / 692 | 155 | 26 | 7 |
+| | Unit | Renderer | Layout | Splash | Network |
+|---|---|---|---|---|---|
+| linux | 746 / 746 | 160 | 28 | 7 | 7 |
+| macos | 746 / 746 | 160 | 28 | 7 | 7 |
+| windows | 730 / 731 | 160 | 28 | 7 | 7 |
 
 Windows runs fifteen fewer and counts one without passing it: the `POSIX_ONLY` skips in
 `terminal.test.js`, declared with their reason — execute bits, shebang lines, executables with no
-extension. A stated abstention, not a hole. The renderer suite counts 160 checks at the time of
-writing; the number above is what the run reported and is the one to trust.
+extension. A stated abstention, not a hole.
 
 **Do not copy these figures elsewhere.** Four documents have already carried three different totals,
 which is what this section exists to stop.

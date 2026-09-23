@@ -410,11 +410,11 @@ trois totaux différents.
 
 ### Les suites, mesurées par la CI le 23 septembre 2026
 
-| | Unitaires | Rendu | Mise en page | Accueil |
-|---|---|---|---|---|
-| linux | 707 / 707 | 155 | 26 | 7 |
-| macos | 707 / 707 | 155 | 26 | 7 |
-| windows | 691 / 692 | 155 | 26 | 7 |
+| | Unitaires | Rendu | Mise en page | Accueil | Réseau |
+|---|---|---|---|---|---|
+| linux | 746 / 746 | 160 | 28 | 7 | 7 |
+| macos | 746 / 746 | 160 | 28 | 7 | 7 |
+| windows | 730 / 731 | 160 | 28 | 7 | 7 |
 
 Windows en exécute quinze de moins et en compte un sans le passer : ce sont les `POSIX_ONLY` de
 `terminal.test.js`, déclarés avec leur raison — bits d'exécution, shebangs, exécutables sans
