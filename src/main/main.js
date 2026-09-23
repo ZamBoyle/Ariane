@@ -10,7 +10,7 @@
  */
 
 const path = require('path');
-const { app, BrowserWindow, shell, session, screen, nativeTheme } = require('electron');
+const { app, BrowserWindow, shell, session, screen, nativeTheme, nativeImage } = require('electron');
 
 const { registerIpc, disposeIpc, splashEnabled } = require('./ipc');
 const { WindowState } = require('./window-state');
@@ -51,6 +51,49 @@ const SPLASH = { width: 760, height: 470, failsafeMs: 10000 };
 /** The window this app opens with, when nothing was ever saved. */
 const WINDOW = { width: 1280, height: 860, minWidth: 780, minHeight: 520 };
 
+/**
+ * The window's own icon — and it has to be stated, or there is none.
+ *
+ * Electron gives a Linux window no icon by itself. Without this the window
+ * carries no `_NET_WM_ICON`, and a task bar with nothing to show shows its
+ * generic one. Measured on a real MATE session: `xprop _NET_WM_ICON` on the
+ * running window answered "not found".
+ *
+ * **`_NET_WM_ICON` is the portable answer**, not a desktop-specific trick: the
+ * freedesktop spec defines it and every EWMH window manager reads it — Mutter,
+ * KWin, Marco, Xfwm, Openbox, Fluxbox, i3. A `.desktop` entry is a different
+ * mechanism and does not replace it: `StartupWMClass` associates a window with
+ * a launcher, it does not paint it. Both are needed.
+ *
+ * **Several sizes rather than one**, because the spec allows it and the window
+ * manager then picks the nearest instead of crushing a 512 into 16 pixels — an
+ * icon is judged at 16, as the icon section of this project's notes says. Each
+ * file is a real rendering, not a downscale done at load time.
+ *
+ * They ship with the app: `build/` is not in `build.files` by default, and
+ * before this the packaged application had no image at all on hand.
+ */
+const ICON_SIZES = [16, 24, 32, 48, 64, 128, 256, 512];
+
+function appIcon() {
+  // `build/` is electron-builder's own resources directory and is excluded
+  // from the package, so the files travel through `extraResources` instead and
+  // land beside the app. Two paths, one for each life of the application.
+  const dir = app.isPackaged
+    ? path.join(process.resourcesPath, 'icons')
+    : path.join(__dirname, '..', '..', 'build', 'icons');
+  const icon = nativeImage.createEmpty();
+  for (const size of ICON_SIZES) {
+    const one = nativeImage.createFromPath(path.join(dir, `${size}x${size}.png`));
+    // A missing file is not worth a crash at startup: the window simply keeps
+    // whatever sizes were found, and none at all means the old behaviour.
+    if (!one.isEmpty()) icon.addRepresentation({ scaleFactor: size / 16, buffer: one.toPNG() });
+  }
+  return icon.isEmpty() ? undefined : icon;
+}
+
+const ICON = appIcon();
+
 /** How long after a drag or a resize the new geometry is written down. */
 const REMEMBER_DELAY_MS = 500;
 
@@ -61,6 +104,7 @@ let splash = null;
 function createSplash() {
   splash = new BrowserWindow({
     ...SPLASH,
+    icon: ICON,
     show: false,
     frame: false,
     resizable: false,
@@ -150,6 +194,7 @@ function createWindow() {
 
   const win = new BrowserWindow({
     ...WINDOW,
+    icon: ICON,
     width: saved.width,
     height: saved.height,
     // Only when the saved position still lands on a screen that exists;

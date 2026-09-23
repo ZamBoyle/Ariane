@@ -121,6 +121,15 @@
         "libsecret-1-0"
       ]
     },
-    "npmRebuild": false
+    "npmRebuild": false,
+    "extraResources": [
+      {
+        "from": "build/icons",
+        "to": "icons",
+        "filter": [
+          "*.png"
+        ]
+      }
+    ]
   }
 }
