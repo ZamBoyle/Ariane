@@ -396,9 +396,9 @@ them: the corpus grows every day, and three documents have already carried three
 
 | | Unit | Renderer | Layout | Splash | Network |
 |---|---|---|---|---|---|
-| linux | 768 / 768 | 164 | 28 | 7 | 7 |
-| macos | 768 / 768 | 164 | 28 | 7 | 7 |
-| windows | 752 / 753 | 164 | 28 | 7 | 7 |
+| linux | 787 / 787 | 168 | 28 | 7 | 7 |
+| macos | 787 / 787 | 168 | 28 | 7 | 7 |
+| windows | 771 / 772 | 168 | 28 | 7 | 7 |
 
 Windows runs fifteen fewer and counts one without passing it: the `POSIX_ONLY` skips in
 `terminal.test.js`, declared with their reason — execute bits, shebang lines, executables with no
@@ -407,9 +407,9 @@ extension. A stated abstention, not a hole.
 **Do not copy these figures elsewhere.** Four documents have already carried three different totals,
 which is what this section exists to stop.
 
-### Coverage, 23 September 2026
+### Coverage, 24 September 2026
 
-`npm run test:coverage` — **96.58 % of lines, 87.26 % of branches, 94.39 % of functions.**
+`npm run test:coverage` — **96.72 % of lines, 87.89 % of branches, 94.89 % of functions.**
 
 **It measures the unit suite alone.** The five Electron suites are not counted, so a file exercised
 only by them reads low: `src/main/update-check.js` shows 62 % because `electronRequest` — the one

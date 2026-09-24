@@ -412,9 +412,9 @@ trois totaux différents.
 
 | | Unitaires | Rendu | Mise en page | Accueil | Réseau |
 |---|---|---|---|---|---|
-| linux | 768 / 768 | 164 | 28 | 7 | 7 |
-| macos | 768 / 768 | 164 | 28 | 7 | 7 |
-| windows | 752 / 753 | 164 | 28 | 7 | 7 |
+| linux | 787 / 787 | 168 | 28 | 7 | 7 |
+| macos | 787 / 787 | 168 | 28 | 7 | 7 |
+| windows | 771 / 772 | 168 | 28 | 7 | 7 |
 
 Windows en exécute quinze de moins et en compte un sans le passer : ce sont les `POSIX_ONLY` de
 `terminal.test.js`, déclarés avec leur raison — bits d'exécution, shebangs, exécutables sans
@@ -423,9 +423,9 @@ extension. Une abstention écrite, pas un trou.
 **Ne recopiez pas ces chiffres ailleurs.** Quatre documents en ont déjà porté trois différents, et
 c'est précisément ce que cette section existe pour empêcher.
 
-### Couverture, 23 septembre 2026
+### Couverture, 24 septembre 2026
 
-`npm run test:coverage` — **96,58 % des lignes, 87,26 % des branches, 94,39 % des fonctions.**
+`npm run test:coverage` — **96,72 % des lignes, 87,89 % des branches, 94,89 % des fonctions.**
 
 **Elle ne mesure que la suite unitaire.** Les cinq suites Electron n'y sont pas comptées, donc un
 fichier qu'elles seules éprouvent paraît bas : `src/main/update-check.js` affiche 62 % parce que
