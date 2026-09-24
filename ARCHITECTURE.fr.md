@@ -413,9 +413,9 @@ trois totaux différents.
 
 | | Unitaires | Rendu | Mise en page | Accueil | Réseau |
 |---|---|---|---|---|---|
-| linux | 810 / 810 | 187 | 28 | 7 | 7 |
-| macos | 810 / 810 | 187 | 28 | 7 | 7 |
-| windows | 794 / 795 | 187 | 28 | 7 | 7 |
+| linux | 817 / 817 | 188 | 28 | 7 | 7 |
+| macos | 817 / 817 | 188 | 28 | 7 | 7 |
+| windows | 801 / 802 | 188 | 28 | 7 | 7 |
 
 Windows en exécute quinze de moins et en compte un sans le passer : ce sont les `POSIX_ONLY` de
 `terminal.test.js`, déclarés avec leur raison — bits d'exécution, shebangs, exécutables sans

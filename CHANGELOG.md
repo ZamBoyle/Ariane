@@ -18,6 +18,7 @@ Voici à quelle version chacune appartient.
 
 | Version | Date | Ce qu'elle apporte |
 |---|---|---|
+| [0.4.1](https://github.com/ZamBoyle/Ariane/releases/tag/v0.4.1) | 24 sept. 2026 | les appels d'outils d'Antigravity ; le raisonnement masqué de Claude nommé dans les statistiques |
 | [0.4.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.4.0) | 24 sept. 2026 | une vue Statistiques : qui a écrit, les jetons, mois par mois, par assistant, modèle et dossier |
 | [0.3.7](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.7) | 24 sept. 2026 | l'indexation retrouve sa vitesse d'avant les jetons de Codex |
 | [0.3.6](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.6) | 24 sept. 2026 | le modèle dans la barre latérale ; une conversation sans titre nommée par ses premiers mots |
