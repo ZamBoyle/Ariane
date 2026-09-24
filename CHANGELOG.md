@@ -25,6 +25,41 @@ Voici à quelle version chacune appartient.
 
 ---
 
+## 24 septembre 2026
+
+### Ce que chaque conversation a coûté, sous son nom
+
+**Ce que ça change.** Sous le résumé de chaque conversation, une ligne plus discrète :
+`↑ 607K · ↓ 314K · cache 34,6M`. Au survol, les chiffres exacts. Une conversation dont
+l'assistant n'a rien mesuré n'affiche rien — pas « 0 », qui prétendrait qu'il a mesuré et trouvé
+rien.
+
+**Les autres ont décidé de la forme.** ccusage, l'outil de référence, ne mélange jamais : entrée,
+sortie, écriture et lecture du cache en colonnes séparées. Et un billet intitulé *« j'ai cru
+utiliser un milliard de jetons, 97 % était du cache »* décrit le piège exact de nos chiffres. Le
+premier plan tombait dedans : « envoyés » comptait le cache relu, soit **2,28 milliards** pour la
+plus grosse conversation.
+
+**Mesuré sur les 37 conversations Claude qui en portent**, en médiane : 462 jetons d'entrée
+fraîche, 606 K écrits en cache, 314 K reçus, 34,6 M relus depuis le cache. D'où trois nombres qui
+disent chacun une chose vraie : **↑** ce qui était nouveau dans les invites — l'entrée fraîche
+*plus* l'écriture en cache, car Claude fait passer presque tout le nouveau par le cache ; seule,
+l'entrée fraîche ne voudrait rien dire —, **↓** ce qui a été reçu, et le **cache relu à part**,
+nommé comme tel.
+
+**K, M et G dans toutes les langues**, comme demandé, avec la virgule décimale de chacune :
+`7,5K` en français, `7.5K` en anglais. La notation compacte d'`Intl` aurait écrit `7,5 k` en
+français, rien abrégé en allemand, et compté en 万 en japonais. Une valeur qui s'arrondit au
+palier suivant le prend : `1M`, jamais `1000K`.
+
+**Trouvé en chemin : seul l'adaptateur de Claude lit les jetons.** Le contrat les définit pour
+quatre agents, mais Codex, Gemini et Copilot n'ont jamais été branchés : 260 conversations sans
+chiffre. C'est noté dans la feuille de route, avec le piège qui en décide la conception. Et un
+`compact(null)` qui rendait « 0 » a été attrapé par son propre test avant de s'afficher nulle part.
+
+**Ce que ça coûte.** Les sommes sont calculées par la requête qui liste un dossier, sur ses seules
+conversations : 1,2 ms pour le plus gros dossier (78 conversations).
+
 ## 23 septembre 2026
 
 ### Le Markdown que les assistants écrivent vraiment

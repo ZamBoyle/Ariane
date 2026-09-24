@@ -65,6 +65,16 @@ session-summary = { $when } · { $count ->
        *[other] { $count } 条消息
     }
 
+session-tokens = ↑ { $sent } · ↓ { $received }
+    .title =
+        发送：提示词中的新 token { $sentExact } 个
+        接收：{ $receivedExact } 个 token
+session-tokens-cached = ↑ { $sent } · ↓ { $received } · 缓存 { $cached }
+    .title =
+        发送：提示词中的新 token { $sentExact } 个
+        接收：{ $receivedExact } 个 token
+        从缓存重读：{ $cachedExact } 个 token，即每轮重新发送的上下文
+
 ## 页脚与索引
 
 stats = { $folders ->

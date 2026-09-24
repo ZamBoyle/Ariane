@@ -162,6 +162,30 @@ test.describe('the words, in French and in English', () => {
     assert.equal(fr.list(['a', 'b', 'c']), 'a, b et c');
   });
 
+  test('token counts are shortened with K, M and G, in the language’s own decimals', async () => {
+    const fr = await localizer('fr');
+    const en = await localizer('en');
+    assert.equal(en.compact(646), '646');
+    assert.equal(en.compact(4386), '4.4K');
+    assert.equal(fr.compact(4386), '4,4K', 'la virgule décimale du français');
+    assert.equal(en.compact(190255), '190K', 'no decimal from 100 on');
+    assert.equal(fr.compact(14510696), '14,5M');
+    assert.equal(en.compact(2278555911), '2.3G', 'a conversation measured at 2.28 billion');
+    assert.equal(en.compact(0), '0', 'a measured zero is shown');
+    assert.equal(en.compact(null), '', 'an absence is not a zero');
+    assert.equal(en.compact('12'), '', 'only a number is a count');
+  });
+
+  test('a value that rounds up takes the next prefix', async () => {
+    const en = await localizer('en');
+    assert.equal(en.compact(999.6), '1K', 'never "1000"');
+    assert.equal(en.compact(9990), '10K');
+    assert.equal(en.compact(99949), '99.9K');
+    assert.equal(en.compact(99950), '100K');
+    assert.equal(en.compact(999950), '1M', 'never "1000K"');
+    assert.equal(en.compact(999960000), '1G', 'never "1000M"');
+  });
+
   test('a message missing from a language comes from English, one by one', async () => {
     const { createLocalizer } = E;
     const en = fs.readFileSync(path.join(LOCALES, 'en.ftl'), 'utf8');

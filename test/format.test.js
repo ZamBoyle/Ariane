@@ -450,6 +450,40 @@ test.describe('links', () => {
   });
 });
 
+test.describe('what a conversation cost', () => {
+  test('three figures, each meaning one thing', () => {
+    // Measured on a real conversation: fresh input is almost nothing, the new
+    // material goes through the cache, and re-reads dwarf everything.
+    const usage = F.sessionTokens({
+      tokInput: 462, tokOutput: 313928, tokCacheRead: 34567122, tokCacheWrite: 606179,
+    });
+    assert.equal(usage.sent, 462 + 606179, 'sent is what was new: fresh input plus cache writes');
+    assert.equal(usage.received, 313928);
+    assert.equal(usage.cacheRead, 34567122, 're-reads are kept apart, never folded into sent');
+  });
+
+  test('an assistant that recorded nothing yields nothing, not zeros', () => {
+    assert.equal(F.sessionTokens({ tokInput: null, tokOutput: null, tokCacheRead: null, tokCacheWrite: null }), null);
+    assert.equal(F.sessionTokens({}), null);
+    assert.equal(F.sessionTokens(null), null);
+  });
+
+  test('a figure the agent does not keep stays null, the others still count', () => {
+    // Gemini keeps no cache writes.
+    const usage = F.sessionTokens({ tokInput: 100, tokOutput: 20, tokCacheRead: 5, tokCacheWrite: null });
+    assert.equal(usage.sent, 100);
+    assert.equal(usage.cacheWrite, null);
+    const noCache = F.sessionTokens({ tokInput: 100, tokOutput: 20 });
+    assert.equal(noCache.cacheRead, null, 'no cache recorded is not a cache of zero');
+    assert.equal(F.sessionTokens({ tokOutput: 7 }).sent, null, 'nothing sent was measured');
+  });
+
+  test('a measured zero is a zero', () => {
+    const usage = F.sessionTokens({ tokInput: 0, tokOutput: 0, tokCacheRead: 0, tokCacheWrite: 0 });
+    assert.deepEqual([usage.sent, usage.received, usage.cacheRead], [0, 0, 0]);
+  });
+});
+
 test.describe('display helpers', () => {
   test('folderLabel splits POSIX and Windows paths', () => {
     assert.deepEqual(F.folderLabel('/home/zam/Documents/Mathématiques'),

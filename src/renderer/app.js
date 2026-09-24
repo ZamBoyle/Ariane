@@ -11,6 +11,7 @@
 
 import {
   renderMarkdown,
+  sessionTokens,
   renderSnippet,
   folderLabel,
   preview,
@@ -825,6 +826,8 @@ function sessionList(sessions) {
     sub.textContent = t('session-summary', { when: l10n.ago(session.lastAt), count: session.messageCount });
 
     button.append(title, sub);
+    const tokens = tokenLine(sessionTokens(session));
+    if (tokens) button.append(tokens);
     button.addEventListener('click', () => openSession(session.id));
 
     const item = document.createElement('li');
@@ -901,6 +904,26 @@ function renderFavorites() {
     for (const { session, message } of messages) children.push(favoriteMessageRow(session, message));
   }
   el.tree.replaceChildren(...children);
+}
+
+/**
+ * "↑ 607K · ↓ 314K · cache 34.6M" under a conversation, the exact figures on
+ * hover — or nothing, when its assistant recorded no usage. Nothing is not
+ * "0": an agent that measured nothing did not spend nothing.
+ */
+function tokenLine(usage) {
+  if (!usage) return null;
+  const short = (n) => (n === null ? '—' : l10n.compact(n));
+  const exact = (n) => (n === null ? '—' : l10n.number(n));
+  const id = usage.cacheRead === null ? 'session-tokens' : 'session-tokens-cached';
+  return nodeFrom('span', 'session-tokens', id, {
+    sent: short(usage.sent),
+    received: short(usage.received),
+    cached: short(usage.cacheRead),
+    sentExact: exact(usage.sent),
+    receivedExact: exact(usage.received),
+    cachedExact: exact(usage.cacheRead),
+  });
 }
 
 function favoriteRow(session) {

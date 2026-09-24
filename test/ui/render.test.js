@@ -45,7 +45,13 @@ const SCRIPT = `(async () => {
   // newest first, each row carrying its own mark.
   const sessionRows = [...firstFolder.querySelectorAll('.sessions .session-btn')].map((b) => {
     const dot = b.querySelector('.agent-dot');
-    return { agent: dot ? dot.dataset.agent : '', title: b.textContent };
+    const tokens = b.querySelector('.session-tokens');
+    return {
+      agent: dot ? dot.dataset.agent : '',
+      title: b.textContent,
+      tokens: tokens ? tokens.textContent : null,
+      tokensTitle: tokens ? tokens.title : null,
+    };
   });
   const sessionLists = firstFolder.querySelectorAll('.sessions').length;
   // Celles du dossier seulement : depuis que chaque conversation porte la
@@ -1398,6 +1404,20 @@ async function run() {
   check('les assistants sont entremêlés dans la même liste',
     new Set(r.sessionRows.map((s) => s.agent)).size === 2 && r.sessionRows.length === 3,
     `${r.sessionRows.length} lignes : ${r.sessionRows.map((s) => s.agent).join(', ')}`);
+  // -- ce que chaque conversation a coûté ---------------------------------
+  const claudeRow = r.sessionRows.find((s) => s.agent === 'claude');
+  check('une conversation mesurée montre ses jetons sous son résumé, en K et M',
+    claudeRow && claudeRow.tokens === '↑ 607K · ↓ 314K · cache 34,6M',
+    claudeRow && claudeRow.tokens);
+  check('le cache relu est à part : jamais additionné aux envoyés',
+    claudeRow && !/35(,|\.)\d?M/.test(claudeRow.tokens.split('·')[0]),
+    claudeRow && claudeRow.tokens);
+  check('au survol, les chiffres exacts',
+    claudeRow && /606\u202f641/.test(claudeRow.tokensTitle) && /34\u202f567\u202f122/.test(claudeRow.tokensTitle),
+    claudeRow && JSON.stringify(claudeRow.tokensTitle));
+  check('une conversation que son agent n’a pas mesurée ne montre rien, pas zéro',
+    r.sessionRows.filter((s) => s.agent === 'codex').every((s) => s.tokens === null),
+    r.sessionRows.map((s) => `${s.agent}:${s.tokens}`).join(' | '));
   check('chaque ligne porte sa marque d\'assistant',
     r.sessionRows.every((s) => s.agent),
     r.sessionRows.map((s) => s.agent || '(aucune)').join(' '));

@@ -411,6 +411,36 @@ function splitTrailing(found) {
 
 // -- display helpers ---------------------------------------------------------
 
+/**
+ * What a conversation cost, as three figures that each mean one thing — or
+ * null when its assistant recorded nothing at all.
+ *
+ *   sent       input + cacheWrite: what was new in the prompts. Fresh input
+ *              alone is a few hundred tokens for a whole conversation
+ *              (median 462) because Claude sends nearly everything new through
+ *              the cache; its writes are the real material (median 606 K).
+ *   received   output, reasoning included.
+ *   cacheRead  the context read back at every turn — kept apart on purpose.
+ *              It is 95 % of the total (median 34.6 M, up to 2.2 G); folded
+ *              into "sent", it would claim billions were sent. That is the
+ *              mistake ccusage avoids with separate columns, and the one a
+ *              "1 billion tokens, 97 % cache" post was written about.
+ *
+ * A figure the agent did not record stays null (contract.js).
+ */
+export function sessionTokens(session) {
+  if (!session) return null;
+  const measured = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  const input = measured(session.tokInput);
+  const output = measured(session.tokOutput);
+  const cacheRead = measured(session.tokCacheRead);
+  const cacheWrite = measured(session.tokCacheWrite);
+  if ([input, output, cacheRead, cacheWrite].every((v) => v === null)) return null;
+
+  const sent = input === null && cacheWrite === null ? null : (input ?? 0) + (cacheWrite ?? 0);
+  return { sent, received: output, cacheRead, input, cacheWrite };
+}
+
 /** Split a path into its last segment and its parent, for a two-line label. */
 export function folderLabel(fullPath) {
   const value = String(fullPath || '');

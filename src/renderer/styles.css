@@ -426,6 +426,19 @@ body {
   color: var(--text-faint);
 }
 
+/* Ce que la conversation a coûté, sous son résumé : plus discret encore, et
+   aligné en chiffres pour qu'une colonne de lignes se lise d'un coup d'œil. */
+.session-tokens {
+  display: block;
+  margin-top: 1px;
+  font-size: 10.5px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .badge-history {
   display: inline-block;
   margin-left: 5px;

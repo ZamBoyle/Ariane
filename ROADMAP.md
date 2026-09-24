@@ -128,12 +128,12 @@ bouge pas.
 ## Ordre proposé
 
 Le huitième est fait depuis le 22 septembre 2026 : la CI tourne sur les trois systèmes, et la
-0.3.1 est publiée. Ce qui reste tient en un chantier et quatre broutilles.
+0.3.2 est publiée. Ce qui reste tient en un chantier et six choses plus petites.
 
 **13.** À moitié fait : Ariane **prévient** depuis le 22 septembre 2026, sur les cinq paquets.
 Reste la mise à jour en place de l'AppImage, la seule cible qui le permette sans certificat.
 
-**Et cinq choses plus petites, par ce qu'elles coûtent :**
+**Et six choses plus petites, par ce qu'elles coûtent :**
 
 - **Le `.dmg` est arm64 uniquement.** Les runners macOS sont en Apple Silicon, donc un Mac Intel ne
   peut pas l'ouvrir. Se règle par une cible universelle ou une seconde construction x64.
@@ -149,5 +149,12 @@ Reste la mise à jour en place de l'AppImage, la seule cible qui le permette san
   ne permet de demander sur-le-champ. C'est gênant précisément là où on se trouve quand on vient
   d'allumer l'option : dans les réglages, à se demander si elle fonctionne. Un bouton et un appel
   de plus, le canal existe déjà.
+- **Les jetons de Codex, Gemini et Copilot.** Ariane les affiche sous chaque conversation depuis le
+  24 septembre 2026, mais seul l'adaptateur de Claude les lit : 222 conversations Codex, 20 Gemini
+  et 18 Copilot n'en montrent aucun. Le dictionnaire est déjà dans `contract.js`, avec le piège qui
+  décide de tout : l'`input_tokens` de Codex **inclut** le cache et doit être diminué de
+  `cached_input_tokens`, et c'est `last_token_usage` qu'il faut lire, jamais `total_token_usage`,
+  qui est cumulatif. Chaque adaptateur se vérifie sur de vrais fichiers, et il faudra hausser
+  `SCHEMA_VERSION` pour que les conversations déjà indexées soient relues.
 - **Le saut à une date** *dans* une conversation ouverte (reste du point 3) : les dates sont dans
   l'infobulle de chaque trait du plan, mais rien ne permet d'y aller.

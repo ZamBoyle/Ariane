@@ -68,6 +68,30 @@ export function directionOf(language) {
  * @param {(problem: string) => void} [options.onProblem] Told of a missing
  *   message or a broken file; development only.
  */
+/** SI prefixes for a count, largest first. */
+const COMPACT_UNITS = [
+  [1e9, 'G'],
+  [1e6, 'M'],
+  [1e3, 'K'],
+];
+
+/** [the shortened number, its prefix] — [646, ''], [7.5, 'K'], [1, 'M']. */
+function compactParts(n) {
+  if (Math.abs(n) < 999.5) return [Math.round(n), ''];
+  for (let i = 0; i < COMPACT_UNITS.length; i++) {
+    const [size, unit] = COMPACT_UNITS[i];
+    if (Math.abs(n) < size * 0.9995 && i < COMPACT_UNITS.length - 1) continue;
+    const scaled = n / size;
+    const rounded = Number(scaled.toFixed(Math.abs(scaled) < 99.95 ? 1 : 0));
+    if (Math.abs(rounded) >= 1000 && i > 0) {
+      const [bigger, biggerUnit] = COMPACT_UNITS[i - 1];
+      return [Number((n / bigger).toFixed(1)), biggerUnit];
+    }
+    return [rounded, unit];
+  }
+  return [Math.round(n), ''];
+}
+
 export function createLocalizer({ language, sources, pseudo = false, onProblem = () => {} }) {
   const bundles = sources.map(({ language: code, source }) => {
     const bundle = new FluentBundle(code, {
@@ -113,6 +137,7 @@ export function createLocalizer({ language, sources, pseudo = false, onProblem =
   });
   const relative = new Intl.RelativeTimeFormat(language, { numeric: 'always' });
   const numbers = new Intl.NumberFormat(language);
+  const tenths = new Intl.NumberFormat(language, { maximumFractionDigits: 1 });
   const lists = new Intl.ListFormat(language, { style: 'long', type: 'conjunction' });
 
   return {
@@ -175,6 +200,22 @@ export function createLocalizer({ language, sources, pseudo = false, onProblem =
 
     number(value) {
       return wrap(numbers.format(value));
+    },
+
+    /**
+     * "646", "7.5K", "190K", "14.5M", "2.2G" — "7,5K" in French. K, M and G
+     * whatever the language, with the language's own decimal mark: a count of
+     * tokens is read in SI prefixes, as the person asked. Intl's compact
+     * notation was not used: it writes "7,5 k" in French, leaves thousands
+     * whole in German and counts in 万 in Japanese — three widths for one line.
+     * One decimal below 100, none above; a value that rounds up to the next
+     * unit takes it ("1M", never "1000K").
+     */
+    compact(value) {
+      // A number or nothing: Number(null) is 0, and an absence is not a zero.
+      if (typeof value !== 'number' || !Number.isFinite(value)) return '';
+      const [number, unit] = compactParts(value);
+      return wrap(`${tenths.format(number)}${unit}`);
     },
 
     /** "12 KB", "12 Ko", "12 kB": the unit as this language writes it. */

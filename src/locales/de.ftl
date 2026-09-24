@@ -67,6 +67,16 @@ session-summary = { $when } · { $count ->
        *[other] { $count } Nachrichten
     }
 
+session-tokens = ↑ { $sent } · ↓ { $received }
+    .title =
+        Gesendet: { $sentExact } neue Tokens in den Prompts
+        Empfangen: { $receivedExact } Tokens
+session-tokens-cached = ↑ { $sent } · ↓ { $received } · Cache { $cached }
+    .title =
+        Gesendet: { $sentExact } neue Tokens in den Prompts
+        Empfangen: { $receivedExact } Tokens
+        Aus dem Cache gelesen: { $cachedExact } Tokens – der Kontext, der in jeder Runde erneut gesendet wird
+
 ## Die Fußzeile, und die Indizierung
 
 stats = { $folders ->

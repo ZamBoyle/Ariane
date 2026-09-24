@@ -143,3 +143,78 @@ test('un zéro mesuré survit à la base', (t) => {
   assert.equal(message.usage.output, 0, 'le zéro est relu comme un zéro');
   assert.equal(message.usage.input, null, 'et le reste, jamais mesuré, reste null');
 });
+
+// ── ce qu'une conversation a coûté, sous son nom ──────────────────────────
+
+test('la liste d’un dossier additionne les jetons de chaque conversation', (t) => {
+  const index = indexWithSession(t);
+  index.addMessages('claude:s1', [
+    { role: 'user', uuid: 'q', text: 'question', parts: [] },
+    {
+      role: 'assistant',
+      uuid: 'r1',
+      text: 'un',
+      parts: [],
+      usage: usageOf({ input: 2, output: 100, cacheRead: 5000, cacheWrite: 700 }),
+    },
+    {
+      role: 'assistant',
+      uuid: 'r2',
+      text: 'deux',
+      parts: [],
+      usage: usageOf({ input: 3, output: 50, cacheRead: 6000, cacheWrite: 0 }),
+    },
+  ]);
+
+  const [session] = index.sessions(index.folderId('/home/ada/projets/tardis'));
+  assert.equal(session.tokInput, 5, 'la question de la personne ne compte pas, les deux tours oui');
+  assert.equal(session.tokOutput, 150);
+  assert.equal(session.tokCacheRead, 11000);
+  assert.equal(session.tokCacheWrite, 700, 'un zéro mesuré s’additionne comme un zéro');
+});
+
+test('une conversation que son agent n’a pas mesurée revient avec des null', (t) => {
+  const index = indexWithSession(t);
+  index.addMessages('claude:s1', [
+    { role: 'assistant', uuid: 'x', text: 'sans compte', parts: [] },
+  ]);
+
+  const [session] = index.sessions(index.folderId('/home/ada/projets/tardis'));
+  for (const field of ['tokInput', 'tokOutput', 'tokCacheRead', 'tokCacheWrite']) {
+    assert.equal(session[field], null, `${field} : rien de mesuré ne devient pas zéro`);
+  }
+});
+
+test('les sommes ne débordent pas d’un dossier ni d’une conversation à l’autre', (t) => {
+  const index = indexWithSession(t);
+  index.upsertAgent('codex', 'Codex', '/root');
+  const tardis = index.folderId('/home/ada/projets/tardis');
+  index.upsertSession({ id: 'codex:s2', agent_id: 'codex', folder_id: tardis });
+  index.upsertSession({
+    id: 'claude:ailleurs',
+    agent_id: 'claude',
+    folder_id: index.folderId('/ailleurs'),
+  });
+  index.addMessages('claude:s1', [
+    { role: 'assistant', uuid: 'a', text: 'ici', parts: [], usage: usageOf({ output: 10 }) },
+  ]);
+  index.addMessages('claude:ailleurs', [
+    { role: 'assistant', uuid: 'b', text: 'là-bas', parts: [], usage: usageOf({ output: 999 }) },
+  ]);
+
+  const byId = Object.fromEntries(index.sessions(tardis).map((s) => [s.id, s]));
+  assert.equal(byId['claude:s1'].tokOutput, 10, 'seuls ses propres messages');
+  assert.equal(
+    byId['codex:s2'].tokOutput,
+    null,
+    'une conversation sans message mesuré reste à null'
+  );
+
+  // Les assistants masqués passent par une autre requête : elle doit porter les mêmes sommes.
+  const visible = index.sessions(tardis, ['codex']);
+  assert.deepEqual(
+    visible.map((s) => [s.id, s.tokOutput]),
+    [['claude:s1', 10]],
+    'masquer un assistant retire ses lignes sans perdre les jetons des autres'
+  );
+});

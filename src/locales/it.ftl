@@ -66,6 +66,16 @@ session-summary = { $when } · { $count ->
        *[other] { $count } messaggi
     }
 
+session-tokens = ↑ { $sent } · ↓ { $received }
+    .title =
+        Inviati: { $sentExact } token nuovi nei prompt
+        Ricevuti: { $receivedExact } token
+session-tokens-cached = ↑ { $sent } · ↓ { $received } · cache { $cached }
+    .title =
+        Inviati: { $sentExact } token nuovi nei prompt
+        Ricevuti: { $receivedExact } token
+        Riletti dalla cache: { $cachedExact } token, il contesto rinviato a ogni turno
+
 ## Il piè di colonna, e l'indicizzazione
 
 stats = { $folders ->

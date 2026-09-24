@@ -65,6 +65,16 @@ session-summary = { $when } · { $count ->
        *[other] メッセージ { $count } 件
     }
 
+session-tokens = ↑ { $sent } · ↓ { $received }
+    .title =
+        送信：プロンプト内の新しいトークン { $sentExact }
+        受信：{ $receivedExact } トークン
+session-tokens-cached = ↑ { $sent } · ↓ { $received } · キャッシュ { $cached }
+    .title =
+        送信：プロンプト内の新しいトークン { $sentExact }
+        受信：{ $receivedExact } トークン
+        キャッシュからの再読み込み：{ $cachedExact } トークン（毎ターン再送されるコンテキスト）
+
 ## フッターとインデックス作成
 
 stats = { $folders ->

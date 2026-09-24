@@ -346,13 +346,7 @@ class Index {
         GROUP BY f.id HAVING sessionCount > 0
         ORDER BY lastAt IS NULL, lastAt DESC, f.path
       `),
-      listSessions: db.prepare(`
-        SELECT id, agent_id AS agentId, title, slug, git_branch AS gitBranch,
-               first_prompt AS firstPrompt, message_count AS messageCount,
-               first_at AS firstAt, last_at AS lastAt, source, file_path AS filePath
-        FROM sessions WHERE folder_id = ?
-        ORDER BY last_at IS NULL, last_at DESC, id
-      `),
+      listSessions: db.prepare(sessionsOfFolderSql('')),
       getSession: db.prepare(`
         SELECT s.id, s.agent_id AS agentId, s.title, s.slug, s.git_branch AS gitBranch,
                s.message_count AS messageCount, s.first_at AS firstAt, s.last_at AS lastAt,
@@ -604,16 +598,13 @@ class Index {
 
   /** @param {string[]} [hidden] Agents the person chose not to see. */
   sessions(folderId, hidden = []) {
-    const hiding = hidingOn('agent_id', hidden);
-    if (!hiding.where) return this.s.listSessions.all(folderId);
-    return this.#dynamic(
-      `sessions:${hiding.params.length}`,
-      `SELECT id, agent_id AS agentId, title, slug, git_branch AS gitBranch,
-              first_prompt AS firstPrompt, message_count AS messageCount,
-              first_at AS firstAt, last_at AS lastAt, source, file_path AS filePath
-       FROM sessions WHERE folder_id = ?${hiding.where}
-       ORDER BY last_at IS NULL, last_at DESC, id`
-    ).all(folderId, ...hiding.params);
+    const hiding = hidingOn('s.agent_id', hidden);
+    if (!hiding.where) return this.s.listSessions.all(folderId, folderId);
+    return this.#dynamic(`sessions:${hiding.params.length}`, sessionsOfFolderSql(hiding.where)).all(
+      folderId,
+      folderId,
+      ...hiding.params
+    );
   }
 
   /**
@@ -833,6 +824,37 @@ function safeParse(value, fallback) {
 function cleanIds(hidden) {
   if (!Array.isArray(hidden)) return [];
   return [...new Set(hidden.filter((id) => typeof id === 'string' && /^[a-z][a-z0-9-]*$/.test(id)))];
+}
+
+/**
+ * A folder's conversations, newest first, each with what its turns cost.
+ *
+ * The token sums are the four the contract defines, added across the
+ * conversation's messages. SUM over nothing but NULLs is NULL, which is the
+ * point: a conversation whose assistant recorded no usage comes back with
+ * nulls, never with zeros (contract.js, "Absence is not zero"). Only the
+ * folder's own messages are summed — measured at 52 ms for all 362
+ * conversations at once, so one folder costs a fraction of that.
+ *
+ * Takes the folder id twice: once for the sums, once for the rows.
+ */
+function sessionsOfFolderSql(hidingWhere) {
+  return `
+    SELECT s.id, s.agent_id AS agentId, s.title, s.slug, s.git_branch AS gitBranch,
+           s.first_prompt AS firstPrompt, s.message_count AS messageCount,
+           s.first_at AS firstAt, s.last_at AS lastAt, s.source, s.file_path AS filePath,
+           u.tokInput, u.tokOutput, u.tokCacheRead, u.tokCacheWrite
+    FROM sessions s
+    LEFT JOIN (
+      SELECT session_id,
+             SUM(tok_input) AS tokInput, SUM(tok_output) AS tokOutput,
+             SUM(tok_cache_read) AS tokCacheRead, SUM(tok_cache_write) AS tokCacheWrite
+      FROM messages
+      WHERE session_id IN (SELECT id FROM sessions WHERE folder_id = ?)
+      GROUP BY session_id
+    ) u ON u.session_id = s.id
+    WHERE s.folder_id = ?${hidingWhere}
+    ORDER BY s.last_at IS NULL, s.last_at DESC, s.id`;
 }
 
 /** `AND <column> NOT IN (?,?)`, or nothing at all when nothing is hidden. */
