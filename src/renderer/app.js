@@ -187,6 +187,9 @@ const el = {
   note: document.getElementById('note'),
   noteInput: document.getElementById('note-input'),
   noteStatus: document.getElementById('note-status'),
+  origin: document.getElementById('origin'),
+  originText: document.getElementById('origin-text'),
+  originOpen: document.getElementById('origin-open'),
   stats: document.getElementById('stats'),
   agentFilter: document.getElementById('agent-filter'),
   transcript: document.getElementById('transcript'),
@@ -387,6 +390,9 @@ function wireEvents() {
   el.favorite.addEventListener('click', onToggleFavorite);
   el.partPrevious.addEventListener('click', () => goToPart(-1));
   el.partNext.addEventListener('click', () => goToPart(1));
+  el.originOpen.addEventListener('click', () => {
+    if (state.origin) openSession(state.origin.id);
+  });
   el.favorites.addEventListener('click', onToggleFavoritesView);
   el.noteToggle.addEventListener('click', onToggleNote);
   el.noteInput.addEventListener('input', debounce(saveNote, NOTE_SAVE_MS));
@@ -1095,6 +1101,34 @@ function paintChain(sessionId) {
   el.partNext.disabled = at === state.chain.length - 1;
 }
 
+/**
+ * Where what this conversation does not show comes from. A resumed or forked
+ * session begins by copying another's history; those messages are read in the
+ * conversation they came from (core/db.js, markCopies), and this says so.
+ */
+function originOf(payload) {
+  const copied = payload && payload.copied;
+  if (!copied || !copied.from) return null;
+  return {
+    id: copied.from.id,
+    text: t('convo-copied', { count: copied.count, title: nameOf(copied.from) }),
+    open: t('convo-copied-open'),
+  };
+}
+
+function paintOrigin() {
+  const origin = state.origin;
+  el.origin.hidden = !origin;
+  if (!origin) return;
+  el.originText.textContent = origin.text;
+  el.originOpen.textContent = origin.open;
+}
+
+/** What the sidebar calls a conversation: its title, else its first words. */
+function nameOf(session) {
+  return session.title || preview(session.firstPrompt, 60) || t('session-untitled');
+}
+
 /** One part earlier, or one later, in the same conversation. */
 function goToPart(step) {
   const at = state.chain.findIndex((part) => part.id === state.currentSessionId);
@@ -1223,6 +1257,7 @@ async function openSession(sessionId, highlightMessageId = null, { starred = nul
   const { session, messages } = payload;
   state.starred = new Set(payload.favoriteMessages || []);
   state.chain = payload.chain || [];
+  state.origin = originOf(payload);
   state.currentSessionId = session.id;
   state.currentFolderId = session.folderId;
   disarmForget();
@@ -1407,6 +1442,7 @@ function paintHeader(session) {
   el.convoMeta.title = bits.join(' · ');
 
   paintChain(session.id);
+  paintOrigin();
 
   // What the person marked on it: their star, and their note (marks.js).
   state.favorite = session.favorite === true;
@@ -1454,6 +1490,7 @@ async function refreshOpenConversation() {
   state.starred = new Set(payload.favoriteMessages || []);
   // Saved since it was opened: the header says so, and offers to forget it.
   state.chain = payload.chain || [];
+  state.origin = originOf(payload);
   state.models = modelMarks(payload.messages);
   paintHeader(payload.session);
   if (payload.messages.length === state.openMessageCount) return;

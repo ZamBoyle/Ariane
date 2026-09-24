@@ -561,17 +561,20 @@ function writeCodex(home, conversation, cwd, start) {
   ];
   let n = 0;
   const item = (at, payload) => lines.push({ timestamp: iso(at), type: 'response_item', payload });
+  // Codex's ids come from the API and are unique across every conversation: the
+  // same id twice means one conversation copied the other (Index.markCopies).
+  const tag = conversation.id.slice(-4);
 
   for (const { turn, at, resultAt } of timeline(conversation.turns, start)) {
     n += 1;
     if (turn.user) {
-      item(at, { type: 'message', id: `msg_demo_${n}`, role: 'user', content: [{ type: 'input_text', text: turn.user }] });
+      item(at, { type: 'message', id: `msg_demo_${tag}_${n}`, role: 'user', content: [{ type: 'input_text', text: turn.user }] });
     } else if (turn.tool) {
-      const callId = `call_demo_${n}`;
+      const callId = `call_demo_${tag}_${n}`;
       item(at, { type: 'function_call', id: callId, call_id: callId, name: turn.tool, arguments: JSON.stringify(turn.input) });
       item(resultAt, { type: 'function_call_output', call_id: callId, output: turn.result });
     } else {
-      item(at, { type: 'message', id: `msg_demo_${n}`, role: 'assistant', content: [{ type: 'output_text', text: turn.say }] });
+      item(at, { type: 'message', id: `msg_demo_${tag}_${n}`, role: 'assistant', content: [{ type: 'output_text', text: turn.say }] });
     }
   }
 

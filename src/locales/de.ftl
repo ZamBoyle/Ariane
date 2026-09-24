@@ -135,6 +135,11 @@ convo-part-previous =
 convo-part-next =
     .title = Nächster Teil
     .aria-label = Zum nächsten Teil springen
+convo-copied = { $count ->
+    [one] Dieses Gespräch begann mit der Kopie einer Nachricht aus „{ $title }“: Sie steht dort und wird hier nicht wiederholt.
+   *[other] Dieses Gespräch begann mit der Kopie von { $count } Nachrichten aus „{ $title }“: Sie stehen dort und werden hier nicht wiederholt.
+}
+convo-copied-open = Original öffnen
 convo-purged = Transkript gelöscht
 convo-saved = von Ariane gesichert: Die Originaldatei ist weg
 speaker-you = Sie

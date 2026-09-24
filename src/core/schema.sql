@@ -86,7 +86,12 @@ CREATE TABLE IF NOT EXISTS messages (
   -- Harness-injected or tool-authored: shown as a notice, never as the user.
   is_notice    INTEGER NOT NULL DEFAULT 0,
   is_sidechain INTEGER NOT NULL DEFAULT 0,
-  command      TEXT
+  command      TEXT,
+  -- 1 when an EARLIER conversation of the same agent holds this very message:
+  -- a resumed or forked session that began by copying another's history.
+  -- Recomputed after each pass (Index.markCopies); a copy is shown, counted and
+  -- searched in the conversation it came from, and nowhere else.
+  is_copy      INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS messages_session ON messages(session_id, seq);
@@ -112,7 +117,9 @@ END;
 CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
   INSERT INTO messages_fts(messages_fts, rowid, text) VALUES('delete', old.id, old.text);
 END;
-CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
+-- Only a change of TEXT touches the full-text index: a flag or a token count
+-- set after the fact has nothing to re-index.
+CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE OF text ON messages BEGIN
   INSERT INTO messages_fts(messages_fts, rowid, text) VALUES('delete', old.id, old.text);
   INSERT INTO messages_fts(rowid, text) VALUES (new.id, new.text);
 END;

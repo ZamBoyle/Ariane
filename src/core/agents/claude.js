@@ -27,6 +27,7 @@ const paths = require('../paths');
 const { readRecords } = require('../jsonl');
 const { extractRecord } = require('../extract');
 const { remember, stampOf } = require('../memo');
+const { USAGE_FIELDS } = require('./contract');
 
 const ID = 'claude';
 
@@ -40,6 +41,9 @@ const adapter = {
   id: ID,
   label: 'Claude Code',
   envKeys: ['CLAUDE_CONFIG_DIR'],
+  // A resumed session begins with a copy of the one it resumes, uuids and
+  // times unchanged (contract.js).
+  globalIds: true,
 
   root(ctx = {}) {
     return paths.configDir(ctx.env, ctx.home);
@@ -72,21 +76,30 @@ const adapter = {
 
     const resumed = parseCursor(cursor);
     const start = cursor == null ? 0 : resumed.offset || 0;
-    // The reply whose usage was counted last, carried in the cursor so that a
-    // pass resuming between two lines of one reply does not count it again.
+    // The reply whose usage was counted last, and how much of it was: carried
+    // in the cursor so that a pass resuming between two lines of one reply
+    // counts only what the later lines add.
     let counted = resumed.reply;
+    let seen = resumed.seen;
     let last = cursor;
 
     for await (const record of readRecords(descriptor.filePath, { start })) {
       let item = extractRecord(record.value);
       const reply = replyIdOf(record.value);
       if (reply && item.kind === 'message' && item.usage) {
-        if (reply === counted) item = { ...item, usage: null };
-        counted = reply;
+        if (reply !== counted) {
+          counted = reply;
+          seen = item.usage;
+        } else {
+          const usage = seen ? growth(item.usage, seen) : null;
+          if (seen) seen = highest(item.usage, seen);
+          item = { ...item, usage };
+        }
       }
       // A trailing line with no newline reports endOffset === offset; yielding
       // the previous cursor makes the indexer re-read it once complete.
-      const next = record.endOffset > record.offset ? makeCursor(record.endOffset, counted) : last;
+      const next =
+        record.endOffset > record.offset ? makeCursor(record.endOffset, counted, seen) : last;
       last = next;
       yield { item, cursor: next };
     }
@@ -97,27 +110,76 @@ const adapter = {
 
 /**
  * Claude Code writes one reply as several lines — its thinking, its text, each
- * tool call — and EVERY line repeats the reply's usage. Stored as it came, a
+ * tool call — and every line carries the reply's usage. Stored as it came, a
  * conversation counted its tokens 2.26 times over: 34 096 lines carried usage
  * for 15 069 replies (24 September 2026), and on the largest conversation
- * Ariane 0.3.3 showed 2.2 G read where the truth was 1.0 G. The lines of a reply share `message.id` and always
- * follow one another — not one exception in 434 transcripts, subagents
- * included — so a line counts only if its reply is not the one just counted.
+ * Ariane 0.3.3 showed 2.2 G read where the truth was 1.0 G. The lines of a
+ * reply share `message.id` and always follow one another — not one exception
+ * in 434 transcripts, subagents included.
+ *
+ * But the lines do not always carry the SAME usage. In a main transcript they
+ * repeat the final count, every time (6 379 replies of several lines, none
+ * differing). In a subagent's transcript each line holds the count as it stood
+ * when it was written — `8, 8, 177` — and only the last is the reply's
+ * (4 169 of 4 484; counting the first line read 235 K for 4.4 M, 25 September
+ * 2026; anthropics/claude-code#93620). So a line counts what it ADDS to the
+ * highest count already seen for its reply: the whole of it for the first
+ * line, nothing for a repeat, the growth for a later snapshot. The sum over a
+ * reply is then its highest count, whichever kind of file it came from.
  */
 function replyIdOf(raw) {
   if (!raw || raw.type !== 'assistant' || !raw.message) return null;
   return typeof raw.message.id === 'string' && raw.message.id ? raw.message.id : null;
 }
 
-/** "offset" or "offset;msg_…". A cursor written before this existed is a bare offset. */
-function makeCursor(offset, reply) {
-  return reply ? `${offset};${reply}` : String(offset);
+/** What `usage` adds to `seen`, field by field; null when it adds nothing. */
+function growth(usage, seen) {
+  const added = {};
+  let any = false;
+  for (const field of USAGE_FIELDS) {
+    if (usage[field] == null) {
+      added[field] = null;
+      continue;
+    }
+    added[field] = Math.max(0, usage[field] - (seen[field] || 0));
+    if (added[field] > 0) any = true;
+  }
+  return any ? added : null;
+}
+
+/** The highest count seen so far for each field. */
+function highest(usage, seen) {
+  const top = {};
+  for (const field of USAGE_FIELDS) {
+    const values = [usage[field], seen[field]].filter((v) => v != null);
+    top[field] = values.length ? Math.max(...values) : null;
+  }
+  return top;
+}
+
+/**
+ * "offset", "offset;msg_…" or "offset;msg_…;in,out,read,write,reasoning". A
+ * cursor written before a part existed simply lacks it — and without the
+ * counts, a later line of the same reply is not counted at all, as before.
+ */
+function makeCursor(offset, reply, seen) {
+  if (!reply) return String(offset);
+  if (!seen) return `${offset};${reply}`;
+  const counts = USAGE_FIELDS.map((field) => (seen[field] == null ? '' : seen[field])).join(',');
+  return `${offset};${reply};${counts}`;
 }
 
 function parseCursor(cursor) {
-  if (cursor == null) return { offset: 0, reply: null };
-  const [offset, reply] = String(cursor).split(';');
-  return { offset: Number(offset), reply: reply || null };
+  if (cursor == null) return { offset: 0, reply: null, seen: null };
+  const [offset, reply, counts] = String(cursor).split(';');
+  let seen = null;
+  if (counts) {
+    const values = counts.split(',');
+    seen = Object.fromEntries(
+      USAGE_FIELDS.map((field, i) => [field, values[i] ? Number(values[i]) : null])
+    );
+  }
+  return { offset: Number(offset), reply: reply || null, seen };
 }
 
 // ── discovery ───────────────────────────────────────────────────────────────

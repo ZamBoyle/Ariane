@@ -61,6 +61,8 @@ class Indexer {
       // and conversations brought back from it after a rebuild.
       saved: 0,
       restored: 0,
+      // Messages whose copy flag changed (Index.markCopies).
+      copies: 0,
       agents: [],
       errors: [],
       // Counted rather than discarded: a type we do not recognise is how format
@@ -90,6 +92,13 @@ class Indexer {
     if (this.archive) {
       this.#saveVanished(report, adapters, completed);
       this.#reconcileArchive(report);
+    }
+
+    // A resumed or forked conversation begins with a copy of another's history.
+    // Sorted out once everything is in, since either side may have come first;
+    // skipped when nothing changed, so an idle pass stays free.
+    if (report.indexed || report.saved || report.restored) {
+      report.copies = this.index.markCopies();
     }
 
     this.index.setMeta('lastIndexedAt', new Date().toISOString());

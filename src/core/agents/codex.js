@@ -46,6 +46,9 @@ const adapter = {
   id: ID,
   label: 'Codex',
   envKeys: ['CODEX_HOME'],
+  // A fork copies the history under the API's own ids, and each old snapshot
+  // repeated the whole conversation before it (contract.js).
+  globalIds: true,
   root,
 
   detect(ctx = {}) {

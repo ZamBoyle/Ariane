@@ -134,6 +134,11 @@ convo-part-previous =
 convo-part-next =
     .title = Volgend deel
     .aria-label = Ga naar het volgende deel
+convo-copied = { $count ->
+    [one] Dit gesprek begon met het kopiëren van één bericht uit “{ $title }”: het staat daar en wordt hier niet herhaald.
+   *[other] Dit gesprek begon met het kopiëren van { $count } berichten uit “{ $title }”: ze staan daar en worden hier niet herhaald.
+}
+convo-copied-open = Origineel openen
 convo-purged = transcript gewist
 convo-saved = bewaard door Ariane: het originele bestand is weg
 speaker-you = Jij

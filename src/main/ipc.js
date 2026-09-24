@@ -269,6 +269,9 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
     return {
       session: withMark(session),
       chain: chain.length > 1 ? chain.map(({ id: part, title }) => ({ id: part, title })) : [],
+      // A resumed or forked session began by copying another's history: how
+      // much, and from where, so the reader can be sent there (core/db.js).
+      copied: copiedFrom(state.index.copiedFrom(id)),
       messages,
       // Row ids change at every rebuild, so a starred message is resolved here,
       // against the conversation as it stands now (core/marks.js).
@@ -745,6 +748,13 @@ function withMarks(sessions) {
 }
 
 const withMark = (session) => ({ ...session, ...state.marks.of(session.id) });
+
+/** Where a conversation's copies come from, reduced to what the header names. */
+function copiedFrom(copied) {
+  if (!copied || !copied.from) return null;
+  const { id, title, firstPrompt } = copied.from;
+  return { count: copied.count, from: { id, title, firstPrompt } };
+}
 
 /** A path as the person typed it: text, of a sane length, with no control characters. */
 function asCommand(value) {

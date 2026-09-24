@@ -108,6 +108,9 @@ trois fichiers ne doivent donc jamais toucher `window` ni `document`.
 4. **Écriture.** Les messages sont insérés, le dossier créé ou retrouvé, la session mise à jour.
 5. **Archive.** Une session vue disparue est sauvegardée ; une session revenue entière voit sa
    copie supprimée (§ 6).
+6. **Copies.** Si quelque chose a changé, `Index.markCopies()` marque chaque message qu'une
+   conversation plus ancienne du même agent contient déjà (§ 4). En dernier, parce que l'une ou
+   l'autre a pu être lue d'abord.
 
 Le point 2 est ce qui rend l'app utilisable : passe complète sur 342 conversations ≈ 10 s, passe
 sans changement ≈ 60 ms tant que l'app tourne.
@@ -174,19 +177,33 @@ ambigus. `paths.decodeHint()` existe pour l'affichage, en dernier recours seulem
 | `folders` | un dossier réel, **partagé entre agents** | c'est le cœur du produit : une ligne par chemin, quelles que soient les conversations qui s'y rattachent. `path_exact` ne monte jamais vers l'approximation |
 | `agents` | un assistant connu | — |
 | `sessions` | une conversation | identifiant `agent:session` ; `source` vaut `transcript`, `history` ou `archive` ; `continues_uuid` chaîne une conversation compactée à celle qu'elle poursuit |
-| `messages` | un message | `parts` en JSON ; `is_notice` marque ce que personne n'a dit |
+| `messages` | un message | `parts` en JSON ; `is_notice` marque ce que personne n'a dit ; `is_copy` ce qu'une autre conversation contient déjà |
 | `messages_fts` | index plein texte | FTS5 en _external content_ : seul `text` y entre, les lignes restent dans `messages` |
 | `sources` | l'état d'incrémentalité | `fingerprint` et `cursor`, opaques |
 
-Trois déclencheurs tiennent l'index plein texte à jour à l'insertion, la suppression et la mise à
-jour. Le tokeniseur est `unicode61 remove_diacritics 2` : « mathematiques » trouve
+Trois déclencheurs tiennent l'index plein texte à jour à l'insertion, la suppression et au
+changement de texte. Le tokeniseur est `unicode61 remove_diacritics 2` : « mathematiques » trouve
 « Mathématiques ».
 
-**La compaction.** Claude Code compacte en ouvrant un **nouveau fichier** : la personne a vécu une
-conversation, le disque en porte deux. L'enregistrement `compact_boundary` nomme le dernier message
-du fichier précédent (`logicalParentUuid`) ; l'index le retient et `db.chain()` remonte puis
-redescend la chaîne. Les autres assistants compactent dans le même fichier — mesuré — et ne sont
-pas concernés.
+**La compaction.** Claude Code compactait en ouvrant un **nouveau fichier** : la personne avait
+vécu une conversation, le disque en portait deux. L'enregistrement `compact_boundary` nomme le
+dernier message du fichier précédent (`logicalParentUuid`) ; l'index le retient et `db.chain()`
+remonte puis redescend la chaîne. Mesuré le 25 septembre 2026, Claude Code compacte désormais
+**dans le même fichier** — les six frontières de cette machine nomment un message de leur propre
+fichier —, la chaîne ne relie donc plus rien aujourd'hui et reste là pour les anciens fichiers. Les
+autres assistants compactent aussi dans le même fichier.
+
+**Les copies.** Ce qui ouvre désormais un nouveau fichier, c'est une **reprise** : la nouvelle
+session commence par recopier la conversation depuis sa dernière compaction, mêmes uuid, mêmes
+heures. Codex fait de même quand on duplique une session, heures réécrites, et ses instantanés de
+2025 répétaient chacun toute la conversation qui les précédait. Un message qu'une conversation
+**plus ancienne** du même agent contient déjà est marqué `is_copy` — plus ancienne par sa première
+ligne, puis sa dernière, puis son identifiant — et n'est plus montré, compté ni cherché que là d'où
+il vient ; une conversation faite uniquement de copies n'est pas listée. Seulement pour les agents
+dont les identifiants valent partout (`globalIds` dans le contrat) : Copilot et Gemini numérotent
+leurs appels d'outils par session. Les recherches de parent et d'enfant de `chain()` ignorent les
+copies, sans quoi une reprise passerait pour la partie précédente de son propre original. Mesuré :
+922 messages de Claude et 1 164 de Codex, 387 K et 419 K jetons de sortie comptés deux fois.
 
 **`SCHEMA_VERSION` (dans `db.js`) se hausse pour un changement de schéma _ou_ d'extraction.** La
 montée **jette toutes les tables et reconstruit** depuis les fichiers des agents — en une dizaine
@@ -209,6 +226,11 @@ le seul travail est d'empêcher qu'on perde des conversations :
   porte pas fait **lever**, pas `null`. D'où les valeurs par défaut.
 
 `test/db.migration.test.js` garde les deux cas, tous deux vérifiés en échec sans le correctif.
+
+**`is_copy` est la seule exception, et elle est voulue** : la colonne se déduit après la passe,
+vaut 0 à l'insertion et n'est jamais archivée — une conversation restaurée voit ses copies marquées
+à nouveau. Sa mise à jour ne touche pas non plus l'index plein texte : le déclencheur ne se
+déclenche que sur `UPDATE OF text`.
 
 ---
 
@@ -535,6 +557,7 @@ de `git status` — passait tous les tests unitaires de `speakerOf()` pendant qu
 | ajouter un assistant | un module sous `src/core/agents/`, puis `agents/index.js` ; lire `contract.js` d'abord |
 | changer ce qui est indexé | `extract.js` ou le `*-extract.js` de l'agent, **et hausser `SCHEMA_VERSION`** |
 | ajouter une colonne à `messages` | `schema.sql`, l'`INSERT` de `db.js`, **et les deux constantes d'archive** — voir § 4 |
+| toucher à ce qui compte comme copie | `Index.markCopies` dans `db.js` (la règle), `globalIds` sur l'adaptateur (à qui elle s'applique), `OWN_MESSAGES` (ce qui est listé) |
 | toucher aux marques | `src/core/marks.js` ; elles vivent dans `marks.json`, jamais dans l'index |
 | ajouter une phrase à l'écran | `src/locales/en.ftl` **et tous les autres fichiers** ; jamais dans le code |
 | ajouter une langue | déposer `src/locales/<étiquette>.ftl` ; rien d'autre |

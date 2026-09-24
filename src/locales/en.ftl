@@ -155,6 +155,13 @@ convo-part-previous =
 convo-part-next =
     .title = Next part
     .aria-label = Go to the next part
+# A resumed or forked conversation began by copying another's history: those
+# messages are shown in the conversation they come from, not repeated here.
+convo-copied = { $count ->
+    [one] This conversation began by copying one message from “{ $title }”: it is shown there, not repeated here.
+   *[other] This conversation began by copying { $count } messages from “{ $title }”: they are shown there, not repeated here.
+}
+convo-copied-open = Open the original
 convo-purged = transcript purged
 convo-saved = saved by Ariane: the original file is gone
 speaker-you = You

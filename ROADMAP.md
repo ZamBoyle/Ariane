@@ -156,8 +156,9 @@ Reste la mise à jour en place de l'AppImage, la seule cible qui le permette san
   principales. Aucune ligne n'y est commune avec la transcription principale (0 uuid, 0
   `message.id`) : pas de double compte à craindre de ce côté. Trois pièges, eux, sont mesurés :
   - **Le compte d'une réponse grandit de ligne en ligne** (`8, 8, 177`), là où la transcription
-    principale le répète à l'identique. La règle actuelle, compter la première ligne de chaque
-    `message.id`, lirait 235 K au lieu de 4,4 M : c'est la **dernière** ligne qui fait foi.
+    principale le répète à l'identique. Compter la première ligne de chaque `message.id` lirait
+    235 K au lieu de 4,4 M. Réglé le 25 septembre 2026 : chaque ligne compte ce qu'elle ajoute
+    (`claude.js`), ce qui donne le dernier compte d'une réponse, quel que soit le fichier.
     Anthropic le sait (ticket `anthropics/claude-code#93620`, ouvert) ; et la dernière ligne
     manque parfois (≈ 20 % des requêtes, `#84223`, reproduit) : le chiffre des sous-agents est un
     **minimum**, à dire comme tel. La conversation mère n'a pas mieux : son résultat `Agent`
@@ -168,11 +169,5 @@ Reste la mise à jour en place de l'AppImage, la seule cible qui le permette san
   - **Le lien vers la conversation mère** : `agent-*.meta.json` donne le `toolUseId` de l'appel
     pour les sous-agents directs (19 sur 23 le retrouvent) ; les agents de workflow ne l'ont pas,
     mais l'identifiant `wf_…` du dossier figure dans la conversation mère.
-- **Deux parties d'une conversation compactée qui se recopient.** `d4c518b6` commence par
-  recopier 3 348 enregistrements de `64ffbe9a` (mêmes uuid) : 922 messages affichés deux fois
-  dans la chaîne et 387 K jetons de sortie comptés deux fois. Un seul cas sur le corpus, mesuré le
-  24 septembre 2026 ; la règle serait d'écarter d'une partie ce que la chaîne tient déjà.
-  ccusage fait de même depuis le 18 septembre 2026 (v20.0.23) : une réponse recopiée d'un
-  fichier à l'autre est reconnue à son `message.id` et à son `requestId`.
 - **Le saut à une date** *dans* une conversation ouverte (reste du point 3) : les dates sont dans
   l'infobulle de chaque trait du plan, mais rien ne permet d'y aller.

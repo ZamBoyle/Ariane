@@ -650,8 +650,23 @@ const SCRIPT = `(async () => {
     label: document.getElementById('part-label').textContent,
     previous: document.getElementById('part-previous').disabled,
     next: document.getElementById('part-next').disabled };
+
+  // Ce qu'une reprise a recopié d'une autre : dit, et on y va.
+  const originBar = document.getElementById('origin');
+  const copiedCheck = {
+    shown: !originBar.hidden,
+    text: document.getElementById('origin-text').textContent,
+    button: document.getElementById('origin-open').textContent,
+  };
+  document.getElementById('origin-open').click();
+  for (let i = 0; i < 60 && document.getElementById('convo-title').textContent !== 'Session Codex A'; i++) await sleep(50);
+  await sleep(200);
+  copiedCheck.openedTitle = document.getElementById('convo-title').textContent;
+  copiedCheck.hiddenOnOriginal = originBar.hidden;
+
   await openByName('Session de test');
   chainCheck.alone = partBar.hidden;
+  copiedCheck.hiddenElsewhere = originBar.hidden;
 
   // The person's own marks: a star, and a note (marks.js). Neither can be
   // rebuilt from anything, so both are followed all the way to storage.
@@ -969,6 +984,7 @@ const SCRIPT = `(async () => {
     agentFilterCheck,
     exportCheck: { menuOpen, afterMd, calls: window.mock.exportCalls(), closesOutside, copied, icons },
     chainCheck,
+    copiedCheck,
     marksCheck,
     settingsCheck,
     outlineCheck: { smallTicks, onBig, widths, viaTick, nearEnd, viaKeys, outlineOnHome },
@@ -1744,6 +1760,16 @@ async function run() {
       && ch.second.previous === false && ch.second.next === true,
     JSON.stringify(ch.second));
   check('a conversation nobody compacted says nothing about parts', ch.alone === true);
+
+  // -- what a resumed conversation copied from another ----------------------
+  const cp = r.copiedCheck;
+  check('a resumed conversation says how much it copied, and from where',
+    cp.shown && cp.text.includes('12 messages') && cp.text.includes('« Session Codex A »')
+      && cp.button === "Ouvrir l'original",
+    JSON.stringify(cp));
+  check('and its button opens the conversation the copies came from',
+    cp.openedTitle === 'Session Codex A' && cp.hiddenOnOriginal === true, JSON.stringify(cp));
+  check('a conversation that copied nothing shows no such line', cp.hiddenElsewhere === true);
 
   // -- the person's own marks: a star and a note ------------------------------
   const mk = r.marksCheck;

@@ -107,6 +107,17 @@
  *           silently read nothing and leave deleted messages in the index.
  *           Returning false makes the indexer drop the session and re-read it.
  *           Omitted means "always resumable".
+ * @property {boolean} [globalIds]
+ *           True when a message's `uuid` names that message wherever it appears,
+ *           across all of this agent's conversations — so the same uuid in two
+ *           conversations means one COPIED it from the other (a resume, a
+ *           fork), and the later copy is set aside (Index.markCopies).
+ *
+ *           Declare it only once measured. Claude's uuids and Codex's API ids
+ *           are global: every shared one carried the same text (1 844 and
+ *           4 708 rows, 25 September 2026). Copilot and Gemini number tool
+ *           calls per session — `bash_5` in two sessions is two different calls
+ *           — and declaring it there would hide real messages.
  */
 
 /**

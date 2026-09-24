@@ -503,6 +503,11 @@ contextBridge.exposeInMainWorld('api', {
     return {
       session: marked({ ...found, folderPath: '/home/zam/projet', folderId: 1 }),
       chain: chainOf(id),
+      // La partie B a commencé par recopier douze messages de la partie A :
+      // l'en-tête doit le dire, et y mener.
+      copied: id === 'codex:c2'
+        ? { count: 12, from: { id: 'codex:c1', title: 'Session Codex A', firstPrompt: '' } }
+        : null,
       messages,
       favoriteMessages: resolveStarred(id, messages),
     };

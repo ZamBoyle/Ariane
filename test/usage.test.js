@@ -295,6 +295,64 @@ test('Claude : une lecture reprise entre deux lignes d’une réponse ne la reco
   assert.equal(totals().tokOutput, 219, 'le curseur savait quelle réponse venait d’être comptée');
 });
 
+// Dans la transcription d'un sous-agent, chaque ligne porte le compte tel qu'il
+// était quand elle a été écrite — `8, 8, 177` —, et seule la dernière est celui
+// de la réponse (4 169 réponses sur 4 484, 25 septembre 2026).
+const growing = (output) => ({ ...usageA, output_tokens: output });
+
+test('Claude : une réponse dont le compte grandit de ligne en ligne vaut son dernier compte', async (t) => {
+  const { fx, run, totals } = claudeSetup(t);
+  fx.project('-home-zam-demo', { originalPath: '/home/zam/demo' }).session('s1', [
+    records.userText('question'),
+    replyLine('msg_A', growing(8), { type: 'thinking', thinking: 'je réfléchis' }),
+    replyLine('msg_A', growing(50), { type: 'text', text: 'voici' }),
+    replyLine('msg_A', growing(177), { type: 'tool_use', id: 't1', name: 'Read', input: {} }),
+    replyLine('msg_B', usageB, { type: 'text', text: 'fini' }),
+  ]);
+
+  await run();
+  const s = totals();
+  assert.equal(s.tokOutput, 177 + 203, 'le dernier compte de chaque réponse, pas le premier');
+  assert.equal(s.tokCacheWrite, 31705 + 240, 'ce qui ne grandit pas compte une fois');
+  assert.equal(s.tokInput, 6 + 1);
+});
+
+test('Claude : une reprise entre deux lignes d’une réponse qui grandit ajoute la croissance, pas le tout', async (t) => {
+  const { fx, run, totals } = claudeSetup(t);
+  const project = fx.project('-home-zam-demo', { originalPath: '/home/zam/demo' });
+  project.session('s1', [
+    records.userText('question'),
+    replyLine('msg_A', growing(8), { type: 'thinking', thinking: 'je réfléchis' }),
+  ]);
+  await run();
+  assert.equal(totals().tokOutput, 8, 'le passage compte ce qu’il voit');
+
+  project.append('s1', [replyLine('msg_A', growing(177), { type: 'text', text: 'voici' })]);
+  await run();
+  assert.equal(totals().tokOutput, 177, 'le curseur savait combien avait déjà été compté');
+  assert.equal(totals().tokCacheWrite, 31705, 'et le cache n’est pas compté deux fois');
+});
+
+test('Claude : un curseur d’avant, sans les comptes, ne recompte pas la suite d’une réponse', async (t) => {
+  const { fx } = claudeSetup(t);
+  const file = fx
+    .project('-home-zam-demo', { originalPath: '/home/zam/demo' })
+    .session('s1', [replyLine('msg_A', usageA, { type: 'text', text: 'voici' })])
+    .file('s1');
+  const offset = fs.statSync(file).size;
+  fs.appendFileSync(
+    file,
+    JSON.stringify(replyLine('msg_A', usageA, { type: 'text', text: 'suite' })) + '\n'
+  );
+
+  const items = [];
+  for await (const chunk of claudeAdapter.read({ filePath: file }, { cursor: `${offset};msg_A` })) {
+    items.push(chunk.item);
+  }
+  assert.equal(items.length, 1);
+  assert.equal(items[0].usage, null, 'sans savoir ce qui a été compté, on ne compte rien de plus');
+});
+
 test('archive v1 : une ligne qui répète exactement le compte précédent le perd', () => {
   const row = (role, n) => ({
     role,

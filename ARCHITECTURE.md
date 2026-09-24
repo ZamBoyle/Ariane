@@ -106,6 +106,9 @@ therefore never touch `window` or `document`.
 4. **Writing.** Messages are inserted, the folder created or found, the session updated.
 5. **Archive.** A session seen to have vanished is saved; a session that came back whole has its
    copy removed (§ 6).
+6. **Copies.** When anything changed, `Index.markCopies()` flags every message an earlier
+   conversation of the same agent already holds (§ 4). Last, because either side may have been
+   read first.
 
 Step 2 is what makes the app usable: a full pass over 342 conversations takes about 10 s, a pass
 with nothing changed about 60 ms while the app is running.
@@ -170,17 +173,30 @@ exists for display, and only as a last resort.
 | `folders` | one real folder, **shared between agents** | this is the heart of the product: one row per path, whatever conversations attach to it. `path_exact` never rises back to an approximation |
 | `agents` | one known assistant | — |
 | `sessions` | one conversation | id `agent:session`; `source` is `transcript`, `history` or `archive`; `continues_uuid` chains a compacted conversation to the one it continues |
-| `messages` | one message | `parts` as JSON; `is_notice` marks what nobody said |
+| `messages` | one message | `parts` as JSON; `is_notice` marks what nobody said; `is_copy` what another conversation already holds |
 | `messages_fts` | full-text index | FTS5 as _external content_: only `text` goes in, the rows stay in `messages` |
 | `sources` | the incrementality state | `fingerprint` and `cursor`, both opaque |
 
-Three triggers keep the full-text index current on insert, delete and update. The tokeniser is
+Three triggers keep the full-text index current on insert, delete and a change of text. The tokeniser is
 `unicode61 remove_diacritics 2`: “mathematiques” finds “Mathématiques”.
 
-**Compaction.** Claude Code compacts by opening a **new file**: the person lived through one
-conversation, the disk holds two. The `compact_boundary` record names the last message of the
+**Compaction.** Claude Code used to compact by opening a **new file**: the person lived through one
+conversation, the disk held two. The `compact_boundary` record names the last message of the
 previous file (`logicalParentUuid`); the index keeps it, and `db.chain()` walks back and then
-forward. The other assistants compact in place — measured — and are unaffected.
+forward. Measured on 25 September 2026, Claude Code now compacts **in place** — all six boundaries
+on this machine name a message of their own file — so the chain links nothing today, and is kept
+for the older files. The other assistants compact in place too.
+
+**Copies.** What does open a new file now is a **resume**: the new session begins by copying the
+conversation since its last compaction, same uuids, same times. Codex does the same on a fork, with
+the times rewritten, and its 2025 snapshots each repeated the whole conversation before them. A
+message an **earlier** conversation of the same agent already holds is flagged `is_copy` — earlier
+by first line, then last, then id — and is then shown, counted and searched only where it came
+from; a conversation holding nothing but copies is not listed. Only for agents whose ids are
+global (`globalIds` in the contract): Copilot and Gemini number tool calls per session. The
+parent/child lookups of `chain()` skip copies, or a resume would pass for the part before its own
+original. Measured: 922 Claude and 1 164 Codex messages, 387 K and 419 K output tokens that were
+counted twice.
 
 **`SCHEMA_VERSION` (in `db.js`) is raised for a change of schema _or_ of extraction.** Raising it
 **drops every table and rebuilds** from the agents’ own files — in about ten seconds — because an
@@ -202,6 +218,10 @@ either of the last two breaks the machinery whose only job is to stop conversati
   not a null. Hence the defaults.
 
 `test/db.migration.test.js` holds both cases, and both were verified to fail without the fix.
+
+**`is_copy` is the one exception, on purpose**: it is derived after the pass, defaults to 0 on
+insert, and is never archived — a restored conversation has its copies flagged again. Its update
+does not touch the full-text index either: the trigger fires on `UPDATE OF text` only.
 
 ---
 
@@ -518,6 +538,7 @@ the output of `git status` — passed every unit test of `speakerOf()` while the
 | add an assistant | a module under `src/core/agents/`, then `agents/index.js`; read `contract.js` first |
 | change what gets indexed | `extract.js` or the agent’s `*-extract.js`, **and raise `SCHEMA_VERSION`** |
 | add a column to `messages` | `schema.sql`, the `INSERT` in `db.js`, **and both archive constants** — see § 4 |
+| touch what counts as a copy | `Index.markCopies` in `db.js` (the rule), `globalIds` on the adapter (who it applies to), `OWN_MESSAGES` (what is listed) |
 | touch marks | `src/core/marks.js`; they live in `marks.json`, never in the index |
 | add a sentence on screen | `src/locales/en.ftl` **and every other file**; never in the code |
 | add a language | drop in `src/locales/<tag>.ftl`; nothing else |

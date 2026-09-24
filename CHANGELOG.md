@@ -33,6 +33,50 @@ Voici à quelle version chacune appartient.
 
 ---
 
+## 25 septembre 2026
+
+### Une conversation reprise ne répète plus celle qu'elle reprend
+
+**Signalé en mesurant les sous-agents.** Deux conversations de Claude partageaient 922 messages :
+affichés deux fois, trouvés deux fois par la recherche, et 387 K jetons de sortie comptés deux
+fois.
+
+**Ce qui se passe.** Quand on reprend une conversation, Claude Code ouvre un nouveau fichier qui
+commence par recopier tout ce qui suit la dernière compaction — mêmes identifiants, mêmes heures.
+Codex fait de même quand on duplique une session (heures réécrites) : une reprise d'une seconde
+recopiait 973 messages, et ses anciens instantanés de 2025 répétaient chacun toute la conversation
+précédente, une même réponse dans 60 fichiers. ccusage a corrigé le même phénomène le 18 septembre
+(v20.0.23).
+
+**Ce que ça change.** Un message qu'une conversation plus ancienne du même assistant contient déjà
+est une copie : il se lit, se compte et se trouve là d'où il vient, et nulle part ailleurs. La
+reprise ne montre que ce qu'elle a ajouté, et une ligne sous son titre dit combien de messages elle
+a recopiés et d'où, avec un bouton pour y aller. Une reprise qui n'a rien ajouté n'est plus listée.
+La règle ne vaut que pour Claude et Codex, dont les identifiants sont uniques partout : Copilot et
+Gemini numérotent leurs appels d'outils par session, et `bash_5` ici n'est pas `bash_5` là.
+
+**Vérifié** avec le vrai indexeur sur les vrais fichiers, dans une base jetable : 922 copies chez
+Claude et 1 164 chez Codex (64 conversations), 387 196 et 419 082 jetons de sortie en moins,
+exactement le double compte ; Copilot, Gemini, Antigravity et VS Code strictement inchangés. La
+première version du tri prenait **272 s** sur le corpus — SQLite parcourait toutes les
+conversations pour chaque message — ; elle en prend 72 ms, et une passe complète dure ce qu'elle
+durait en 0.4.2 (13,6 s contre 13,2 à 14,2 s).
+
+**Et au passage.** La chaîne des conversations compactées ne passe plus par une copie, sans quoi
+une reprise aurait pu se faire passer pour la partie précédente de son propre original. Mesuré
+aussi : Claude Code compacte désormais dans le même fichier, et la chaîne ne relie plus rien
+aujourd'hui.
+
+### Le compte d'une réponse de Claude qui grandit de ligne en ligne
+
+Dans une transcription principale, chaque ligne d'une réponse répète le même compte de jetons ;
+Ariane compte donc la première. Dans celle d'un sous-agent, chaque ligne porte le compte **tel
+qu'il était quand elle a été écrite** — `8, 8, 177` — et seule la dernière est juste (4 169
+réponses sur 4 484 ; ticket Anthropic #93620). Chaque ligne compte désormais ce qu'elle **ajoute**
+au plus haut compte déjà vu pour sa réponse : rien pour une répétition, la croissance pour un
+nouvel instantané. Aucun changement pour les conversations principales ; indispensable pour lire
+les sous-agents.
+
 ## 24 septembre 2026
 
 ### Les jetons de Gemini et de Copilot

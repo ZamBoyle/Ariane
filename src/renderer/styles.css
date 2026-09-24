@@ -1757,6 +1757,27 @@ details.fold pre {
   display: none;
 }
 
+/* D'où vient ce que la conversation ne montre pas : une reprise qui a recopié
+   le début d'une autre. On le dit, et on y mène. */
+.origin-bar {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 6px 0 0;
+  color: var(--text-soft);
+  font-size: 0.85em;
+}
+
+.origin-bar[hidden] {
+  display: none;
+}
+
+.origin-text {
+  min-width: 0;
+}
+
 .note-input {
   flex: 1;
   min-width: 0;
