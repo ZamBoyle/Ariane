@@ -30,6 +30,27 @@ Voici à quelle version chacune appartient.
 
 ## 24 septembre 2026
 
+### Le modèle dans la barre latérale
+
+**Signalé à l'usage.** Un débat envoie la même question à plusieurs assistants : dans un dossier,
+trois conversations portent le même titre, et rien ne disait laquelle était celle de Kimi-K3 sans
+l'ouvrir. Le modèle ne s'affichait que dans l'en-tête.
+
+**Ce que ça change.** La dernière ligne sous une conversation commence par son modèle :
+`kimi-k3`, ou `gpt-5.6-sol · ↑ 474K · ↓ 15K · cache 9,5M`. Quand plusieurs ont répondu, celui qui
+a le plus répondu, puis le nombre des autres — `gpt-6-astra +3` —, la liste entière au survol :
+quatre noms ne tiennent pas dans une barre latérale. Les réponses comptées sont celles que
+l'en-tête compte, celles qui portent du texte ; deux routes vers un même modèle n'en font qu'un.
+
+**Ce que ça coûte, mesuré sur trois vrais dossiers** : 5,7 ms pour lister un dossier, contre 3,2
+avec les jetons seuls. Un index aurait gagné 2 ms, mais seulement en comptant aussi les appels
+d'outils — un autre nombre que l'en-tête — et au prix d'une reconstruction : écarté.
+
+**Et deux défauts vus sur les captures.** Une conversation sans titre s'appelait « Sans titre »
+dans l'en-tête et par ses premiers mots dans la barre latérale : l'en-tête reprend maintenant les
+premiers mots. Et la ligne sous le titre, coupée quand elle nomme quatre modèles, se lit en entier
+au survol.
+
 ### Quel modèle a répondu
 
 **Signalé à l'usage.** Des débats menés avec Kimi-K3 à travers Copilot : Ariane les rangeait sous

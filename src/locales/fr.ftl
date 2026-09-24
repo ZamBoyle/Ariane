@@ -66,6 +66,7 @@ session-summary = { $when } · { $count ->
        *[other] { $count } messages
     }
 
+session-models = { $model } +{ $more }
 session-tokens = ↑ { $sent } · ↓ { $received }
     .title =
         Envoyés : { $sentExact } jetons nouveaux dans les prompts

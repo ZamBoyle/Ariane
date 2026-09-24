@@ -83,6 +83,9 @@ session-summary = { $when } · { $count ->
 # Under a conversation whose assistant recorded what its turns cost.
 # { $sent }, { $received } and { $cached } are already shortened ("7.5K",
 # "14.5M"); the *Exact ones are written out in full. The arrows are sent and received.
+# In the sidebar: the model that answered most, and how many others did.
+# { $model } is a model's id ("gpt-6-astra"); the full list is on hover.
+session-models = { $model } +{ $more }
 session-tokens = ↑ { $sent } · ↓ { $received }
     .title =
         Sent: { $sentExact } tokens new in the prompts

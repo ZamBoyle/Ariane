@@ -66,6 +66,7 @@ session-summary = { $when } · { $count ->
        *[other] { $count } mensagens
     }
 
+session-models = { $model } +{ $more }
 session-tokens = ↑ { $sent } · ↓ { $received }
     .title =
         Enviados: { $sentExact } tokens novos nos prompts

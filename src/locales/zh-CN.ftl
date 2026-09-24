@@ -65,6 +65,7 @@ session-summary = { $when } · { $count ->
        *[other] { $count } 条消息
     }
 
+session-models = { $model } +{ $more }
 session-tokens = ↑ { $sent } · ↓ { $received }
     .title =
         发送：提示词中的新 token { $sentExact } 个

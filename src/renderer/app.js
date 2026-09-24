@@ -13,6 +13,7 @@ import {
   renderMarkdown,
   sessionTokens,
   modelMarks,
+  sessionModels,
   renderSnippet,
   folderLabel,
   preview,
@@ -829,8 +830,8 @@ function sessionList(sessions) {
     sub.textContent = t('session-summary', { when: l10n.ago(session.lastAt), count: session.messageCount });
 
     button.append(title, sub);
-    const tokens = tokenLine(sessionTokens(session));
-    if (tokens) button.append(tokens);
+    const last = lastLine(session);
+    if (last) button.append(last);
     button.addEventListener('click', () => openSession(session.id));
 
     const item = document.createElement('li');
@@ -910,16 +911,46 @@ function renderFavorites() {
 }
 
 /**
- * "↑ 167K · ↓ 78.2K · cache 5.9M" under a conversation, the exact figures on
- * hover — or nothing, when its assistant recorded no usage. Nothing is not
- * "0": an agent that measured nothing did not spend nothing.
+ * "kimi-k3 · ↑ 167K · ↓ 78.2K · cache 5.9M" under a conversation: the model
+ * that answered most, then what it cost — either may be missing, and when both
+ * are, there is no line at all. Several models read "gpt-6-astra +3", every
+ * one of them on hover: four names do not fit in a sidebar.
+ */
+function lastLine(session) {
+  const models = sessionModels(session);
+  const cost = tokenLine(sessionTokens(session));
+  if (!models.length && !cost) return null;
+
+  const line = node('span', 'session-tokens');
+  if (models.length === 1) {
+    line.append(node('span', 'session-model', models[0]));
+  } else if (models.length > 1) {
+    const model = nodeFrom('span', 'session-model', 'session-models', {
+      model: models[0],
+      more: models.length - 1,
+    });
+    model.title = l10n.list(models);
+    line.append(model);
+  }
+  if (cost) {
+    // In the text, like the header's: a separator drawn by CSS alone is not copied.
+    if (models.length) line.append(' · ');
+    line.append(cost);
+  }
+  return line;
+}
+
+/**
+ * "↑ 167K · ↓ 78.2K · cache 5.9M", the exact figures on hover — or nothing,
+ * when its assistant recorded no usage. Nothing is not "0": an agent that
+ * measured nothing did not spend nothing.
  */
 function tokenLine(usage) {
   if (!usage) return null;
   const short = (n) => (n === null ? '—' : l10n.compact(n));
   const exact = (n) => (n === null ? '—' : l10n.number(n));
   const id = usage.cacheRead === null ? 'session-tokens' : 'session-tokens-cached';
-  return nodeFrom('span', 'session-tokens', id, {
+  return nodeFrom('span', 'session-cost', id, {
     sent: short(usage.sent),
     received: short(usage.received),
     cached: short(usage.cacheRead),
@@ -1283,7 +1314,10 @@ async function onToggleMessageStar(button) {
 
 function paintHeader(session) {
   el.convoHead.hidden = false;
-  el.convoTitle.textContent = session.title || t('session-untitled');
+  // The same name the sidebar gives it: a conversation with no title is known
+  // by its first words there, and was "Untitled" here.
+  el.convoTitle.textContent =
+    session.title || preview(session.firstPrompt, 60) || t('session-untitled');
 
   const theme = agentTheme(session.agentId, labelOfAgent(session.agentId));
   state.currentAgentLabel = theme.label;
@@ -1297,7 +1331,9 @@ function paintHeader(session) {
   if (session.source === 'history') bits.push(t('convo-purged'));
   if (session.source === 'archive') bits.push(t('convo-saved'));
   el.convoMeta.textContent = bits.join(' · ');
-  el.convoMeta.title = session.folderPath;
+  // The line is cut when it runs long — four models are enough — so the whole
+  // of it is on hover.
+  el.convoMeta.title = bits.join(' · ');
 
   paintChain(session.id);
 

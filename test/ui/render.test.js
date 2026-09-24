@@ -45,12 +45,16 @@ const SCRIPT = `(async () => {
   // newest first, each row carrying its own mark.
   const sessionRows = [...firstFolder.querySelectorAll('.sessions .session-btn')].map((b) => {
     const dot = b.querySelector('.agent-dot');
-    const tokens = b.querySelector('.session-tokens');
+    const tokens = b.querySelector('.session-cost');
+    const model = b.querySelector('.session-model');
     return {
       agent: dot ? dot.dataset.agent : '',
       title: b.textContent,
       tokens: tokens ? tokens.textContent : null,
       tokensTitle: tokens ? tokens.title : null,
+      model: model ? model.textContent : null,
+      modelTitle: model ? model.title : null,
+      line: b.querySelector('.session-tokens') ? b.querySelector('.session-tokens').textContent : null,
     };
   });
   const sessionLists = firstFolder.querySelectorAll('.sessions').length;
@@ -174,6 +178,24 @@ const SCRIPT = `(async () => {
       ...tree.querySelector('.folder-btn[title*="fragile"]').closest('.folder')
         .querySelectorAll('.session-btn'),
     ].map((b) => b.textContent);
+  }
+
+  // A conversation with no title: the header names it as the sidebar does.
+  const untitledButton = [...tree.querySelectorAll('.session-btn')]
+    .find((b) => b.textContent.includes('une question sans titre'));
+  let untitled = { found: Boolean(untitledButton) };
+  if (untitledButton) {
+    untitledButton.click();
+    for (let i = 0; i < 60; i++) {
+      await sleep(50);
+      if (document.getElementById('convo-title').textContent.includes('sans titre')) break;
+    }
+    untitled = {
+      found: true,
+      title: document.getElementById('convo-title').textContent,
+      metaText: document.getElementById('convo-meta').textContent,
+      metaTitle: document.getElementById('convo-meta').title,
+    };
   }
 
   // Two conversations asked for in quick succession. The first answers slowly,
@@ -980,6 +1002,7 @@ const SCRIPT = `(async () => {
     title: claudeChrome.title,
     meta: claudeChrome.meta,
     claudeModelLabels: claudeChrome.modelLabels,
+    untitled,
     stats: document.getElementById('stats').textContent,
     searchVisible,
     searchMarks,
@@ -1008,7 +1031,7 @@ const SCREENS_SCRIPT = `(async () => {
   const DATA = [
     '.msg-body', '.folder-name', '.folder-parent', '.session-title', '.result-snippet',
     '.result-title strong', '.results-group', '#convo-title', '.agent-chip', '.agent-dot',
-    '.fold pre', '.fold-tag', 'code', 'pre', '.outline-tick', 'title', '.msg-model',
+    '.fold pre', '.fold-tag', 'code', 'pre', '.outline-tick', 'title', '.msg-model', '.session-model',
   ].join(', ');
   // Names, not sentences: the app's, the assistants', the languages' own.
   const NAMES = new Set(['Ariane', 'Claude Code', 'Codex', 'Copilot CLI', 'Qwen Code', 'Gemini CLI',
@@ -1419,6 +1442,24 @@ async function run() {
     `${r.sessionRows.length} lignes : ${r.sessionRows.map((s) => s.agent).join(', ')}`);
   // -- ce que chaque conversation a coûté ---------------------------------
   const claudeRow = r.sessionRows.find((s) => s.agent === 'claude');
+  // -- le modèle, dans la barre latérale ---------------------------------
+  const codexRowA = r.sessionRows.find((s) => s.title.includes('Session Codex A'));
+  check('sous une conversation, son modèle précède ce qu’elle a coûté',
+    claudeRow && claudeRow.model === 'claude-opus-5' && claudeRow.line === 'claude-opus-5 · ↑ 167K · ↓ 78,2K · cache 5,9M',
+    claudeRow && claudeRow.line);
+  check('plusieurs modèles : celui qui a le plus répondu, les autres comptés, tous au survol',
+    codexRowA && codexRowA.model === 'gpt-6-astra +1' && codexRowA.modelTitle === 'gpt-6-astra et gpt-5.2-codex',
+    codexRowA && `${codexRowA.model} / ${codexRowA.modelTitle}`);
+  check('sans jetons, le modèle seul, sans séparateur orphelin',
+    codexRowA && codexRowA.line === 'gpt-6-astra +1', codexRowA && JSON.stringify(codexRowA.line));
+  check('une conversation sans modèle ni jetons n’a pas de dernière ligne',
+    r.sessionRows.some((s) => s.agent === 'codex' && s.line === null),
+    r.sessionRows.map((s) => `${s.agent}:${s.line}`).join(' | '));
+  check('sans titre, l’en-tête la nomme par ses premiers mots, comme la barre latérale',
+    r.untitled.found && r.untitled.title === 'une question sans titre', JSON.stringify(r.untitled));
+  check('la ligne sous le titre se lit en entier au survol',
+    r.untitled.found && r.untitled.metaTitle === r.untitled.metaText, JSON.stringify(r.untitled));
+
   check('une conversation mesurée montre ses jetons sous son résumé, en K et M',
     claudeRow && claudeRow.tokens === '↑ 167K · ↓ 78,2K · cache 5,9M',
     claudeRow && claudeRow.tokens);

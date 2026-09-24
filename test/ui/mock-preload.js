@@ -101,6 +101,12 @@ const FRAGILE_SESSIONS = [
     firstPrompt: 'apres une erreur', messageCount: 1,
     firstAt: '2026-09-17T19:00:00.000Z', lastAt: '2026-09-17T19:00:00.000Z', source: 'transcript',
   },
+  // No title at all: the header must call it by its first words, as the sidebar does.
+  {
+    id: 'claude:f3', agentId: 'claude', title: null, gitBranch: 'main',
+    firstPrompt: 'une question sans titre', messageCount: 2,
+    firstAt: '2026-09-15T19:00:00.000Z', lastAt: '2026-09-15T19:00:00.000Z', source: 'transcript',
+  },
   // Its file is gone: Ariane holds the only copy, so it alone can be forgotten.
   {
     id: 'claude:f2', agentId: 'claude', title: 'Conversation sauvée', gitBranch: 'main',
@@ -209,6 +215,7 @@ const SESSIONS = [
     tokOutput: 78235,
     tokCacheRead: 5933004,
     tokCacheWrite: 166489,
+    models: [{ model: 'claude-opus-5', replies: 1 }],
   },
   // Codex n'enregistre pas encore ses jetons dans Ariane : null, pas zéro.
   // Deux sessions Codex dans le MÊME dossier, et plus anciennes que celle de
@@ -216,6 +223,8 @@ const SESSIONS = [
   {
     id: 'codex:c1', agentId: 'codex', title: 'Session Codex A', gitBranch: 'main',
     firstPrompt: 'refactor', messageCount: 5,
+    // Two models, as db.sessions counts them; no usage — Codex rows without tokens.
+    models: [{ model: 'gpt-6-astra', replies: 3 }, { model: 'openai/gpt-5.2-codex', replies: 1 }],
     firstAt: '2026-09-17T21:00:00.000Z', lastAt: '2026-09-17T22:00:00.000Z', source: 'transcript',
   },
   {

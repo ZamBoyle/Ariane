@@ -401,3 +401,41 @@ test('la reconstruction de l’index ne sauve pas dans l’archive un compte gon
     'sauvée une fois, pas deux'
   );
 });
+
+// ── les modèles d'une conversation, dans la liste d'un dossier ────────────
+
+test('la liste d’un dossier compte les réponses de chaque modèle', (t) => {
+  const index = indexWithSession(t);
+  index.addMessages('claude:s1', [
+    { role: 'user', uuid: 'q', text: 'question', parts: [], model: '' },
+    { role: 'assistant', uuid: 'r1', text: 'un', parts: [], model: 'claude-opus-5' },
+    { role: 'assistant', uuid: 'r2', text: 'deux', parts: [], model: 'claude-opus-5' },
+    { role: 'assistant', uuid: 'r3', text: 'trois', parts: [], model: 'claude-opus-5-5' },
+    // Un appel d'outil seul n'est pas une réponse : l'en-tête ne le compte pas non plus.
+    {
+      role: 'assistant',
+      uuid: 'r4',
+      text: '',
+      parts: [{ type: 'tool_use', id: 't' }],
+      model: 'claude-opus-5-5',
+    },
+  ]);
+
+  const [session] = index.sessions(index.folderId('/home/ada/projets/tardis'));
+  const counts = Object.fromEntries(session.models.map((m) => [m.model, m.replies]));
+  assert.deepEqual(counts, { 'claude-opus-5': 2, 'claude-opus-5-5': 1 });
+});
+
+test('une conversation sans modèle connu revient avec une liste vide, et la liste filtrée aussi', (t) => {
+  const index = indexWithSession(t);
+  index.addMessages('claude:s1', [
+    { role: 'assistant', uuid: 'r', text: 'sans modèle', parts: [], model: '' },
+  ]);
+  const folder = index.folderId('/home/ada/projets/tardis');
+  assert.deepEqual(index.sessions(folder)[0].models, []);
+  assert.deepEqual(
+    index.sessions(folder, ['codex'])[0].models,
+    [],
+    'la requête des assistants masqués porte les mêmes colonnes'
+  );
+});

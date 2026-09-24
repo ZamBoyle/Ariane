@@ -370,6 +370,7 @@ class Index {
       listSessions: db.prepare(sessionsOfFolderSql('')),
       getSession: db.prepare(`
         SELECT s.id, s.agent_id AS agentId, s.title, s.slug, s.git_branch AS gitBranch,
+               s.first_prompt AS firstPrompt,
                s.message_count AS messageCount, s.first_at AS firstAt, s.last_at AS lastAt,
                s.source, s.file_path AS filePath, f.path AS folderPath, f.id AS folderId
         FROM sessions s JOIN folders f ON f.id = s.folder_id WHERE s.id = ?
@@ -638,12 +639,15 @@ class Index {
   /** @param {string[]} [hidden] Agents the person chose not to see. */
   sessions(folderId, hidden = []) {
     const hiding = hidingOn('s.agent_id', hidden);
-    if (!hiding.where) return this.s.listSessions.all(folderId, folderId);
-    return this.#dynamic(`sessions:${hiding.params.length}`, sessionsOfFolderSql(hiding.where)).all(
-      folderId,
-      folderId,
-      ...hiding.params
-    );
+    const rows = hiding.where
+      ? this.#dynamic(`sessions:${hiding.params.length}`, sessionsOfFolderSql(hiding.where)).all(
+          folderId,
+          folderId,
+          folderId,
+          ...hiding.params
+        )
+      : this.s.listSessions.all(folderId, folderId, folderId);
+    return rows.map(withModels);
   }
 
   /**
@@ -875,14 +879,18 @@ function cleanIds(hidden) {
  * folder's own messages are summed — measured at 52 ms for all 362
  * conversations at once, so one folder costs a fraction of that.
  *
- * Takes the folder id twice: once for the sums, once for the rows.
+ * With them, the models that answered and how many replies each gave — the
+ * same replies the header counts: an assistant's, with prose. The sidebar
+ * shows the one that answered most (format.js, sessionModels).
+ *
+ * Takes the folder id THREE times: for the sums, for the models, for the rows.
  */
 function sessionsOfFolderSql(hidingWhere) {
   return `
     SELECT s.id, s.agent_id AS agentId, s.title, s.slug, s.git_branch AS gitBranch,
            s.first_prompt AS firstPrompt, s.message_count AS messageCount,
            s.first_at AS firstAt, s.last_at AS lastAt, s.source, s.file_path AS filePath,
-           u.tokInput, u.tokOutput, u.tokCacheRead, u.tokCacheWrite
+           u.tokInput, u.tokOutput, u.tokCacheRead, u.tokCacheWrite, md.models
     FROM sessions s
     LEFT JOIN (
       SELECT session_id,
@@ -892,8 +900,30 @@ function sessionsOfFolderSql(hidingWhere) {
       WHERE session_id IN (SELECT id FROM sessions WHERE folder_id = ?)
       GROUP BY session_id
     ) u ON u.session_id = s.id
+    LEFT JOIN (
+      SELECT session_id, json_group_array(json_object('model', model, 'replies', n)) AS models
+      FROM (
+        SELECT session_id, model, COUNT(*) AS n
+        FROM messages
+        WHERE session_id IN (SELECT id FROM sessions WHERE folder_id = ?)
+          AND role = 'assistant' AND model <> '' AND trim(text) <> ''
+        GROUP BY session_id, model
+      )
+      GROUP BY session_id
+    ) md ON md.session_id = s.id
     WHERE s.folder_id = ?${hidingWhere}
     ORDER BY s.last_at IS NULL, s.last_at DESC, s.id`;
+}
+
+/** A session row with its models decoded: SQLite hands them over as JSON text. */
+function withModels(row) {
+  let models = [];
+  try {
+    models = row.models ? JSON.parse(row.models) : [];
+  } catch {
+    models = [];
+  }
+  return { ...row, models: Array.isArray(models) ? models : [] };
 }
 
 /** `AND <column> NOT IN (?,?)`, or nothing at all when nothing is hidden. */

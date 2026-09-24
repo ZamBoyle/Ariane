@@ -65,6 +65,7 @@ session-summary = { $when } · { $count ->
        *[other] メッセージ { $count } 件
     }
 
+session-models = { $model } +{ $more }
 session-tokens = ↑ { $sent } · ↓ { $received }
     .title =
         送信：プロンプト内の新しいトークン { $sentExact }

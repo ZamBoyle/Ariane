@@ -423,6 +423,25 @@ export function modelName(raw) {
 }
 
 /**
+ * A conversation's models for the sidebar, the one that answered most first.
+ *
+ * `session.models` is what db.sessions counted: `[{model, replies}]`. Routes
+ * are stripped and placeholders dropped (modelName), and two routes to one
+ * model count as one. Ties go to the name, so the order never flickers.
+ *
+ * @returns {string[]} Names, most replies first; empty when none is known.
+ */
+export function sessionModels(session) {
+  const counts = new Map();
+  for (const entry of Array.isArray(session && session.models) ? session.models : []) {
+    const name = modelName(entry && entry.model);
+    const replies = Number(entry && entry.replies) || 0;
+    if (name && replies > 0) counts.set(name, (counts.get(name) || 0) + replies);
+  }
+  return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name);
+}
+
+/**
  * The models that answered in a conversation, in the order they first did,
  * and the replies where one takes over from another.
  *

@@ -495,6 +495,36 @@ test.describe('which model answered', () => {
   });
 });
 
+test.describe('the models under a conversation, in the sidebar', () => {
+  test('the one that answered most comes first', () => {
+    const names = F.sessionModels({ models: [
+      { model: 'gpt-5.6-sol', replies: 28 }, { model: 'gpt-6-astra', replies: 267 }, { model: 'gpt-5.6-luna', replies: 2 },
+    ] });
+    assert.deepEqual(names, ['gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-luna']);
+  });
+
+  test('two routes to one model are one model', () => {
+    const names = F.sessionModels({ models: [
+      { model: 'copilot/claude-sonnet-5', replies: 2 }, { model: 'claude-sonnet-5', replies: 2 }, { model: 'gpt-5', replies: 3 },
+    ] });
+    assert.deepEqual(names, ['claude-sonnet-5', 'gpt-5'], '2 + 2 beats 3');
+  });
+
+  test('a placeholder is not a model, and a tie goes to the name', () => {
+    const names = F.sessionModels({ models: [
+      { model: '<synthetic>', replies: 99 }, { model: 'b-model', replies: 1 }, { model: 'a-model', replies: 1 },
+    ] });
+    assert.deepEqual(names, ['a-model', 'b-model']);
+  });
+
+  test('nothing known, nothing shown', () => {
+    assert.deepEqual(F.sessionModels({}), []);
+    assert.deepEqual(F.sessionModels({ models: null }), []);
+    assert.deepEqual(F.sessionModels(null), []);
+    assert.deepEqual(F.sessionModels({ models: [{ model: 'x', replies: 0 }, 42] }), []);
+  });
+});
+
 test.describe('what a conversation cost', () => {
   test('three figures, each meaning one thing', () => {
     // The medians of a real corpus: fresh input is almost nothing, the new
