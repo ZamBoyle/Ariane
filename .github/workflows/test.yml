@@ -49,7 +49,34 @@ jobs:
       # No display is required, and better-sqlite3 loads its Node-API binary.
       # If this segfaults rather than fails, the Node is below 22.14.
       - name: unit suite
+        if: matrix.name != 'linux'
         run: npm test
+
+      # Linux runs the same suite with coverage measured: `test:coverage` fails
+      # below the floor package.json states (lines, branches, functions), so a
+      # drop is a red run rather than a number nobody reads. One system is
+      # enough: the code measured is the same everywhere.
+      - name: unit suite, with coverage (linux)
+        if: matrix.name == 'linux'
+        shell: bash
+        run: npm run test:coverage 2>&1 | tee coverage.txt
+
+      # The table, on the run's own page. Nothing leaves the repository: no
+      # third-party service, no token.
+      - name: coverage summary (linux)
+        if: always() && matrix.name == 'linux'
+        shell: bash
+        run: |
+          [ -f coverage.txt ] || exit 0
+          {
+            echo '## Unit-suite coverage'
+            echo
+            echo 'Measured by `npm run test:coverage`, which fails below the floor it states in package.json. The four Electron suites are not counted.'
+            echo
+            echo '```'
+            sed -n '/start of coverage report/,/end of coverage report/p' coverage.txt | sed 's/^ℹ //'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: lint
         if: matrix.name == 'linux'

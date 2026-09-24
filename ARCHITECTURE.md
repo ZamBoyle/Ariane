@@ -410,9 +410,15 @@ which is what this section exists to stop.
 
 ### Coverage, 24 September 2026
 
-`npm run test:coverage` — **96.72 % of lines, 87.89 % of branches, 94.89 % of functions.**
+`npm run test:coverage` — **96.78 % of lines, 88.11 % of branches, 95.09 % of functions.**
 
-**It measures the unit suite alone.** The five Electron suites are not counted, so a file exercised
+**It has a floor, and the CI enforces it**: the script itself states `--test-coverage-lines=96`,
+`--test-coverage-branches=87` and `--test-coverage-functions=94`, so it fails below them — locally
+and on the Linux CI run, which uses it in place of `npm test` and writes the table into the run's
+summary on GitHub. Nothing is sent to a third party. Raise the floor when the figures rise; lowering
+it is a decision, not a fix.
+
+**It measures the unit suite alone.** The four Electron suites are not counted, so a file exercised
 only by them reads low: `src/main/update-check.js` shows 62 % because `electronRequest` — the one
 function in Ariane that speaks to the network — is covered by `test/ui/net.test.js`, which the
 coverage run does not see. Read the figure as "what `npm test` proves", not as "what is tested".

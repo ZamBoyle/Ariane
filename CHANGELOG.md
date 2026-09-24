@@ -34,6 +34,18 @@ Voici à quelle version chacune appartient.
 
 ## 24 septembre 2026
 
+### La couverture du code, visible sur GitHub et gardée par un seuil
+
+**Ce que ça change.** Chaque exécution de la CI sous Linux mesure la couverture de la suite
+unitaire et écrit son tableau dans le résumé de l'exécution, sur GitHub. Et `npm run test:coverage`
+porte un seuil — 96 % des lignes, 87 % des branches, 94 % des fonctions, juste sous les 96,78 /
+88,11 / 95,09 mesurés — en dessous duquel il échoue : une baisse devient une exécution rouge, plus
+un chiffre que personne ne lit. Rien n'est envoyé à un service tiers ; pas de badge, qui l'aurait
+exigé.
+
+**Vérifié** en montant le seuil à 99 % : « 96.78% line coverage does not meet threshold of 99% »,
+et un code de sortie 1 qui traverse le `tee` du résumé.
+
 ### Ce qui ne s'affiche pas, expliqué — et deux défauts qui s'y cachaient
 
 **Signalé à l'usage.** La vue Statistiques annonçait « 6 561 ne contiennent rien à afficher, comme

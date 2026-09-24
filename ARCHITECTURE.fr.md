@@ -426,9 +426,15 @@ c'est précisément ce que cette section existe pour empêcher.
 
 ### Couverture, 24 septembre 2026
 
-`npm run test:coverage` — **96,72 % des lignes, 87,89 % des branches, 94,89 % des fonctions.**
+`npm run test:coverage` — **96,78 % des lignes, 88,11 % des branches, 95,09 % des fonctions.**
 
-**Elle ne mesure que la suite unitaire.** Les cinq suites Electron n'y sont pas comptées, donc un
+**Elle a un plancher, et la CI le fait respecter** : le script lui-même porte
+`--test-coverage-lines=96`, `--test-coverage-branches=87` et `--test-coverage-functions=94`, et
+échoue en dessous — en local comme dans la CI Linux, qui l'utilise à la place de `npm test` et écrit
+le tableau dans le résumé de l'exécution, sur GitHub. Rien n'est envoyé à un tiers. Remonter le
+plancher quand les chiffres montent ; le baisser est une décision, pas une correction.
+
+**Elle ne mesure que la suite unitaire.** Les quatre suites Electron n'y sont pas comptées, donc un
 fichier qu'elles seules éprouvent paraît bas : `src/main/update-check.js` affiche 62 % parce que
 `electronRequest` — la seule fonction d'Ariane qui parle au réseau — est couverte par
 `test/ui/net.test.js`, que la mesure ne voit pas. Ce chiffre dit « ce que `npm test` prouve », pas
