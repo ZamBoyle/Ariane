@@ -397,9 +397,9 @@ them: the corpus grows every day, and three documents have already carried three
 
 | | Unit | Renderer | Layout | Splash | Network |
 |---|---|---|---|---|---|
-| linux | 795 / 795 | 174 | 28 | 7 | 7 |
-| macos | 795 / 795 | 174 | 28 | 7 | 7 |
-| windows | 779 / 780 | 174 | 28 | 7 | 7 |
+| linux | 810 / 810 | 187 | 28 | 7 | 7 |
+| macos | 810 / 810 | 187 | 28 | 7 | 7 |
+| windows | 794 / 795 | 187 | 28 | 7 | 7 |
 
 Windows runs fifteen fewer and counts one without passing it: the `POSIX_ONLY` skips in
 `terminal.test.js`, declared with their reason — execute bits, shebang lines, executables with no
