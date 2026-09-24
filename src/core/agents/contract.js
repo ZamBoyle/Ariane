@@ -116,13 +116,13 @@
  * same five ideas. The dictionary is written down here — but a mapping of NAMES
  * is not enough on its own, which the `input` row shows:
  *
- * | canonical    | Claude Code                             | Codex                       | Gemini     | Copilot CLI        |
- * |--------------|-----------------------------------------|-----------------------------|------------|--------------------|
- * | `input`      | `input_tokens`                          | `input_tokens` MINUS cached | `input`    | `inputTokens`      |
- * | `output`     | `output_tokens`                         | `output_tokens`             | `output`   | `outputTokens`     |
- * | `cacheRead`  | `cache_read_input_tokens`               | `cached_input_tokens`       | `cached`   | `cacheReadTokens`  |
- * | `cacheWrite` | `cache_creation_input_tokens`           | `cache_write_input_tokens`  | —          | `cacheWriteTokens` |
- * | `reasoning`  | `output_tokens_details.thinking_tokens` | `reasoning_output_tokens`   | `thoughts` | `reasoningTokens`  |
+ * | canonical    | Claude Code                             | Codex                       | Gemini                 | Copilot CLI (`tokenDetails`) |
+ * |--------------|-----------------------------------------|-----------------------------|------------------------|------------------------------|
+ * | `input`      | `input_tokens`                          | `input_tokens` MINUS cached | `input` MINUS `cached` | `input`                      |
+ * | `output`     | `output_tokens`                         | `output_tokens`             | `output` PLUS thoughts | `output`                     |
+ * | `cacheRead`  | `cache_read_input_tokens`               | `cached_input_tokens`       | `cached`               | `cache_read`                 |
+ * | `cacheWrite` | `cache_creation_input_tokens`           | `cache_write_input_tokens`  | —                      | `cache_write`                |
+ * | `reasoning`  | `output_tokens_details.thinking_tokens` | `reasoning_output_tokens`   | `thoughts`             | `modelMetrics…reasoningTokens` |
  *
  * Claude's `input_tokens` EXCLUDES what was served from cache — measured on a
  * real turn, 2 fresh against 24 641 read. Codex's INCLUDES it: 2 692, of which
@@ -135,6 +135,16 @@
  *   cacheRead   prompt tokens served from cache
  *   cacheWrite  prompt tokens written to cache for later turns
  *   reasoning   the part of `output` spent thinking
+ *
+ * Gemini and Copilot need the same care, measured on 24 September 2026:
+ *   - Gemini's `input` INCLUDES `cached` (total = input + output + thoughts +
+ *     tool, 11 of 11), and `thoughts` sits BESIDE `output` — so output takes
+ *     the thoughts in, to mean what the contract says.
+ *   - Copilot writes no count per reply: only a RUNNING total per session, at
+ *     each `session.shutdown`. `tokenDetails` splits it as the contract does;
+ *     `modelMetrics.usage.inputTokens` is the same input WITH both cache counts
+ *     (19 of 19). The reader counts what each shutdown added, never the total,
+ *     and credits it to the last reply before it — the nearest honest place.
  *
  * Where the numbers live is the adapter's business, not the dictionary's:
  * `message.usage` for Claude, `tokens` at the record root for Gemini, and for

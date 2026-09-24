@@ -24,6 +24,10 @@ const { withoutRepeatedUsage } = require('./archive');
  * already stored. Raising this version drops the index and rebuilds it, which
  * takes about ten seconds.
  *
+ * 14: Gemini's and Copilot's tokens
+ * 13: Antigravity's tool calls; queued harness notices; masked reasoning named
+ * 12: which model answered; Copilot titles read from block values
+ * 11: a Claude reply counted once, not per line; Codex's tokens
  * 10: what each turn cost, when the agent recorded it
  * 9: a compacted conversation remembers the transcript it continues
  * 8: folder paths flagged exact or approximate; away summaries kept
@@ -35,7 +39,7 @@ const { withoutRepeatedUsage } = require('./archive');
  * 2: multi-agent schema
  * 1: initial
  */
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 /** The five token columns of one message, from the contract's shape. */
 function usageColumns(usage) {
   const u = usage || {};

@@ -37,6 +37,7 @@ const path = require('path');
 
 const { readRecords } = require('../jsonl');
 const { extractGenAiContent } = require('./genai-extract');
+const { usageOf } = require('./contract');
 const { remember, stampOf } = require('../memo');
 
 const ID = 'gemini';
@@ -225,6 +226,7 @@ function toItem(raw, descriptor) {
     gitBranch: '',
     version: '',
     model: str(raw.model),
+    usage: type === 'gemini' ? geminiUsage(raw.tokens) : null,
     text: content.text,
     thinking,
     parts,
@@ -234,6 +236,30 @@ function toItem(raw, descriptor) {
     isSidechain: false,
     command: null,
   };
+}
+
+/**
+ * Gemini's counts in the contract's words. Measured on every reply that
+ * carries them (11, 24 September 2026): `total = input + output + thoughts +
+ * tool`, every time. So `cached` is INSIDE `input` — taken out, as for Codex —
+ * and `thoughts` is BESIDE `output`, added to it, since the contract's output
+ * includes the reasoning. `tool` counts prompt tokens spent on tool results,
+ * outside `input`: it joins the fresh input (always 0 in what was measured).
+ */
+function geminiUsage(tokens) {
+  if (!tokens || typeof tokens !== 'object') return null;
+  const n = (key) =>
+    typeof tokens[key] === 'number' && tokens[key] >= 0 ? tokens[key] : undefined;
+  const input = n('input');
+  const cached = n('cached');
+  const output = n('output');
+  const thoughts = n('thoughts');
+  return usageOf({
+    input: input === undefined ? undefined : input - (cached || 0) + (n('tool') || 0),
+    output: output === undefined ? undefined : output + (thoughts || 0),
+    cacheRead: cached,
+    reasoning: thoughts,
+  });
 }
 
 function thoughtsText(thoughts) {

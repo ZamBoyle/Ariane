@@ -13,7 +13,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+const fs = require('node:fs');
+const path = require('node:path');
+
 const adapter = require('../src/core/agents/copilot-cli');
+const { Index } = require('../src/core/db');
+const { Indexer } = require('../src/core/indexer');
 const { extractCopilotRecord } = require('../src/core/agents/copilot-extract');
 const { createFixture, cop, resetCounters } = require('./helpers/fixture');
 
@@ -358,6 +363,153 @@ test.describe('model', () => {
     const [d] = await collect(adapter.discover(ctx));
     const [question] = prose(await collect(adapter.read(d, { cursor: null })));
     assert.equal(question.model, '');
+  });
+});
+
+// ── tokens ──────────────────────────────────────────────────────────────────
+//
+// Copilot writes no count per reply. Its only count is a RUNNING total, at each
+// session.shutdown: 23 real ones, 4 without tokenDetails, and one session that
+// wrote the same total three times before growing it on resume.
+
+const usagesOf = (chunks) => chunks.map((c) => c.item).filter((i) => i.kind === 'usage');
+
+test.describe('tokens', () => {
+  test('a shutdown carries the running total, split as the contract splits it', () => {
+    const record = cop.shutdown({ input: 2, cacheWrite: 24107, output: 211, reasoning: 40 });
+    record.data.modelMetrics['kimi-k3'] = { usage: { reasoningTokens: 60 } };
+    const item = extractCopilotRecord(record);
+    assert.equal(item.kind, 'usage');
+    assert.deepEqual(item.total, {
+      input: 2,
+      cacheRead: 0,
+      cacheWrite: 24107,
+      output: 211,
+      reasoning: 100,
+    });
+  });
+
+  test('a shutdown without counts is known noise', () => {
+    const item = extractCopilotRecord({ type: 'session.shutdown', id: 'e', data: {} });
+    assert.equal(item.kind, 'ignored');
+    assert.equal(item.reason, 'known-noise');
+  });
+
+  test('each shutdown counts what grew since the last, and a repeat counts nothing', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+    fx.copilot().session('t1', [
+      cop.start('/p'),
+      cop.user('q1'),
+      cop.assistant('r1'),
+      cop.shutdown({ input: 100, cacheRead: 50, output: 10 }),
+      cop.shutdown({ input: 100, cacheRead: 50, output: 10 }), // resumed, nothing said
+      cop.user('q2'),
+      cop.assistant('r2'),
+      cop.shutdown({ input: 160, cacheRead: 250, output: 25, reasoning: 5 }),
+    ]);
+    const [d] = await collect(adapter.discover(ctx));
+    const usages = usagesOf(await collect(adapter.read(d, { cursor: null })));
+    assert.deepEqual(
+      usages.map((u) => u.usage),
+      [
+        { input: 100, output: 10, cacheRead: 50, cacheWrite: 0, reasoning: 0 },
+        { input: 60, output: 15, cacheRead: 200, cacheWrite: 0, reasoning: 5 },
+      ],
+      'two differences, never the running total twice'
+    );
+  });
+
+  test('a total that falls back is a counter starting over, and counts whole', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+    fx.copilot().session('t2', [
+      cop.start('/p'),
+      cop.assistant('r1'),
+      cop.shutdown({ input: 100, output: 10 }),
+      cop.assistant('r2'),
+      cop.shutdown({ input: 30, output: 4 }),
+    ]);
+    const [d] = await collect(adapter.discover(ctx));
+    const usages = usagesOf(await collect(adapter.read(d, { cursor: null })));
+    assert.deepEqual(
+      usages.map((u) => u.usage.output),
+      [10, 4]
+    );
+  });
+
+  test('a resumed pass remembers the last total', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+    const tree = fx.copilot();
+    tree.session('t3', [
+      cop.start('/p'),
+      cop.assistant('r1'),
+      cop.shutdown({ input: 100, output: 10 }),
+      cop.user('q2'), // the pass stops after the shutdown, not on it
+    ]);
+    const [first] = await collect(adapter.discover(ctx));
+    const cursor = (await collect(adapter.read(first, { cursor: null }))).at(-1).cursor;
+
+    tree.append('t3', [cop.assistant('r2'), cop.shutdown({ input: 130, output: 18 })]);
+    const [second] = await collect(adapter.discover(ctx));
+    assert.equal(
+      adapter.canResume(second, cursor),
+      true,
+      'a cursor carrying a total is still an offset'
+    );
+    const resumed = await collect(adapter.read(second, { cursor }));
+    assert.deepEqual(
+      usagesOf(resumed).map((u) => [u.usage.input, u.usage.output]),
+      [[30, 8]]
+    );
+    assert.deepEqual(
+      prose(resumed).map((m) => m.model),
+      ['gpt-5'],
+      'and the model still rides along'
+    );
+  });
+
+  test('a half-written shutdown is not counted: it will be read whole next time', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+    const tree = fx.copilot();
+    tree.session('t4', [cop.start('/p'), cop.assistant('r')]);
+    fs.appendFileSync(
+      path.join(tree.dir('t4'), 'events.jsonl'),
+      JSON.stringify(cop.shutdown({ input: 100, output: 10 })) // no newline yet
+    );
+    const [d] = await collect(adapter.discover(ctx));
+    const chunks = await collect(adapter.read(d, { cursor: null }));
+    assert.equal(usagesOf(chunks).length, 0);
+    assert.ok(
+      Number(chunks.at(-1).cursor.split(';')[0]) < d.bytes,
+      'and the cursor stops before it'
+    );
+  });
+
+  test('through the indexer, a conversation carries its last total exactly', async (t) => {
+    const { fx, teardown } = setup();
+    const index = new Index(':memory:');
+    t.after(() => {
+      index.close();
+      teardown();
+    });
+    fx.copilot().session('t5', [
+      cop.start('/home/ada/p'),
+      cop.user('q1'),
+      cop.assistant('r1'),
+      cop.shutdown({ input: 24216, cacheRead: 56960, output: 1882, reasoning: 832 }),
+      cop.shutdown({ input: 24216, cacheRead: 56960, output: 1882, reasoning: 832 }),
+      cop.user('q2'),
+      cop.assistant('r2'),
+      cop.shutdown({ input: 57295, cacheRead: 155648, output: 5798, reasoning: 1984 }),
+    ]);
+    await new Indexer(index, { env: fx.env, adapters: [adapter] }).run();
+    const [session] = index.sessions(index.folderId('/home/ada/p'));
+    assert.equal(session.tokInput, 57295, 'the last total, not the sum of the three');
+    assert.equal(session.tokCacheRead, 155648);
+    assert.equal(session.tokOutput, 5798);
   });
 });
 

@@ -628,6 +628,37 @@ const cop = {
   noise(type = 'assistant.turn_start') {
     return { type, id: `e-${counter()}`, timestamp: nextTimestamp(), data: {} };
   },
+
+  /**
+   * What the session has cost SO FAR, written at each exit — a running total,
+   * never what the last run added. Shaped as the 19 real ones that carry counts.
+   */
+  shutdown({ input = 0, cacheRead = 0, cacheWrite = 0, output = 0, reasoning = 0 } = {}) {
+    return {
+      type: 'session.shutdown',
+      id: `e-${counter()}`,
+      timestamp: nextTimestamp(),
+      data: {
+        tokenDetails: {
+          input: { tokenCount: input },
+          cache_read: { tokenCount: cacheRead },
+          cache_write: { tokenCount: cacheWrite },
+          output: { tokenCount: output },
+        },
+        modelMetrics: {
+          'gpt-5': {
+            usage: {
+              inputTokens: input + cacheRead + cacheWrite,
+              outputTokens: output,
+              cacheReadTokens: cacheRead,
+              cacheWriteTokens: cacheWrite,
+              reasoningTokens: reasoning,
+            },
+          },
+        },
+      },
+    };
+  },
 };
 
 /** Record builders for Qwen Code, whose message body is a Google GenAI Content. */

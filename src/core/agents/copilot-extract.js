@@ -30,7 +30,6 @@ const IGNORED_TYPES = new Map([
   ['assistant.turn_end', 'lifecycle'],
   ['permission.requested', 'lifecycle'],
   ['permission.completed', 'lifecycle'],
-  ['session.shutdown', 'lifecycle'],
   ['session.usage_checkpoint', 'accounting'],
   ['system.message', 'static system prompt'],
   ['skill.invoked', 'skill body, not conversation'],
@@ -70,6 +69,38 @@ function extractCopilotRecord(raw) {
       sessionId: str(data.sessionId),
       model: str(data.selectedModel),
       timestamp: str(data.startTime) || timestamp,
+    };
+  }
+
+  // What the session cost, and the only place Copilot writes it: a RUNNING
+  // total at each shutdown — resumed sessions repeat it or grow it, never
+  // reset it (23 measured). The reader turns totals into differences; see
+  // copilot-cli.js. `tokenDetails` already splits the input: `input` is fresh,
+  // where `modelMetrics.usage.inputTokens` includes the cache read AND written
+  // (2 fresh + 24 107 written, measured). Reasoning is only per model.
+  if (type === 'session.shutdown') {
+    const details = data.tokenDetails;
+    if (!details || typeof details !== 'object') {
+      return { kind: 'ignored', reason: 'known-noise', detail: 'shutdown without counts' };
+    }
+    const count = (key) => {
+      const entry = details[key];
+      return entry && typeof entry.tokenCount === 'number' ? entry.tokenCount : 0;
+    };
+    let reasoning = 0;
+    for (const metrics of Object.values(data.modelMetrics || {})) {
+      const usage = metrics && metrics.usage;
+      if (usage && typeof usage.reasoningTokens === 'number') reasoning += usage.reasoningTokens;
+    }
+    return {
+      kind: 'usage',
+      total: {
+        input: count('input'),
+        cacheRead: count('cache_read'),
+        cacheWrite: count('cache_write'),
+        output: count('output'),
+        reasoning,
+      },
     };
   }
 

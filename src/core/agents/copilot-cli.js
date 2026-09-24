@@ -24,6 +24,7 @@ const path = require('path');
 
 const { readRecords } = require('../jsonl');
 const { extractCopilotRecord } = require('./copilot-extract');
+const { usageOf } = require('./contract');
 const { remember, stampOf } = require('../memo');
 
 const ID = 'copilot-cli';
@@ -111,12 +112,30 @@ const adapter = {
     // copilot-extract.js, session.model_change). Carried in the cursor so a
     // pass resuming mid-file still knows it.
     let model = resumed.model;
+    // The last running total seen: a shutdown only adds what grew since.
+    let total = resumed.total;
     let last = cursor;
 
     for await (const record of readRecords(descriptor.logFile, { start })) {
+      const complete = record.endOffset > record.offset;
       const extracted = extractCopilotRecord(record.value);
+
+      if (extracted.kind === 'usage') {
+        if (!complete) continue; // re-read whole next time, counted once
+        const grown = difference(extracted.total, total);
+        total = extracted.total;
+        last = makeCursor(record.endOffset, model, total);
+        yield grown
+          ? { item: { kind: 'usage', usage: usageOf(grown) }, cursor: last }
+          : {
+              item: { kind: 'ignored', reason: 'known-noise', detail: 'repeated shutdown' },
+              cursor: last,
+            };
+        continue;
+      }
+
       if (extracted.kind === 'meta' && extracted.model) model = extracted.model;
-      const next = record.endOffset > record.offset ? makeCursor(record.endOffset, model) : last;
+      const next = complete ? makeCursor(record.endOffset, model, total) : last;
       last = next;
 
       const item = withModel(extracted, model);
@@ -267,16 +286,41 @@ function withModel(item, model) {
   return { ...item, model };
 }
 
-/** "offset" or "offset;model". A cursor written before this existed is a bare offset. */
-function makeCursor(offset, model) {
-  return model ? `${offset};${model}` : String(offset);
+const TOTALS = ['input', 'cacheRead', 'cacheWrite', 'output', 'reasoning'];
+
+/**
+ * What a running total added since the previous one; null when nothing grew
+ * (a shutdown repeated, 2 of 23 measured). A total that fell back would be a
+ * counter starting over — never seen here — and then counts whole.
+ */
+function difference(current, previous) {
+  if (!previous || TOTALS.some((k) => current[k] < previous[k])) {
+    return TOTALS.some((k) => current[k] > 0) ? current : null;
+  }
+  const grown = Object.fromEntries(TOTALS.map((k) => [k, current[k] - previous[k]]));
+  return TOTALS.some((k) => grown[k] > 0) ? grown : null;
+}
+
+/**
+ * "offset", "offset;model" or "offset;model;in,read,write,out,reasoning". A
+ * cursor written before a part existed simply lacks it.
+ */
+function makeCursor(offset, model, total = null) {
+  const counts = total ? TOTALS.map((k) => Number(total[k]) || 0).join(',') : '';
+  if (!counts) return model ? `${offset};${model}` : String(offset);
+  return `${offset};${model || ''};${counts}`;
 }
 
 function parseCursor(cursor) {
-  if (cursor == null) return { offset: 0, model: '' };
-  const at = String(cursor).indexOf(';');
-  if (at === -1) return { offset: Number(cursor), model: '' };
-  return { offset: Number(String(cursor).slice(0, at)), model: String(cursor).slice(at + 1) };
+  if (cursor == null) return { offset: 0, model: '', total: null };
+  const [offset, model = '', counts = ''] = String(cursor).split(';');
+  if (!counts) return { offset: Number(offset), model, total: null };
+  const values = counts.split(',').map(Number);
+  return {
+    offset: Number(offset),
+    model,
+    total: Object.fromEntries(TOTALS.map((k, i) => [k, values[i] || 0])),
+  };
 }
 
 /** workspace.yaml `name` is the first prompt truncated to 500 chars, not a title. */

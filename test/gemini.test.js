@@ -70,6 +70,33 @@ test.describe('turn normalisation', () => {
     );
   });
 
+  // Measured on the 11 real replies that carry counts: total = input + output
+  // + thoughts + tool, every time — so `cached` is inside `input`.
+  test('a reply’s count is read in the contract’s words', () => {
+    const item = toItem(
+      gem.model('r', {
+        tokens: { input: 12000, output: 187, cached: 8000, thoughts: 300, tool: 0, total: 12487 },
+      }),
+      descriptor
+    );
+    assert.deepEqual(item.usage, {
+      input: 4000,
+      output: 487,
+      cacheRead: 8000,
+      cacheWrite: null,
+      reasoning: 300,
+    });
+  });
+
+  test('no count is no usage, and the person’s turn never carries one', () => {
+    assert.equal(toItem(gem.model('r'), descriptor).usage, null);
+    assert.equal(toItem(gem.model('r', { tokens: 'n/a' }), descriptor).usage, null);
+    assert.equal(
+      toItem(gem.user('q', { tokens: { input: 5, output: 5 } }), descriptor).usage,
+      null
+    );
+  });
+
   test('turns tool calls into preview parts', () => {
     const item = toItem(gem.model('', { toolCalls: [{ id: 't1', name: 'read_file', args: { p: '/a' } }] }),
       descriptor);

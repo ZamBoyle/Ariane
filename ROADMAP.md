@@ -149,16 +149,30 @@ Reste la mise à jour en place de l'AppImage, la seule cible qui le permette san
   ne permet de demander sur-le-champ. C'est gênant précisément là où on se trouve quand on vient
   d'allumer l'option : dans les réglages, à se demander si elle fonctionne. Un bouton et un appel
   de plus, le canal existe déjà.
-- **Les jetons de Gemini et Copilot.** Claude et Codex les donnent depuis le 24 septembre 2026 ;
-  20 conversations Gemini et 18 Copilot n'en montrent encore aucun. Le dictionnaire est dans
-  `contract.js`. La leçon de Codex vaut pour eux : mesurer sur les vrais fichiers **avant** de
-  croire le contrat — il prescrivait pour Codex une somme qui comptait des tours deux fois. Le
-  vrai indexeur se fait tourner sur les vrais fichiers dans une base jetable, et chaque
-  conversation se compare au cumul que l'agent a lui-même écrit. Puis hausser `SCHEMA_VERSION`.
 - **Les sous-agents de Claude Code**, rangés dans des fichiers à part (`<session>/subagents/`),
-  ne sont pas lus du tout : ni leur texte, ni leurs jetons. Mesuré le 24 septembre 2026 : 384
-  fichiers, 4,4 M jetons reçus, près de 40 % de ce que les conversations principales ont reçu (11,3 M).
-  Se rattachent à leur conversation mère ; le piège sera de ne pas les compter deux fois si
-  certaines de leurs lignes figurent aussi dans la transcription principale.
+  ne sont pas lus du tout : ni leur texte, ni leurs jetons. Mesuré le 24 septembre 2026 : 381
+  transcriptions sous 6 conversations — 23 sous-agents directs, 358 lancés par 3 workflows
+  (`subagents/workflows/wf_…/`) — et 4,4 M jetons reçus, près de 40 % des 11,3 M des conversations
+  principales. Aucune ligne n'y est commune avec la transcription principale (0 uuid, 0
+  `message.id`) : pas de double compte à craindre de ce côté. Trois pièges, eux, sont mesurés :
+  - **Le compte d'une réponse grandit de ligne en ligne** (`8, 8, 177`), là où la transcription
+    principale le répète à l'identique. La règle actuelle, compter la première ligne de chaque
+    `message.id`, lirait 235 K au lieu de 4,4 M : c'est la **dernière** ligne qui fait foi.
+    Anthropic le sait (ticket `anthropics/claude-code#93620`, ouvert) ; et la dernière ligne
+    manque parfois (≈ 20 % des requêtes, `#84223`, reproduit) : le chiffre des sous-agents est un
+    **minimum**, à dire comme tel. La conversation mère n'a pas mieux : son résultat `Agent`
+    porte l'`agentId` dans 24 cas sur 24, un compte dans 4 seulement, et c'est celui du dernier tour.
+  - **Le premier message est écrit par Claude**, pas par la personne, et rien ne le distingue
+    (`type: user`, `userType: external`, texte brut) : l'invariant 1 exige de ne le créditer à
+    personne.
+  - **Le lien vers la conversation mère** : `agent-*.meta.json` donne le `toolUseId` de l'appel
+    pour les sous-agents directs (19 sur 23 le retrouvent) ; les agents de workflow ne l'ont pas,
+    mais l'identifiant `wf_…` du dossier figure dans la conversation mère.
+- **Deux parties d'une conversation compactée qui se recopient.** `d4c518b6` commence par
+  recopier 3 348 enregistrements de `64ffbe9a` (mêmes uuid) : 922 messages affichés deux fois
+  dans la chaîne et 387 K jetons de sortie comptés deux fois. Un seul cas sur le corpus, mesuré le
+  24 septembre 2026 ; la règle serait d'écarter d'une partie ce que la chaîne tient déjà.
+  ccusage fait de même depuis le 18 septembre 2026 (v20.0.23) : une réponse recopiée d'un
+  fichier à l'autre est reconnue à son `message.id` et à son `requestId`.
 - **Le saut à une date** *dans* une conversation ouverte (reste du point 3) : les dates sont dans
   l'infobulle de chaque trait du plan, mais rien ne permet d'y aller.

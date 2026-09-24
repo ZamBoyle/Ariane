@@ -34,6 +34,32 @@ Voici à quelle version chacune appartient.
 
 ## 24 septembre 2026
 
+### Les jetons de Gemini et de Copilot
+
+**Ce que ça change.** Quatre assistants sur sept montrent maintenant ce que chaque conversation a
+coûté : Gemini et Copilot rejoignent Claude et Codex, sous le nom de la conversation et dans les
+statistiques. Les trois autres n'écrivent aucun compte.
+
+**Mesuré avant d'écrire une ligne**, sur les fichiers de la machine, parce que chacun cachait un
+piège que les noms des champs ne disaient pas :
+
+- **Gemini** met le compte sur chaque réponse, mais son `input` **contient** ce que le cache a
+  servi, et son raisonnement (`thoughts`) est compté **à côté** de la sortie : sur les 11 réponses
+  qui en portent, `total = input + output + thoughts + tool`, chaque fois. Ariane retire le cache de
+  l'entrée et ajoute le raisonnement à la sortie, pour que les mots veuillent dire la même chose que
+  chez les autres.
+- **Copilot** n'écrit aucun compte par réponse : seulement un **total cumulé** de la session, à
+  chaque fermeture. Une session reprise réécrit le même total, ou un plus grand — l'une d'elles l'a
+  répété trois fois avant de le faire grandir. Additionner les fermetures aurait compté la même
+  dépense plusieurs fois ; Ariane ne compte que ce que chaque fermeture **ajoute**, et s'en
+  souvient d'un passage à l'autre.
+
+**Vérifié** avec le vrai indexeur sur les vrais fichiers, dans une base jetable : les 16
+conversations Copilot qui portent un compte ont exactement le dernier total écrit par Copilot (les
+2 autres n'en ont jamais écrit), et les 6 conversations Gemini qui contiennent une réponse, la somme
+exacte de leurs réponses (les 13 autres n'ont que des questions). L'index est reconstruit une fois
+(`SCHEMA_VERSION` 14).
+
 ### La couverture du code, visible sur GitHub et gardée par un seuil
 
 **Ce que ça change.** Chaque exécution de la CI sous Linux mesure la couverture de la suite
