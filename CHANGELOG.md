@@ -18,6 +18,7 @@ Voici à quelle version chacune appartient.
 
 | Version | Date | Ce qu'elle apporte |
 |---|---|---|
+| [0.3.3](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.3) | 24 sept. 2026 | ce que chaque conversation a coûté en jetons, sous son nom |
 | [0.3.2](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.2) | 23 sept. 2026 | le Markdown des assistants : tableaux, liens, listes imbriquées ; un dossier se lit par date ; la fenêtre porte son icône |
 | [0.3.1](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.1) | 23 sept. 2026 | le paquet n'emporte plus les sources C : −2,2 Mo |
 | [0.3.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.0) | 23 sept. 2026 | Ariane prévient qu'une version existe ; l'icône de la barre des tâches |

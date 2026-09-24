@@ -408,13 +408,13 @@ dans `ipc.js`) et la partage avec tout appel qui arrive pendant qu'elle tourne.
 plutôt que de les recopier : le corpus grossit tous les jours, et trois documents ont déjà porté
 trois totaux différents.
 
-### Les suites, mesurées par la CI le 23 septembre 2026
+### Les suites, mesurées par la CI le 24 septembre 2026
 
 | | Unitaires | Rendu | Mise en page | Accueil | Réseau |
 |---|---|---|---|---|---|
-| linux | 746 / 746 | 160 | 28 | 7 | 7 |
-| macos | 746 / 746 | 160 | 28 | 7 | 7 |
-| windows | 730 / 731 | 160 | 28 | 7 | 7 |
+| linux | 755 / 755 | 164 | 28 | 7 | 7 |
+| macos | 755 / 755 | 164 | 28 | 7 | 7 |
+| windows | 739 / 740 | 164 | 28 | 7 | 7 |
 
 Windows en exécute quinze de moins et en compte un sans le passer : ce sont les `POSIX_ONLY` de
 `terminal.test.js`, déclarés avec leur raison — bits d'exécution, shebangs, exécutables sans

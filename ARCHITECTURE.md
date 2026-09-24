@@ -392,13 +392,13 @@ Two rules hold up everything else:
 **This is where the project’s numbers live.** The other documents point here rather than copying
 them: the corpus grows every day, and three documents have already carried three different totals.
 
-### The suites, measured by the CI on 23 September 2026
+### The suites, measured by the CI on 24 September 2026
 
 | | Unit | Renderer | Layout | Splash | Network |
 |---|---|---|---|---|---|
-| linux | 746 / 746 | 160 | 28 | 7 | 7 |
-| macos | 746 / 746 | 160 | 28 | 7 | 7 |
-| windows | 730 / 731 | 160 | 28 | 7 | 7 |
+| linux | 755 / 755 | 164 | 28 | 7 | 7 |
+| macos | 755 / 755 | 164 | 28 | 7 | 7 |
+| windows | 739 / 740 | 164 | 28 | 7 | 7 |
 
 Windows runs fifteen fewer and counts one without passing it: the `POSIX_ONLY` skips in
 `terminal.test.js`, declared with their reason — execute bits, shebang lines, executables with no
