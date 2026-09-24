@@ -588,3 +588,67 @@ test.describe('model', () => {
     );
   });
 });
+
+// ── writing costs without breaking the batches ────────────────────────────
+//
+// 0.3.4 to 0.3.6 flushed the buffer and ran an UPDATE for every token_count:
+// thousands of one-row transactions, and a full pass three times slower on a
+// real corpus (Codex 8 s → 21–30 s). A cost now joins its reply in memory.
+
+const { BATCH_SIZE } = require('../src/core/indexer');
+
+test('costs join their replies in memory: one batch, no update per count', async (t) => {
+  const { fx, teardown } = setup();
+  const index = new Index(':memory:');
+  t.after(() => {
+    index.close();
+    teardown();
+  });
+
+  const records = [cdx.meta('/home/ada/p')];
+  let total = counts(0, 0, 0);
+  for (let i = 1; i <= 50; i++) {
+    const last = counts(10, 4, 2);
+    total = counts(total.input_tokens + 10, total.cached_input_tokens + 4, total.output_tokens + 2);
+    records.push(
+      cdx.message('user', `q${i}`),
+      cdx.message('assistant', `r${i}`),
+      cdx.tokenCount(total, last)
+    );
+  }
+  fx.codex().session('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', records);
+
+  let batches = 0;
+  let updates = 0;
+  const addMessages = index.addMessages.bind(index);
+  const addUsage = index.addUsage.bind(index);
+  index.addMessages = (...args) => (batches++, addMessages(...args));
+  index.addUsage = (...args) => (updates++, addUsage(...args));
+
+  await new Indexer(index, { env: fx.env, adapters: [adapter] }).run();
+  assert.equal(batches, 1, '100 messages and 50 counts fit in one batch');
+  assert.equal(updates, 0, 'no count needed the database: its reply was still in memory');
+  const [session] = index.sessions(index.folderId('/home/ada/p'));
+  assert.equal(session.tokOutput, 100, 'and not one count was lost');
+  assert.equal(session.tokCacheRead, 200);
+});
+
+test('a cost whose reply was already written reaches it in the database', async (t) => {
+  const { fx, teardown } = setup();
+  const index = new Index(':memory:');
+  t.after(() => {
+    index.close();
+    teardown();
+  });
+
+  // Exactly a batch of messages, so the buffer is written just before the count.
+  const records = [cdx.meta('/home/ada/p')];
+  for (let i = 0; i < BATCH_SIZE / 2; i++)
+    records.push(cdx.message('user', `q${i}`), cdx.message('assistant', `r${i}`));
+  records.push(cdx.tokenCount(counts(10, 4, 7)));
+  fx.codex().session('ffffffff-ffff-ffff-ffff-ffffffffffff', records);
+
+  await new Indexer(index, { env: fx.env, adapters: [adapter] }).run();
+  const [session] = index.sessions(index.folderId('/home/ada/p'));
+  assert.equal(session.tokOutput, 7);
+});

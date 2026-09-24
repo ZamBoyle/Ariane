@@ -31,6 +31,26 @@ Voici à quelle version chacune appartient.
 
 ## 24 septembre 2026
 
+### L'indexation redevient aussi rapide qu'avant les jetons de Codex
+
+**Signalé à l'usage.** Un premier lancement, avec la reconstruction de l'index, semblait lent.
+Une installation de paquets tournait en même temps, mais elle n'expliquait pas tout.
+
+**Mesuré, version contre version, sur les mêmes fichiers et l'une après l'autre** : la 0.3.1
+faisait une passe complète en 18 à 23 s, dont Codex en 7 à 9 ; la 0.3.6 en 32 à 45 s, dont Codex
+en **21 à 30**. Claude n'avait pas bougé : la cause était l'adaptateur de jetons de Codex, ajouté
+dans la 0.3.4.
+
+**La cause.** À chacun des 7 521 `token_count`, l'indexeur vidait son tampon pour que la réponse
+soit en base, puis faisait une mise à jour SQL — des milliers de transactions d'une ligne, là où
+le tampon existe précisément pour écrire par lots de 500. Un compte s'ajoute maintenant **en
+mémoire** à la dernière réponse encore dans le tampon ; il ne passe par la base que si sa réponse
+y est déjà.
+
+**Mesuré après** : Codex en 8 s, la passe complète en 21, au niveau de la 0.3.1. Les jetons restent
+exacts au jeton près dans les 125 conversations Codex. Un test compte les écritures — cinquante
+réponses et cinquante comptes, un seul lot et aucune mise à jour — et échoue avec l'ancien code.
+
 ### Le modèle dans la barre latérale
 
 **Signalé à l'usage.** Un débat envoie la même question à plusieurs assistants : dans un dossier,

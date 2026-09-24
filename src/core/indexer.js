@@ -252,11 +252,16 @@ class Indexer {
     const settleUsage = () => {
       while (pendingUsage.length && this.index.addUsage(id, pendingUsage[0])) pendingUsage.shift();
     };
+    // The last assistant message still in the buffer. A cost is added to it in
+    // memory: writing each of Codex's 7 521 counts on its own — a flush, then
+    // an UPDATE, each its own transaction — made a full pass three times slower.
+    let lastReply = null;
 
     const flush = () => {
       if (buffer.length === 0) return;
       count += this.index.addMessages(id, buffer);
       buffer = [];
+      lastReply = null;
       settleUsage();
     };
 
@@ -276,6 +281,13 @@ class Indexer {
             break;
           }
           buffer.push(item);
+          if (item.role === 'assistant') {
+            lastReply = item;
+            // Costs that came before any reply belong to this one.
+            while (pendingUsage.length) {
+              lastReply.usage = sumUsage(lastReply.usage, pendingUsage.shift());
+            }
+          }
           if (buffer.length >= BATCH_SIZE) flush();
           break;
         case 'title':
@@ -285,10 +297,13 @@ class Indexer {
           if (item.slug) this.index.setSlug(id, item.slug);
           break;
         case 'usage':
-          // The reply it belongs to may still be in the buffer.
-          flush();
-          pendingUsage.push(item.usage);
-          settleUsage();
+          // To the last reply: in memory while it is still buffered, in the
+          // database once it has been written, and held while there is none.
+          if (lastReply) {
+            lastReply.usage = sumUsage(lastReply.usage, item.usage);
+          } else if (pendingUsage.length || !this.index.addUsage(id, item.usage)) {
+            pendingUsage.push(item.usage);
+          }
           break;
         case 'ignored':
           if (item.reason && !item.reason.startsWith('known-')) {
@@ -357,6 +372,19 @@ function safeRoot(adapter, ctx) {
   } catch {
     return null;
   }
+}
+
+/** Two usages added field by field; a field neither recorded stays null. */
+function sumUsage(a, b) {
+  if (!a) return b || null;
+  if (!b) return a;
+  const out = {};
+  for (const key of Object.keys({ ...a, ...b })) {
+    const x = a[key];
+    const y = b[key];
+    out[key] = x == null && y == null ? null : (x || 0) + (y || 0);
+  }
+  return out;
 }
 
 module.exports = { Indexer, BATCH_SIZE };
