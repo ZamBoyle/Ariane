@@ -1407,13 +1407,13 @@ async function run() {
   // -- ce que chaque conversation a coûté ---------------------------------
   const claudeRow = r.sessionRows.find((s) => s.agent === 'claude');
   check('une conversation mesurée montre ses jetons sous son résumé, en K et M',
-    claudeRow && claudeRow.tokens === '↑ 607K · ↓ 314K · cache 34,6M',
+    claudeRow && claudeRow.tokens === '↑ 167K · ↓ 78,2K · cache 5,9M',
     claudeRow && claudeRow.tokens);
   check('le cache relu est à part : jamais additionné aux envoyés',
-    claudeRow && !/35(,|\.)\d?M/.test(claudeRow.tokens.split('·')[0]),
+    claudeRow && !/6(,|\.)\d?M/.test(claudeRow.tokens.split('·')[0]),
     claudeRow && claudeRow.tokens);
   check('au survol, les chiffres exacts',
-    claudeRow && /606\u202f641/.test(claudeRow.tokensTitle) && /34\u202f567\u202f122/.test(claudeRow.tokensTitle),
+    claudeRow && /166\u202f659/.test(claudeRow.tokensTitle) && /5\u202f933\u202f004/.test(claudeRow.tokensTitle),
     claudeRow && JSON.stringify(claudeRow.tokensTitle));
   check('une conversation que son agent n’a pas mesurée ne montre rien, pas zéro',
     r.sessionRows.filter((s) => s.agent === 'codex').every((s) => s.tokens === null),

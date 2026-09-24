@@ -60,7 +60,7 @@ const adapter = {
    */
   canResume(descriptor, cursor) {
     if (descriptor.source === HISTORY_KEY) return false;
-    const offset = Number(cursor);
+    const { offset } = parseCursor(cursor);
     return Number.isFinite(offset) && offset <= (descriptor.bytes ?? 0);
   },
 
@@ -70,19 +70,55 @@ const adapter = {
       return;
     }
 
-    const start = cursor == null ? 0 : Number(cursor) || 0;
+    const resumed = parseCursor(cursor);
+    const start = cursor == null ? 0 : resumed.offset || 0;
+    // The reply whose usage was counted last, carried in the cursor so that a
+    // pass resuming between two lines of one reply does not count it again.
+    let counted = resumed.reply;
     let last = cursor;
 
     for await (const record of readRecords(descriptor.filePath, { start })) {
-      const item = extractRecord(record.value);
+      let item = extractRecord(record.value);
+      const reply = replyIdOf(record.value);
+      if (reply && item.kind === 'message' && item.usage) {
+        if (reply === counted) item = { ...item, usage: null };
+        counted = reply;
+      }
       // A trailing line with no newline reports endOffset === offset; yielding
       // the previous cursor makes the indexer re-read it once complete.
-      const next = record.endOffset > record.offset ? String(record.endOffset) : last;
+      const next = record.endOffset > record.offset ? makeCursor(record.endOffset, counted) : last;
       last = next;
       yield { item, cursor: next };
     }
   },
 };
+
+// ── one reply, several lines ────────────────────────────────────────────────
+
+/**
+ * Claude Code writes one reply as several lines — its thinking, its text, each
+ * tool call — and EVERY line repeats the reply's usage. Stored as it came, a
+ * conversation counted its tokens 2.26 times over: 34 096 lines carried usage
+ * for 15 069 replies (24 September 2026), and on the largest conversation
+ * Ariane 0.3.3 showed 2.2 G read where the truth was 1.0 G. The lines of a reply share `message.id` and always
+ * follow one another — not one exception in 434 transcripts, subagents
+ * included — so a line counts only if its reply is not the one just counted.
+ */
+function replyIdOf(raw) {
+  if (!raw || raw.type !== 'assistant' || !raw.message) return null;
+  return typeof raw.message.id === 'string' && raw.message.id ? raw.message.id : null;
+}
+
+/** "offset" or "offset;msg_…". A cursor written before this existed is a bare offset. */
+function makeCursor(offset, reply) {
+  return reply ? `${offset};${reply}` : String(offset);
+}
+
+function parseCursor(cursor) {
+  if (cursor == null) return { offset: 0, reply: null };
+  const [offset, reply] = String(cursor).split(';');
+  return { offset: Number(offset), reply: reply || null };
+}
 
 // ── discovery ───────────────────────────────────────────────────────────────
 

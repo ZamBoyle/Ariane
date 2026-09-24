@@ -322,3 +322,183 @@ test('a session whose folder is unknown is not reported as purged', async (t) =>
   assert.equal(d.folderExact, false, 'the folder is genuinely unknown');
   assert.equal(d.folderOnDisk, true, 'but the rollout file is right there');
 });
+
+// ── what a reply cost ─────────────────────────────────────────────────────
+//
+// Every case below was measured on 145 real rollouts (24 September 2026):
+// 1 185 repeated events, 10 counters starting over after a resume, and older
+// files that write the count BEFORE the reply it paid for.
+
+const fs = require('node:fs');
+const { Index } = require('../src/core/db');
+const { Indexer } = require('../src/core/indexer');
+
+/** Codex's own counts: its input INCLUDES what the cache served. */
+const counts = (input, cached, output, reasoning = 0) => ({
+  input_tokens: input,
+  cached_input_tokens: cached,
+  output_tokens: output,
+  reasoning_output_tokens: reasoning,
+  total_tokens: input + output,
+});
+
+const usagesOf = (chunks) => chunks.map((c) => c.item).filter((i) => i.kind === 'usage');
+
+test.describe('token usage', () => {
+  test('a token_count becomes a usage item carrying both the reply and the total', () => {
+    const item = extractCodexRecord(cdx.tokenCount(counts(300, 200, 20), counts(100, 60, 10)));
+    assert.equal(item.kind, 'usage');
+    assert.equal(item.total.input_tokens, 300);
+    assert.equal(item.last.input_tokens, 100);
+  });
+
+  test('a token_count with no info is known noise, not drift', () => {
+    const item = extractCodexRecord({
+      timestamp: 't',
+      type: 'event_msg',
+      payload: { type: 'token_count', info: null },
+    });
+    assert.equal(item.kind, 'ignored');
+    assert.equal(item.reason, 'known-noise');
+  });
+
+  test('a repeat is skipped, a real reply counts, and a counter starting over is a real reply', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+
+    fx.codex().session('66666666-6666-6666-6666-666666666666', [
+      cdx.meta('/p'),
+      cdx.message('user', 'q'),
+      cdx.message('assistant', 'r1'),
+      cdx.tokenCount(counts(100, 60, 10)),
+      cdx.tokenCount(counts(100, 60, 10)), // the same event again: total unchanged
+      cdx.message('assistant', 'r2'),
+      cdx.tokenCount(counts(250, 160, 30), counts(150, 100, 20)),
+      cdx.tokenCount(counts(80, 50, 5)), // resumed: the total falls back and equals its own last
+    ]);
+
+    const [d] = await collect(adapter.discover(ctx));
+    const usages = usagesOf(await collect(adapter.read(d, { cursor: null })));
+    assert.equal(usages.length, 3, 'three replies, not four events');
+    assert.deepEqual(
+      usages.map((u) => u.usage.output),
+      [10, 20, 5]
+    );
+  });
+
+  test('the cache is taken out of Codex input, which includes it', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+
+    fx.codex().session('77777777-7777-7777-7777-777777777777', [
+      cdx.meta('/p'),
+      cdx.message('assistant', 'r'),
+      // Measured on a real turn: 2 692 in, of which 1 920 served from cache.
+      cdx.tokenCount(counts(2692, 1920, 400, 64)),
+    ]);
+
+    const [d] = await collect(adapter.discover(ctx));
+    const [{ usage }] = usagesOf(await collect(adapter.read(d, { cursor: null })));
+    assert.equal(usage.input, 772, 'fresh input only, as the contract defines it');
+    assert.equal(usage.cacheRead, 1920);
+    assert.equal(usage.output, 400);
+    assert.equal(usage.reasoning, 64);
+    assert.equal(usage.cacheWrite, null, 'a field this file does not carry stays null');
+  });
+
+  test('a resumed pass still recognises a repeat of the reply it stopped after', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+
+    const id = '88888888-8888-8888-8888-888888888888';
+    const tree = fx.codex();
+    tree.session(id, [
+      cdx.meta('/p'),
+      cdx.message('assistant', 'r1'),
+      cdx.tokenCount(counts(100, 60, 10)),
+    ]);
+
+    const [first] = await collect(adapter.discover(ctx));
+    const cursor = (await collect(adapter.read(first, { cursor: null }))).at(-1).cursor;
+
+    tree.append(id, [
+      cdx.tokenCount(counts(100, 60, 10)), // repeat, across the pass boundary
+      cdx.message('assistant', 'r2'),
+      cdx.tokenCount(counts(180, 110, 25), counts(80, 50, 15)),
+    ]);
+
+    const [second] = await collect(adapter.discover(ctx));
+    assert.equal(
+      adapter.canResume(second, cursor),
+      true,
+      'a cursor carrying a total is still an offset'
+    );
+    const usages = usagesOf(await collect(adapter.read(second, { cursor })));
+    assert.deepEqual(
+      usages.map((u) => u.usage.output),
+      [15],
+      'the repeat is not counted twice'
+    );
+  });
+
+  test('a half-written count is not counted: it will be read whole next time', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+
+    const id = '99999999-9999-9999-9999-999999999999';
+    const tree = fx.codex();
+    tree.session(id, [cdx.meta('/p'), cdx.message('assistant', 'r')]);
+    fs.appendFileSync(tree.file(id), JSON.stringify(cdx.tokenCount(counts(100, 60, 10)))); // no newline yet
+
+    const [d] = await collect(adapter.discover(ctx));
+    const chunks = await collect(adapter.read(d, { cursor: null }));
+    assert.equal(usagesOf(chunks).length, 0);
+    assert.ok(
+      Number(chunks.at(-1).cursor.split(';')[0]) < d.bytes,
+      'and the cursor stops before it'
+    );
+  });
+
+  test('a subagent is its own conversation, not a replacement for its parent', () => {
+    // Its header names the parent in session_id and itself in id.
+    const item = extractCodexRecord({
+      timestamp: 't',
+      type: 'session_meta',
+      payload: {
+        session_id: 'parent',
+        id: 'child',
+        parent_thread_id: 'parent',
+        thread_source: 'subagent',
+        cwd: '/p',
+      },
+    });
+    assert.equal(item.sessionId, 'child');
+  });
+});
+
+test('through the indexer, a conversation carries the exact sum of its replies', async (t) => {
+  const { fx, teardown } = setup();
+  const index = new Index(':memory:');
+  t.after(() => {
+    index.close();
+    teardown();
+  });
+
+  fx.codex().session('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', [
+    cdx.meta('/home/ada/p'),
+    cdx.message('user', 'q'),
+    // Older files write the count BEFORE the reply it paid for: it must wait.
+    cdx.tokenCount(counts(100, 60, 10)),
+    cdx.message('assistant', 'r1'),
+    cdx.tokenCount(counts(100, 60, 10)),
+    cdx.tokenCount(counts(250, 160, 30), counts(150, 100, 20)),
+    cdx.message('assistant', 'r2'),
+  ]);
+
+  const report = await new Indexer(index, { env: fx.env, adapters: [adapter] }).run();
+  const [session] = index.sessions(index.folderId('/home/ada/p'));
+  assert.equal(session.tokOutput, 30, 'ten and twenty: the repeat is not there');
+  assert.equal(session.tokInput, 40 + 50, 'fresh input: what the cache did not serve');
+  assert.equal(session.tokCacheRead, 160, 'the running total, exactly');
+  assert.ok(!report.unknownKinds['usage-without-reply'], 'the early count found its reply');
+});

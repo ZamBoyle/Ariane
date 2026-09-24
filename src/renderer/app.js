@@ -907,7 +907,7 @@ function renderFavorites() {
 }
 
 /**
- * "↑ 607K · ↓ 314K · cache 34.6M" under a conversation, the exact figures on
+ * "↑ 167K · ↓ 78.2K · cache 5.9M" under a conversation, the exact figures on
  * hover — or nothing, when its assistant recorded no usage. Nothing is not
  * "0": an agent that measured nothing did not spend nothing.
  */

@@ -452,14 +452,14 @@ test.describe('links', () => {
 
 test.describe('what a conversation cost', () => {
   test('three figures, each meaning one thing', () => {
-    // Measured on a real conversation: fresh input is almost nothing, the new
+    // The medians of a real corpus: fresh input is almost nothing, the new
     // material goes through the cache, and re-reads dwarf everything.
     const usage = F.sessionTokens({
-      tokInput: 462, tokOutput: 313928, tokCacheRead: 34567122, tokCacheWrite: 606179,
+      tokInput: 170, tokOutput: 78235, tokCacheRead: 5933004, tokCacheWrite: 166489,
     });
-    assert.equal(usage.sent, 462 + 606179, 'sent is what was new: fresh input plus cache writes');
-    assert.equal(usage.received, 313928);
-    assert.equal(usage.cacheRead, 34567122, 're-reads are kept apart, never folded into sent');
+    assert.equal(usage.sent, 170 + 166489, 'sent is what was new: fresh input plus cache writes');
+    assert.equal(usage.received, 78235);
+    assert.equal(usage.cacheRead, 5933004, 're-reads are kept apart, never folded into sent');
   });
 
   test('an assistant that recorded nothing yields nothing, not zeros', () => {

@@ -80,7 +80,11 @@ function extractCodexRecord(raw) {
     return {
       kind: 'meta',
       cwd: str(payload.cwd),
-      sessionId: str(payload.session_id) || str(payload.id),
+      // The thread's own id first. A subagent's header names its PARENT in
+      // `session_id` and itself in `id`; reading session_id first filed the
+      // subagent under the parent's id, and the parent — 25 replies — vanished
+      // behind it. In the 130 other headers carrying both, they are equal.
+      sessionId: str(payload.id) || str(payload.session_id),
       timestamp: str(payload.timestamp) || str(raw.timestamp),
     };
   }
@@ -96,6 +100,17 @@ function extractCodexRecord(raw) {
   // were reported as format drift on every pass.
   if (!raw.type && typeof raw.record_type === 'string') {
     return { kind: 'ignored', reason: 'known-noise', detail: `record_type:${raw.record_type}` };
+  }
+
+  // What a reply cost travels in the mirror stream, and only there. The raw
+  // counts go to the reader, which alone can tell a new turn from a repeat
+  // (see codex.js, usageOf): a record on its own cannot.
+  if (raw.type === 'event_msg' && raw.payload && raw.payload.type === 'token_count') {
+    const info = raw.payload.info;
+    if (!info || !info.total_token_usage || !info.last_token_usage) {
+      return { kind: 'ignored', reason: 'known-noise', detail: 'token_count without info' };
+    }
+    return { kind: 'usage', total: info.total_token_usage, last: info.last_token_usage };
   }
 
   if (IGNORED_TYPES.has(raw.type)) {

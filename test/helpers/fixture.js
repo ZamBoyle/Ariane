@@ -497,6 +497,18 @@ const cdx = {
     };
   },
 
+  /**
+   * What a reply cost: the reply's own counts and the session's running total.
+   * Codex repeats this event with the total unchanged; see codex.js.
+   */
+  tokenCount(total, last = total) {
+    return {
+      timestamp: nextTimestamp(),
+      type: 'event_msg',
+      payload: { type: 'token_count', info: { total_token_usage: total, last_token_usage: last } },
+    };
+  },
+
   /** The mirror stream that duplicates every turn; must never be read. */
   eventMsg(text) {
     return {

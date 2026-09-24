@@ -22,7 +22,7 @@ const fs = require('fs');
 const path = require('path');
 
 const FORMAT = 'ariane-archive';
-const VERSION = 1;
+const VERSION = 2;
 
 class Archive {
   /** @param {string} dir Usually `<userData>/archive`. */
@@ -79,14 +79,12 @@ class Archive {
     if (header.version > VERSION) {
       throw new Error(`${file} comes from a newer version of Ariane (format ${header.version})`);
     }
-    // Version 1 is the only one so far. A future change of shape adds its
-    // step here, from each older version up to this one — never a discard.
-    return {
-      id: header.id,
-      session: header.session,
-      savedAt: header.savedAt,
-      messages: lines.slice(1).map((line) => JSON.parse(line)),
-    };
+    // Each older version is brought up to this one, step by step — never a discard.
+    let messages = lines.slice(1).map((line) => JSON.parse(line));
+    if (header.version < 2 && String(header.id).startsWith('claude:')) {
+      messages = withoutRepeatedUsage(messages);
+    }
+    return { id: header.id, session: header.session, savedAt: header.savedAt, messages };
   }
 
   remove(globalId) {
@@ -114,4 +112,40 @@ class Archive {
   }
 }
 
-module.exports = { Archive, ARCHIVE_FORMAT: FORMAT, ARCHIVE_VERSION: VERSION };
+const TOKEN_COLUMNS = [
+  'tok_input',
+  'tok_output',
+  'tok_cache_read',
+  'tok_cache_write',
+  'tok_reasoning',
+];
+
+/**
+ * Version 1 → 2: before Ariane 0.3.4, a Claude reply's usage was stored on every
+ * line of the reply (agents/claude.js). Those files cannot be re-read — their
+ * transcript is gone — so the repeat is recognised here instead: an assistant
+ * row whose five counts equal the previous assistant row's exactly. The cache
+ * read alone grows at every call, so two different replies never share all
+ * five. Measured on the two archives concerned: 14 repeats of 21, 118 of 212.
+ * Rows are in the index's own column names, as the archive stores them.
+ */
+const NO_TOKENS = Object.fromEntries(TOKEN_COLUMNS.map((k) => [k, null]));
+
+function withoutRepeatedUsage(messages) {
+  let previous = null;
+  return messages.map((message) => {
+    const counted = TOKEN_COLUMNS.some((k) => message[k] != null);
+    if (message.role !== 'assistant' || !counted) return message;
+    const key = TOKEN_COLUMNS.map((k) => message[k] ?? '').join(',');
+    if (key === previous) return { ...message, ...NO_TOKENS };
+    previous = key;
+    return message;
+  });
+}
+
+module.exports = {
+  Archive,
+  ARCHIVE_FORMAT: FORMAT,
+  ARCHIVE_VERSION: VERSION,
+  withoutRepeatedUsage,
+};

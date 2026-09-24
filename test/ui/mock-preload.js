@@ -203,12 +203,12 @@ const SESSIONS = [
     firstAt: '2026-09-17T23:00:00.000Z',
     lastAt: '2026-09-17T23:06:00.000Z',
     source: 'transcript',
-    // Les sommes de db.sessions, prises d'une vraie conversation : l'entrée
+    // Les sommes de db.sessions, aux médianes d'un vrai corpus : l'entrée
     // fraîche est minuscule, le cache relu écrase tout.
-    tokInput: 462,
-    tokOutput: 313928,
-    tokCacheRead: 34567122,
-    tokCacheWrite: 606179,
+    tokInput: 170,
+    tokOutput: 78235,
+    tokCacheRead: 5933004,
+    tokCacheWrite: 166489,
   },
   // Codex n'enregistre pas encore ses jetons dans Ariane : null, pas zéro.
   // Deux sessions Codex dans le MÊME dossier, et plus anciennes que celle de

@@ -18,7 +18,8 @@ Voici à quelle version chacune appartient.
 
 | Version | Date | Ce qu'elle apporte |
 |---|---|---|
-| [0.3.3](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.3) | 24 sept. 2026 | ce que chaque conversation a coûté en jetons, sous son nom |
+| [0.3.4](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.4) | 24 sept. 2026 | les jetons de Claude comptés une fois, ceux de Codex ; une conversation Codex retrouvée |
+| [0.3.3](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.3) | 24 sept. 2026 | ce que chaque conversation a coûté en jetons, sous son nom — comptés jusqu'à 2,5 fois pour Claude |
 | [0.3.2](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.2) | 23 sept. 2026 | le Markdown des assistants : tableaux, liens, listes imbriquées ; un dossier se lit par date ; la fenêtre porte son icône |
 | [0.3.1](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.1) | 23 sept. 2026 | le paquet n'emporte plus les sources C : −2,2 Mo |
 | [0.3.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.0) | 23 sept. 2026 | Ariane prévient qu'une version existe ; l'icône de la barre des tâches |
@@ -28,21 +29,85 @@ Voici à quelle version chacune appartient.
 
 ## 24 septembre 2026
 
+### Les jetons de Claude comptés deux fois
+
+**Trouvé en expliquant un calcul, pas par un test.** Claude Code écrit une réponse en plusieurs
+lignes — sa réflexion, son texte, chaque appel d'outil — et **chaque ligne répète le compte de la
+réponse**. La 0.3.3 les additionnait toutes : 34 096 lignes portaient un compte pour 15 069 vraies
+réponses, soit **2,26 fois trop** en moyenne. Sur la plus grosse conversation, Ariane affichait
+6,4 M reçus et 2,2 G relus, pour 2,6 M et 1,0 G en réalité. Tous les chiffres mesurés ce jour-là
+dans l'index en étaient faux, y compris ceux de l'entrée ci-dessous, corrigés depuis.
+
+**Ce que ça change.** Une ligne ne compte que si sa réponse (`message.id`) n'est pas celle qui
+vient d'être comptée. Les lignes d'une réponse se suivent toujours — aucune exception dans 434
+transcriptions, sous-agents compris —, et le dernier identifiant voyage dans le curseur, pour
+qu'une lecture reprise entre deux lignes d'une même réponse ne la recompte pas.
+
+**Ce qu'aucune relecture ne peut corriger** : deux conversations n'existent plus que dans
+l'archive d'Ariane, avec leurs comptes gonflés (14 lignes répétées sur 21, 118 sur 212). L'archive
+passe au format v2, et sa migration retire le compte d'une ligne qui répète exactement celui de la
+précédente — cinq nombres identiques, dont le contexte relu qui grandit à chaque appel. La
+reconstruction de l'index, qui sauve ce que les agents n'ont plus, applique le même filtre quand
+elle part d'un index antérieur.
+
+**Vérifié au jeton près** : le vrai indexeur sur les vraies transcriptions, comparé à une réponse
+comptée une fois par identifiant — **35 conversations sur 35 exactes**.
+
+**Et une limite qui existait déjà, mesurée en passant** : Claude Code range ses sous-agents dans des
+fichiers à part (`subagents/`), qu'Ariane ne lit pas — ni leur texte, ni leurs jetons. 384 fichiers,
+4,4 M jetons reçus. Noté dans la feuille de route.
+
+### Les jetons de Codex, et une conversation que Codex cachait
+
+**Ce que ça change.** Les conversations Codex affichent leurs jetons comme celles de Claude : 125
+de plus. Et une conversation disparue depuis le 5 septembre réapparaît.
+
+**Le contrat se trompait, et le corpus l'a dit.** Il prescrivait d'additionner le
+`last_token_usage` de chaque événement `token_count`. Mesuré sur les 145 fichiers : Codex
+**répète** l'événement — 1 185 fois, le cumul n'a pas bougé —, et **35 fichiers sur 125**
+sortaient trop haut, l'un au triple. Chaque fois que le cumul bouge, il bouge d'exactement
+`last_token_usage` : 6 201 fois sur 6 201. Dix fois il recule : la conversation a été reprise, le
+compteur repart, et ce tour-là est réel. D'où la règle : **un tour compte, sauf si le cumul égale
+le précédent.** Le dernier cumul voyage dans le curseur de l'adaptateur, pour qu'une lecture
+reprise reconnaisse encore une répétition.
+
+**Deux autres pièges, trouvés en faisant tourner le vrai indexeur sur les vrais fichiers.** Les
+fichiers plus anciens écrivent le compte **avant** la réponse qu'il paie : la toute première de
+chaque conversation n'avait rien à quoi s'accrocher, et 43 comptes se perdaient. Ils attendent
+maintenant la réponse suivante. Et `token_usage_record`, un flux plus récent, n'est pas lu : il
+n'existe que dans 19 fichiers, nomme d'autres fils, et contredit `token_count` dans 8.
+
+**Vérifié au jeton près** : le vrai indexeur, sur les vrais fichiers, dans une base jetable, comparé
+au cumul de chaque fichier — **125 sur 125 exacts**. L'entrée de Codex inclut le cache et en est
+retranchée, comme le contrat le définit.
+
+**La conversation cachée.** Un fil de sous-agent porte dans son en-tête l'identifiant de la session
+**parente** (`session_id`) et le sien dans `id`. Ariane lisait le premier : le sous-agent, 21
+messages, prenait la place de sa conversation parente — 25 réponses et 15 messages de la personne,
+invisibles. L'identifiant propre passe maintenant en premier. Dans les 130 autres en-têtes qui
+portent les deux, ils sont identiques : aucune étoile ni note ne change de conversation.
+
+**L'index est reconstruit une fois** (`SCHEMA_VERSION` 11), sans quoi les conversations déjà lues
+ne le seraient jamais à nouveau.
+
 ### Ce que chaque conversation a coûté, sous son nom
 
 **Ce que ça change.** Sous le résumé de chaque conversation, une ligne plus discrète :
-`↑ 607K · ↓ 314K · cache 34,6M`. Au survol, les chiffres exacts. Une conversation dont
+`↑ 167K · ↓ 78,2K · cache 5,9M`. Au survol, les chiffres exacts. Une conversation dont
 l'assistant n'a rien mesuré n'affiche rien — pas « 0 », qui prétendrait qu'il a mesuré et trouvé
 rien.
 
 **Les autres ont décidé de la forme.** ccusage, l'outil de référence, ne mélange jamais : entrée,
 sortie, écriture et lecture du cache en colonnes séparées. Et un billet intitulé *« j'ai cru
 utiliser un milliard de jetons, 97 % était du cache »* décrit le piège exact de nos chiffres. Le
-premier plan tombait dedans : « envoyés » comptait le cache relu, soit **2,28 milliards** pour la
-plus grosse conversation.
+premier plan tombait dedans : « envoyés » comptait le cache relu, soit **plus d'un milliard** pour
+la plus grosse conversation.
 
-**Mesuré sur les 37 conversations Claude qui en portent**, en médiane : 462 jetons d'entrée
-fraîche, 606 K écrits en cache, 314 K reçus, 34,6 M relus depuis le cache. D'où trois nombres qui
+**Mesuré sur les 35 conversations Claude qui en portent**, en médiane : 170 jetons d'entrée
+fraîche, 166 K écrits en cache, 78 K reçus, 5,9 M relus depuis le cache. *(Chiffres corrigés le
+jour même : la 0.3.3 comptait chaque réponse de Claude jusqu'à 2,5 fois, et les premières mesures
+de cette entrée en portaient la trace — voir « Les jetons de Claude comptés deux fois ».)* D'où
+trois nombres qui
 disent chacun une chose vraie : **↑** ce qui était nouveau dans les invites — l'entrée fraîche
 *plus* l'écriture en cache, car Claude fait passer presque tout le nouveau par le cache ; seule,
 l'entrée fraîche ne voudrait rien dire —, **↓** ce qui a été reçu, et le **cache relu à part**,

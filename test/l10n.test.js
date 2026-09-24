@@ -170,7 +170,7 @@ test.describe('the words, in French and in English', () => {
     assert.equal(fr.compact(4386), '4,4K', 'la virgule décimale du français');
     assert.equal(en.compact(190255), '190K', 'no decimal from 100 on');
     assert.equal(fr.compact(14510696), '14,5M');
-    assert.equal(en.compact(2278555911), '2.3G', 'a conversation measured at 2.28 billion');
+    assert.equal(en.compact(2278555911), '2.3G', 'a count in the billions');
     assert.equal(en.compact(0), '0', 'a measured zero is shown');
     assert.equal(en.compact(null), '', 'an absence is not a zero');
     assert.equal(en.compact('12'), '', 'only a number is a count');

@@ -14,6 +14,7 @@ const Database = require('better-sqlite3');
 
 const { toMatchQuery } = require('./query');
 const { USAGE_FIELDS } = require('./agents/contract');
+const { withoutRepeatedUsage } = require('./archive');
 
 /**
  * Bumped for a schema change OR a change in what the adapters extract.
@@ -34,7 +35,7 @@ const { USAGE_FIELDS } = require('./agents/contract');
  * 2: multi-agent schema
  * 1: initial
  */
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 11;
 /** The five token columns of one message, from the contract's shape. */
 function usageColumns(usage) {
   const u = usage || {};
@@ -201,7 +202,12 @@ class Index {
         const file = session.file_path ? session.file_path.split('#')[0] : '';
         const proven = session.source !== 'archive' && file && fs.existsSync(file);
         if (proven || this.archive.has(session.id)) continue;
-        const messages = messagesOf.all(session.id);
+        const rows = messagesOf.all(session.id);
+        // An index built before 0.3.4 holds a Claude reply's usage on each of
+        // its lines (archive.js, withoutRepeatedUsage). Saved as it is, the
+        // inflated count would be kept in a format nothing migrates any more.
+        const messages =
+          fromVersion < 11 && session.agent_id === 'claude' ? withoutRepeatedUsage(rows) : rows;
         if (messages.length) this.archive.write(session.id, session, messages);
       }
     } catch (error) {
@@ -271,6 +277,21 @@ class Index {
         DO NOTHING
       `),
       maxSeq: db.prepare('SELECT COALESCE(MAX(seq), -1) AS n FROM messages WHERE session_id = ?'),
+      // A field the agent did not record stays as it was: adding nothing to a
+      // null must not make it a zero.
+      addUsage: db.prepare(`
+        UPDATE messages SET
+          tok_input = CASE WHEN @input IS NULL THEN tok_input ELSE COALESCE(tok_input, 0) + @input END,
+          tok_output = CASE WHEN @output IS NULL THEN tok_output ELSE COALESCE(tok_output, 0) + @output END,
+          tok_cache_read = CASE WHEN @cacheRead IS NULL THEN tok_cache_read
+                           ELSE COALESCE(tok_cache_read, 0) + @cacheRead END,
+          tok_cache_write = CASE WHEN @cacheWrite IS NULL THEN tok_cache_write
+                            ELSE COALESCE(tok_cache_write, 0) + @cacheWrite END,
+          tok_reasoning = CASE WHEN @reasoning IS NULL THEN tok_reasoning
+                          ELSE COALESCE(tok_reasoning, 0) + @reasoning END
+        WHERE id = (SELECT id FROM messages WHERE session_id = @session AND role = 'assistant'
+                    ORDER BY seq DESC LIMIT 1)
+      `),
 
       /**
        * Recomputes the denormalised session columns from its messages. Called
@@ -425,6 +446,24 @@ class Index {
    * @param {object[]} messages Normalised records from extract.js.
    * @param {number} [startSeq] Defaults to continuing after the stored maximum.
    */
+  /**
+   * Add what a reply cost to the session's last assistant message, for an
+   * agent that records it apart from the reply (contract.js, kind 'usage').
+   * @returns {boolean} False when the session has no assistant message yet.
+   */
+  addUsage(sessionId, usage) {
+    if (!usage) return false;
+    const { changes } = this.s.addUsage.run({
+      session: sessionId,
+      input: usage.input ?? null,
+      output: usage.output ?? null,
+      cacheRead: usage.cacheRead ?? null,
+      cacheWrite: usage.cacheWrite ?? null,
+      reasoning: usage.reasoning ?? null,
+    });
+    return changes > 0;
+  }
+
   addMessages(sessionId, messages, startSeq) {
     if (messages.length === 0) return 0;
     let seq = startSeq ?? this.s.maxSeq.get(sessionId).n + 1;

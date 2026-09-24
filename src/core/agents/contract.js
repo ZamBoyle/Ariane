@@ -63,8 +63,13 @@
  *   'message'  a conversation turn, shaped like extract.js output
  *   'title'    {title} — a human-readable session title
  *   'summary'  {slug}  — a short session slug
+ *   'usage'    {usage} — what the reply just stored cost, for an agent that
+ *              writes it in a record of its own (Codex). The indexer adds it to
+ *              the session's last assistant message, which may have been stored
+ *              in an earlier pass. Yielding the same usage twice counts it
+ *              twice: telling a new reply from a repeat is the adapter's job.
  *   'ignored'  {reason} — counted, so format drift is visible rather than silent
- * @property {'message'|'title'|'summary'|'ignored'} kind
+ * @property {'message'|'title'|'summary'|'usage'|'ignored'} kind
  *
  * @typedef {object} Chunk
  * @property {Item} item
@@ -133,8 +138,10 @@
  *
  * Where the numbers live is the adapter's business, not the dictionary's:
  * `message.usage` for Claude, `tokens` at the record root for Gemini, and for
- * Codex `payload.info.last_token_usage` — the per-turn one. Never Codex's
- * `total_token_usage`, which is cumulative: summing it counts every turn again.
+ * Codex `payload.info.last_token_usage` — the per-turn one. Never sum Codex's
+ * `total_token_usage`, which is cumulative. But do not sum every
+ * `last_token_usage` either: Codex repeats the event, and 35 files in 125 came
+ * out too high that way. The total is what tells a repeat apart (codex.js).
  *
  * **Absence is not zero.** An agent that recorded nothing yields `null`, and a
  * field it does not keep stays `null`. A 0 would claim the agent did the thing

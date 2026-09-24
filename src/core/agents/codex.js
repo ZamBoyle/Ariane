@@ -24,6 +24,7 @@ const path = require('path');
 const { readRecords } = require('../jsonl');
 const { remember, stampOf } = require('../memo');
 const { extractCodexRecord } = require('./codex-extract');
+const { usageOf } = require('./contract');
 
 const ID = 'codex';
 
@@ -95,7 +96,7 @@ const adapter = {
   /** A byte offset past the end means the file was rewritten; start over. */
   canResume(descriptor, cursor) {
     if (descriptor.legacy) return false; // single JSON document, never partial
-    const offset = Number(cursor);
+    const { offset } = parseCursor(cursor);
     return Number.isFinite(offset) && offset <= (descriptor.bytes ?? 0);
   },
 
@@ -105,14 +106,36 @@ const adapter = {
       return;
     }
 
-    const start = cursor == null ? 0 : Number(cursor) || 0;
+    const resumed = parseCursor(cursor);
+    const start = cursor == null ? 0 : resumed.offset || 0;
+    // The last running total seen, carried in the cursor so that a pass which
+    // resumes can still recognise a repeat of the turn it stopped after.
+    let total = resumed.total;
     let last = cursor;
 
     for await (const record of readRecords(descriptor.filePath, { start })) {
-      const next = record.endOffset > record.offset ? String(record.endOffset) : last;
+      const complete = record.endOffset > record.offset;
+      const item = extractCodexRecord(record.value);
+
+      if (item.kind === 'usage') {
+        // A half-written line is re-read on the next pass: counting it now
+        // would count it twice.
+        if (!complete) continue;
+        const repeat = total !== null && sameCounts(item.total, total);
+        total = item.total;
+        last = makeCursor(record.endOffset, total);
+        yield repeat
+          ? {
+              item: { kind: 'ignored', reason: 'known-noise', detail: 'repeated token_count' },
+              cursor: last,
+            }
+          : { item: { kind: 'usage', usage: usageOfCodex(item.last) }, cursor: last };
+        continue;
+      }
+
+      const next = complete ? makeCursor(record.endOffset, total) : last;
       last = next;
 
-      const item = extractCodexRecord(record.value);
       if (item.kind === 'meta') continue; // cwd was resolved during discovery
 
       // A tool call arrives as its own record here, not as a block inside a
@@ -132,6 +155,77 @@ const adapter = {
     }
   },
 };
+
+// ── what a reply cost ───────────────────────────────────────────────────────
+
+/**
+ * Codex writes a `token_count` after each reply, holding the reply's own
+ * counts (`last_token_usage`) and the running total of the session. Measured
+ * on 145 real files (7 521 events, 24 September 2026):
+ *
+ *   - 1 185 of them REPEAT the previous one exactly: the running total has not
+ *     moved. Summing `last_token_usage` blindly counts those replies twice —
+ *     35 files of 125 came out too high, one of them three times over.
+ *   - Every time the total does move, it moves by exactly `last_token_usage`:
+ *     6 201 of 6 201.
+ *   - 10 times the total falls back: the session was resumed, the counter
+ *     starts again, and that event's total equals its own last — a real reply.
+ *
+ * So a reply counts unless the running total equals the previous one. Checked
+ * against the running totals of all 125 files: exact in every one.
+ *
+ * `token_usage_record`, a newer stream, is NOT read: it exists in 19 files
+ * only, names other threads, and disagrees with token_count in 8 of them.
+ */
+const COUNTED = [
+  'input_tokens',
+  'cached_input_tokens',
+  'cache_write_input_tokens',
+  'output_tokens',
+  'reasoning_output_tokens',
+];
+
+function sameCounts(a, b) {
+  return COUNTED.every((k) => (Number(a && a[k]) || 0) === (Number(b && b[k]) || 0));
+}
+
+/**
+ * Codex's counts in the contract's words. Its `input_tokens` INCLUDES what was
+ * served from cache, where the contract's `input` never does: 2 692 of which
+ * 1 920 cached, measured. So the cached part is taken out.
+ */
+function usageOfCodex(counts) {
+  const n = (k) => (typeof counts[k] === 'number' ? counts[k] : undefined);
+  const input = n('input_tokens');
+  const cached = n('cached_input_tokens');
+  return usageOf({
+    input: input === undefined ? undefined : input - (cached || 0),
+    output: n('output_tokens'),
+    cacheRead: cached,
+    cacheWrite: n('cache_write_input_tokens'),
+    reasoning: n('reasoning_output_tokens'),
+  });
+}
+
+/**
+ * "offset" or "offset;in,cached,write,out,reasoning". The second half is the
+ * last running total seen; a cursor written before it existed is a bare offset.
+ */
+function makeCursor(offset, total) {
+  if (!total) return String(offset);
+  return `${offset};${COUNTED.map((k) => Number(total[k]) || 0).join(',')}`;
+}
+
+function parseCursor(cursor) {
+  if (cursor == null) return { offset: 0, total: null };
+  const [offset, counts] = String(cursor).split(';');
+  if (!counts) return { offset: Number(offset), total: null };
+  const values = counts.split(',').map(Number);
+  return {
+    offset: Number(offset),
+    total: Object.fromEntries(COUNTED.map((k, i) => [k, values[i] || 0])),
+  };
+}
 
 // ── legacy .json ────────────────────────────────────────────────────────────
 

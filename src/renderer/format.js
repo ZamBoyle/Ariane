@@ -417,12 +417,12 @@ function splitTrailing(found) {
  *
  *   sent       input + cacheWrite: what was new in the prompts. Fresh input
  *              alone is a few hundred tokens for a whole conversation
- *              (median 462) because Claude sends nearly everything new through
- *              the cache; its writes are the real material (median 606 K).
- *   received   output, reasoning included.
- *   cacheRead  the context read back at every turn — kept apart on purpose.
- *              It is 95 % of the total (median 34.6 M, up to 2.2 G); folded
- *              into "sent", it would claim billions were sent. That is the
+ *              (median 170) because Claude sends nearly everything new through
+ *              the cache; its writes are the real material (median 166 K).
+ *   received   output, reasoning included (median 78 K).
+ *   cacheRead  the context read back at every call — kept apart on purpose.
+ *              It is 97.8 % of the total (median 5.9 M, up to 1.01 G); folded
+ *              into "sent", it would claim a billion were sent. That is the
  *              mistake ccusage avoids with separate columns, and the one a
  *              "1 billion tokens, 97 % cache" post was written about.
  *

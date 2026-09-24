@@ -218,3 +218,180 @@ test('les sommes ne débordent pas d’un dossier ni d’une conversation à l�
     'masquer un assistant retire ses lignes sans perdre les jetons des autres'
   );
 });
+
+// ── une réponse de Claude, plusieurs lignes, un seul compte ───────────────
+//
+// Claude Code écrit une réponse en plusieurs lignes — sa réflexion, son texte,
+// chaque appel d'outil — et CHAQUE ligne répète l'usage de la réponse. Ariane
+// 0.3.3 les additionnait toutes : 2,26 fois trop en moyenne sur un vrai corpus.
+
+const { Indexer } = require('../src/core/indexer');
+const { Archive, withoutRepeatedUsage } = require('../src/core/archive');
+const claudeAdapter = require('../src/core/agents/claude');
+const { createFixture, records, resetCounters } = require('./helpers/fixture');
+
+/** Une ligne d'une réponse de l'API : même id et même usage pour toutes ses lignes. */
+function replyLine(id, usage, block) {
+  return records.assistantText('', {
+    message: { role: 'assistant', model: 'claude-opus-5', id, usage, content: [block] },
+  });
+}
+const usageA = {
+  input_tokens: 6,
+  output_tokens: 219,
+  cache_read_input_tokens: 0,
+  cache_creation_input_tokens: 31705,
+};
+const usageB = {
+  input_tokens: 1,
+  output_tokens: 203,
+  cache_read_input_tokens: 31705,
+  cache_creation_input_tokens: 240,
+};
+
+function claudeSetup(t) {
+  resetCounters();
+  const fx = createFixture();
+  const index = new Index(':memory:');
+  t.after(() => {
+    index.close();
+    fx.cleanup();
+  });
+  const run = () => new Indexer(index, { env: fx.env, adapters: [claudeAdapter] }).run();
+  const totals = () => index.sessions(index.folders()[0].id)[0];
+  return { fx, index, run, totals };
+}
+
+test('Claude : une réponse en trois lignes ne compte qu’une fois', async (t) => {
+  const { fx, run, totals } = claudeSetup(t);
+  fx.project('-home-zam-demo', { originalPath: '/home/zam/demo' }).session('s1', [
+    records.userText('question'),
+    replyLine('msg_A', usageA, { type: 'thinking', thinking: 'je réfléchis' }),
+    replyLine('msg_A', usageA, { type: 'text', text: 'voici' }),
+    replyLine('msg_A', usageA, { type: 'tool_use', id: 't1', name: 'Read', input: {} }),
+    replyLine('msg_B', usageB, { type: 'text', text: 'fini' }),
+  ]);
+
+  await run();
+  const s = totals();
+  assert.equal(s.tokOutput, 219 + 203, 'deux réponses, pas quatre lignes');
+  assert.equal(s.tokCacheWrite, 31705 + 240);
+  assert.equal(s.tokCacheRead, 31705);
+});
+
+test('Claude : une lecture reprise entre deux lignes d’une réponse ne la recompte pas', async (t) => {
+  const { fx, run, totals } = claudeSetup(t);
+  const project = fx.project('-home-zam-demo', { originalPath: '/home/zam/demo' });
+  project.session('s1', [
+    records.userText('question'),
+    replyLine('msg_A', usageA, { type: 'thinking', thinking: 'je réfléchis' }),
+  ]);
+  await run();
+
+  // La suite de la même réponse arrive après le passage.
+  project.append('s1', [replyLine('msg_A', usageA, { type: 'text', text: 'voici' })]);
+  await run();
+
+  assert.equal(totals().tokOutput, 219, 'le curseur savait quelle réponse venait d’être comptée');
+});
+
+test('archive v1 : une ligne qui répète exactement le compte précédent le perd', () => {
+  const row = (role, n) => ({
+    role,
+    tok_input: n && 1,
+    tok_output: n,
+    tok_cache_read: n && 5000,
+    tok_cache_write: n && 7,
+    tok_reasoning: null,
+  });
+  const out = withoutRepeatedUsage([
+    row('assistant', 10),
+    row('assistant', 10),
+    row('user', null),
+    row('assistant', 10),
+    row('assistant', 20),
+  ]);
+  assert.deepEqual(
+    out.map((m) => m.tok_output),
+    [10, null, null, null, 20],
+    'la réponse garde son compte une fois ; une ligne de la personne entre deux ne rompt pas la répétition'
+  );
+  assert.equal(out[1].tok_input, null, 'les cinq comptes partent ensemble');
+});
+
+test('archive v1 : lue, elle est migrée — pour Claude seulement', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ccb-archive-v1-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const archive = new Archive(dir);
+  const rows = [
+    {
+      seq: 0,
+      role: 'assistant',
+      tok_input: 1,
+      tok_output: 10,
+      tok_cache_read: 99,
+      tok_cache_write: 2,
+      tok_reasoning: null,
+    },
+    {
+      seq: 1,
+      role: 'assistant',
+      tok_input: 1,
+      tok_output: 10,
+      tok_cache_read: 99,
+      tok_cache_write: 2,
+      tok_reasoning: null,
+    },
+  ];
+  for (const id of ['claude:ancienne', 'codex:ancienne']) {
+    archive.write(id, { id }, rows);
+    const file = archive.fileFor(id);
+    // Réécrite comme la version 1 l'écrivait.
+    const [header, ...body] = fs.readFileSync(file, 'utf8').trim().split('\n');
+    fs.writeFileSync(
+      file,
+      [JSON.stringify({ ...JSON.parse(header), version: 1 }), ...body].join('\n') + '\n'
+    );
+  }
+  assert.deepEqual(
+    archive.read(archive.fileFor('claude:ancienne')).messages.map((m) => m.tok_output),
+    [10, null]
+  );
+  assert.deepEqual(
+    archive.read(archive.fileFor('codex:ancienne')).messages.map((m) => m.tok_output),
+    [10, 10],
+    'Codex n’a jamais stocké de comptes avant la correction : rien à défaire'
+  );
+});
+
+test('la reconstruction de l’index ne sauve pas dans l’archive un compte gonflé', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ccb-rebuild-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const archive = new Archive(path.join(dir, 'archive'));
+  const file = path.join(dir, 'index.sqlite3');
+
+  const old = new Index(file, { archive });
+  old.upsertAgent('claude', 'Claude Code', '/root');
+  old.upsertSession({
+    id: 'claude:disparue',
+    agent_id: 'claude',
+    folder_id: old.folderId('/p'),
+    file_path: '/nulle/part.jsonl',
+  });
+  const usage = usageOf({ input: 1, output: 219, cacheRead: 5000, cacheWrite: 7 });
+  old.addMessages('claude:disparue', [
+    { role: 'assistant', uuid: 'l1', text: '', parts: [], usage },
+    { role: 'assistant', uuid: 'l2', text: 'voici', parts: [], usage },
+  ]);
+  old.db.pragma('user_version = 10'); // un index écrit par la 0.3.3
+  old.close();
+
+  const index = new Index(file, { archive });
+  t.after(() => index.close());
+  const saved = archive.read(archive.fileFor('claude:disparue')).messages;
+  assert.deepEqual(
+    saved.map((m) => m.tok_output),
+    [219, null],
+    'sauvée une fois, pas deux'
+  );
+});

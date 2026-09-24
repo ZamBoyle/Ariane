@@ -244,10 +244,20 @@ class Indexer {
     // timestamp of their own, so they have no natural position to lose.
     const deferred = [];
 
+    // What a reply cost, when no reply is stored yet to carry it. Older Codex
+    // files write the count BEFORE the reply it paid for, so a conversation's
+    // first one arrives with nothing to attach to: 43 of them on a real corpus,
+    // lost until this queue. It waits for the next assistant message instead.
+    const pendingUsage = [];
+    const settleUsage = () => {
+      while (pendingUsage.length && this.index.addUsage(id, pendingUsage[0])) pendingUsage.shift();
+    };
+
     const flush = () => {
       if (buffer.length === 0) return;
       count += this.index.addMessages(id, buffer);
       buffer = [];
+      settleUsage();
     };
 
     for await (const chunk of adapter.read(descriptor, { cursor, ctx: this.ctx })) {
@@ -274,6 +284,12 @@ class Indexer {
         case 'summary':
           if (item.slug) this.index.setSlug(id, item.slug);
           break;
+        case 'usage':
+          // The reply it belongs to may still be in the buffer.
+          flush();
+          pendingUsage.push(item.usage);
+          settleUsage();
+          break;
         case 'ignored':
           if (item.reason && !item.reason.startsWith('known-')) {
             report.unknownKinds[item.reason] = (report.unknownKinds[item.reason] || 0) + 1;
@@ -299,6 +315,12 @@ class Indexer {
       kept.push(item);
     }
     if (kept.length > 0) count += this.index.addMessages(id, kept);
+    settleUsage();
+    // A cost with no reply anywhere in the session: reported, never guessed.
+    if (pendingUsage.length) {
+      report.unknownKinds['usage-without-reply'] =
+        (report.unknownKinds['usage-without-reply'] || 0) + pendingUsage.length;
+    }
 
     if (gitBranch) {
       this.index.upsertSession({
