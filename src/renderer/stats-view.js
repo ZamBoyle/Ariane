@@ -150,6 +150,23 @@ function tokens(data, { t, l10n, agentLabel }) {
     )
   );
 
+  // What subagents cost, apart and as a floor: not in the tiles above.
+  const sub = data.subagents;
+  if (sub && sub.count) {
+    section.append(
+      el(
+        'p',
+        'stats-note',
+        t('stats-subagents', {
+          count: sub.count,
+          sent: l10n.compact(sub.sent),
+          received: l10n.compact(sub.received),
+          cached: l10n.compact(sub.cacheRead),
+        })
+      )
+    );
+  }
+
   // Say who is missing, rather than let a total pass for complete.
   const silent = data.agents
     .filter((a) => a.measuredSessions === 0)

@@ -56,6 +56,16 @@ const CHAIN = [
 ];
 const chainOf = (id) => (CHAIN.some((part) => part.id === id) ? CHAIN.slice() : []);
 
+/**
+ * Un sous-agent lancé par la partie A : jamais dans la liste de gauche, on le
+ * rejoint depuis sa conversation mère, et il y ramène.
+ */
+const SUBAGENT = {
+  id: 'codex:sub1', agentId: 'codex', title: 'Huygens', gitBranch: 'main',
+  messageCount: 2, firstAt: '2026-09-17T21:05:00.000Z', lastAt: '2026-09-17T21:06:00.000Z',
+  source: 'transcript', parentId: 'codex:c1',
+};
+
 /** What marks.js does in the main process: find the starred rows again. */
 const resolveStarred = (id, messages) => {
   const marks = (MARKS[id] && MARKS[id].messages) || [];
@@ -472,6 +482,24 @@ contextBridge.exposeInMainWorld('api', {
     return resolveStarred(id, messages);
   },
   session: async (id) => {
+    if (id === SUBAGENT.id) {
+      const messages = [
+        { id: 95, seq: 0, role: 'user', ts: '2026-09-17T21:05:00.000Z', text: 'consigne du parent',
+          thinking: '', parts: [], isMeta: false, isNotice: false, isSidechain: true, command: null },
+        { id: 96, seq: 1, role: 'assistant', ts: '2026-09-17T21:06:00.000Z', model: 'gpt-5',
+          text: 'rapport du sous-agent', thinking: '', parts: [],
+          isMeta: false, isNotice: false, isSidechain: true, command: null },
+      ];
+      return {
+        session: marked({ ...SUBAGENT, folderPath: '/home/zam/projet', folderId: 1 }),
+        chain: [],
+        copied: null,
+        parent: { id: 'codex:c1', title: 'Session Codex A', firstPrompt: '' },
+        subagents: [],
+        messages,
+        favoriteMessages: [],
+      };
+    }
     if (id === BIG_ID) {
       return {
         session: marked({ ...BIG_SESSIONS[0], folderPath: '/home/zam/grosse', folderId: 3 }),
@@ -508,6 +536,11 @@ contextBridge.exposeInMainWorld('api', {
       copied: id === 'codex:c2'
         ? { count: 12, from: { id: 'codex:c1', title: 'Session Codex A', firstPrompt: '' } }
         : null,
+      parent: null,
+      subagents: id === 'codex:c1'
+        ? [{ id: SUBAGENT.id, title: SUBAGENT.title, firstPrompt: '', messageCount: 2,
+          firstAt: SUBAGENT.firstAt, tokOutput: 1234 }]
+        : [],
       messages,
       favoriteMessages: resolveStarred(id, messages),
     };

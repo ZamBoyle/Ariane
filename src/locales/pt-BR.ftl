@@ -76,6 +76,10 @@ session-tokens-cached = ↑ { $sent } · ↓ { $received } · cache { $cached }
         Enviados: { $sentExact } tokens novos nos prompts
         Recebidos: { $receivedExact } tokens
         Relidos do cache: { $cachedExact } tokens, o contexto reenviado a cada turno
+session-tokens-subagents = { $count ->
+    [one] Além disso, seu subagente: { $sent } enviados, pelo menos { $received } recebidos, { $cached } relidos do cache
+   *[other] Além disso, seus { $count } subagentes: { $sent } enviados, pelo menos { $received } recebidos, { $cached } relidos do cache
+}
 
 ## O rodapé da coluna, e a indexação
 
@@ -139,6 +143,13 @@ convo-copied = { $count ->
    *[other] Esta conversa começou copiando { $count } mensagens de “{ $title }”: elas aparecem lá e não se repetem aqui.
 }
 convo-copied-open = Abrir o original
+convo-subagent = Subagente iniciado a partir de “{ $title }”
+convo-subagent-open = Abrir a conversa que o iniciou
+convo-subagents = { $count ->
+    [one] Um subagente iniciado a partir desta conversa
+   *[other] { $count } subagentes iniciados a partir desta conversa
+}
+subagent-received = ↓ pelo menos { $received }
 convo-purged = transcrição apagada
 convo-saved = salva por Ariane: o arquivo original sumiu
 speaker-you = Você
@@ -427,6 +438,10 @@ stats-uncovered = { $agents } não { $count ->
         [one] registra
        *[other] registram
     } tokens que o Ariane saiba ler.
+stats-subagents = { $count ->
+    [one] Um subagente também enviou { $sent } tokens, recebeu pelo menos { $received } e releu { $cached } do cache. Ele não está contado acima: a transcrição de um subagente nem sempre guarda sua última contagem.
+   *[other] { $count } subagentes também enviaram { $sent } tokens, receberam pelo menos { $received } e releram { $cached } do cache. Eles não estão contados acima: a transcrição de um subagente nem sempre guarda sua última contagem.
+}
 stats-months = Mês a mês
 stats-measure-you = Suas mensagens
 stats-measure-replies = Respostas

@@ -162,6 +162,14 @@ it, stamped with the file’s size and mtime. That is what makes a pass with not
 character with `-`, which destroys accents and makes real hyphens ambiguous. `paths.decodeHint()`
 exists for display, and only as a last resort.
 
+**Subagents.** Claude Code writes each subagent's conversation to a file of its own,
+`<id>/subagents/agent-<a>.jsonl` — a workflow's agents one level down, under `workflows/wf_…/` — with
+an `agent-<a>.meta.json` beside it naming its task. Codex writes a rollout per subagent whose header
+names `parent_thread_id`. Either way the descriptor carries `parentId`, the indexer stores it as
+`sessions.parent_id` and marks every turn a sidechain — the opening one is the parent assistant's
+briefing, never the person's. A subagent is not listed; it is opened from its parent. Measured on
+25 September 2026: 381 Claude subagents (122 MB, 24 000 messages) and 7 Codex ones.
+
 ---
 
 ## 4. The database
@@ -172,7 +180,7 @@ exists for display, and only as a last resort.
 |---|---|---|
 | `folders` | one real folder, **shared between agents** | this is the heart of the product: one row per path, whatever conversations attach to it. `path_exact` never rises back to an approximation |
 | `agents` | one known assistant | — |
-| `sessions` | one conversation | id `agent:session`; `source` is `transcript`, `history` or `archive`; `continues_uuid` chains a compacted conversation to the one it continues |
+| `sessions` | one conversation | id `agent:session`; `source` is `transcript`, `history` or `archive`; `continues_uuid` chains a compacted conversation to the one it continues; `parent_id` hangs a subagent's conversation off the one that launched it |
 | `messages` | one message | `parts` as JSON; `is_notice` marks what nobody said; `is_copy` what another conversation already holds |
 | `messages_fts` | full-text index | FTS5 as _external content_: only `text` goes in, the rows stay in `messages` |
 | `sources` | the incrementality state | `fingerprint` and `cursor`, both opaque |
@@ -538,6 +546,7 @@ the output of `git status` — passed every unit test of `speakerOf()` while the
 | add an assistant | a module under `src/core/agents/`, then `agents/index.js`; read `contract.js` first |
 | change what gets indexed | `extract.js` or the agent’s `*-extract.js`, **and raise `SCHEMA_VERSION`** |
 | add a column to `messages` | `schema.sql`, the `INSERT` in `db.js`, **and both archive constants** — see § 4 |
+| touch subagents | discovery in `claude.js` (`discoverSubagents`) and `codex.js` (the header), `parentId` in the contract, `LISTED` and `Index.subagents` in `db.js`, `paintSubagents` in `app.js` |
 | touch what counts as a copy | `Index.markCopies` in `db.js` (the rule), `globalIds` on the adapter (who it applies to), `OWN_MESSAGES` (what is listed) |
 | touch marks | `src/core/marks.js`; they live in `marks.json`, never in the index |
 | add a sentence on screen | `src/locales/en.ftl` **and every other file**; never in the code |

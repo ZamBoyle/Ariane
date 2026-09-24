@@ -76,6 +76,10 @@ session-tokens-cached = ↑ { $sent } · ↓ { $received } · cache { $cached }
         Inviati: { $sentExact } token nuovi nei prompt
         Ricevuti: { $receivedExact } token
         Riletti dalla cache: { $cachedExact } token, il contesto rinviato a ogni turno
+session-tokens-subagents = { $count ->
+    [one] In più, il suo subagente: { $sent } inviati, almeno { $received } ricevuti, { $cached } riletti dalla cache
+   *[other] In più, i suoi { $count } subagenti: { $sent } inviati, almeno { $received } ricevuti, { $cached } riletti dalla cache
+}
 
 ## Il piè di colonna, e l'indicizzazione
 
@@ -139,6 +143,13 @@ convo-copied = { $count ->
    *[other] Questa conversazione è iniziata copiando { $count } messaggi da «{ $title }»: si leggono lì e non vengono ripetuti qui.
 }
 convo-copied-open = Apri l'originale
+convo-subagent = Subagente avviato da «{ $title }»
+convo-subagent-open = Apri la conversazione che lo ha avviato
+convo-subagents = { $count ->
+    [one] Un subagente avviato da questa conversazione
+   *[other] { $count } subagenti avviati da questa conversazione
+}
+subagent-received = ↓ almeno { $received }
 convo-purged = trascrizione eliminata
 convo-saved = salvata da Ariane: il file originale non c'è più
 speaker-you = Tu
@@ -427,6 +438,10 @@ stats-uncovered = { $agents } non { $count ->
         [one] registra
        *[other] registrano
     } token che Ariane sappia leggere.
+stats-subagents = { $count ->
+    [one] Un subagente ha inoltre inviato { $sent } token, ne ha ricevuti almeno { $received } e ne ha riletti { $cached } dalla cache. Non è contato sopra: la trascrizione di un subagente non conserva sempre il suo ultimo conteggio.
+   *[other] { $count } subagenti hanno inoltre inviato { $sent } token, ne hanno ricevuti almeno { $received } e ne hanno riletti { $cached } dalla cache. Non sono contati sopra: la trascrizione di un subagente non conserva sempre il suo ultimo conteggio.
+}
 stats-months = Mese per mese
 stats-measure-you = I tuoi messaggi
 stats-measure-replies = Risposte

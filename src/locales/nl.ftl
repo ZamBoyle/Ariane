@@ -76,6 +76,10 @@ session-tokens-cached = ↑ { $sent } · ↓ { $received } · cache { $cached }
         Verzonden: { $sentExact } nieuwe tokens in de prompts
         Ontvangen: { $receivedExact } tokens
         Uit de cache herlezen: { $cachedExact } tokens, de context die elke beurt opnieuw wordt verzonden
+session-tokens-subagents = { $count ->
+    [one] Daarbovenop zijn subagent: { $sent } verzonden, minstens { $received } ontvangen, { $cached } opnieuw uit de cache gelezen
+   *[other] Daarbovenop zijn { $count } subagents: { $sent } verzonden, minstens { $received } ontvangen, { $cached } opnieuw uit de cache gelezen
+}
 
 ## De voettekst, en het indexeren
 
@@ -139,6 +143,13 @@ convo-copied = { $count ->
    *[other] Dit gesprek begon met het kopiëren van { $count } berichten uit “{ $title }”: ze staan daar en worden hier niet herhaald.
 }
 convo-copied-open = Origineel openen
+convo-subagent = Subagent gestart vanuit “{ $title }”
+convo-subagent-open = Het gesprek openen dat hem startte
+convo-subagents = { $count ->
+    [one] Eén subagent gestart vanuit dit gesprek
+   *[other] { $count } subagents gestart vanuit dit gesprek
+}
+subagent-received = ↓ minstens { $received }
 convo-purged = transcript gewist
 convo-saved = bewaard door Ariane: het originele bestand is weg
 speaker-you = Jij
@@ -427,6 +438,10 @@ stats-uncovered = { $agents } { $count ->
         [one] registreert
        *[other] registreren
     } geen tokens die Ariane kan lezen.
+stats-subagents = { $count ->
+    [one] Eén subagent verzond daarnaast { $sent } tokens, ontving er minstens { $received } en las er { $cached } opnieuw uit de cache. Hij is hierboven niet meegeteld: het transcript van een subagent bewaart niet altijd zijn laatste telling.
+   *[other] { $count } subagents verzonden daarnaast { $sent } tokens, ontvingen er minstens { $received } en lazen er { $cached } opnieuw uit de cache. Ze zijn hierboven niet meegeteld: het transcript van een subagent bewaart niet altijd zijn laatste telling.
+}
 stats-months = Per maand
 stats-measure-you = Jouw berichten
 stats-measure-replies = Antwoorden

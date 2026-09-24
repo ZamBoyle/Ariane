@@ -95,6 +95,10 @@ session-tokens-cached = ↑ { $sent } · ↓ { $received } · cache { $cached }
         Sent: { $sentExact } tokens new in the prompts
         Received: { $receivedExact } tokens
         Read back from the cache: { $cachedExact } tokens, the context resent at every turn
+session-tokens-subagents = { $count ->
+    [one] Its subagent, on top: { $sent } sent, at least { $received } received, { $cached } read back from the cache
+   *[other] Its { $count } subagents, on top: { $sent } sent, at least { $received } received, { $cached } read back from the cache
+}
 
 ## The footer, and indexing
 
@@ -162,6 +166,13 @@ convo-copied = { $count ->
    *[other] This conversation began by copying { $count } messages from “{ $title }”: they are shown there, not repeated here.
 }
 convo-copied-open = Open the original
+convo-subagent = Subagent launched from “{ $title }”
+convo-subagent-open = Open the conversation that launched it
+convo-subagents = { $count ->
+    [one] One subagent launched from this conversation
+   *[other] { $count } subagents launched from this conversation
+}
+subagent-received = ↓ at least { $received }
 convo-purged = transcript purged
 convo-saved = saved by Ariane: the original file is gone
 speaker-you = You
@@ -457,6 +468,10 @@ stats-uncovered = { $agents } { $count ->
         [one] does
        *[other] do
     } not record token counts that Ariane reads.
+stats-subagents = { $count ->
+    [one] One subagent also sent { $sent } tokens, received at least { $received } and read { $cached } back from the cache. It is not counted above: a subagent's transcript does not always keep its final count.
+   *[other] { $count } subagents also sent { $sent } tokens, received at least { $received } and read { $cached } back from the cache. They are not counted above: a subagent's transcript does not always keep its final count.
+}
 stats-months = Month by month
 stats-measure-you = Your messages
 stats-measure-replies = Replies

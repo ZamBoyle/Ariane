@@ -500,6 +500,24 @@ export function sessionTokens(session) {
   return { sent, received: output, cacheRead, input, cacheWrite };
 }
 
+/**
+ * What a conversation's subagents cost, in the same three figures, apart from
+ * its own: they are opened from it, never listed. Null when it launched none.
+ */
+export function subagentTokens(session) {
+  if (!session || !session.subagents) return null;
+  const usage = sessionTokens({
+    tokInput: session.subInput,
+    tokOutput: session.subOutput,
+    tokCacheRead: session.subCacheRead,
+    tokCacheWrite: session.subCacheWrite,
+  });
+  return {
+    count: session.subagents,
+    ...(usage || { sent: null, received: null, cacheRead: null }),
+  };
+}
+
 /** Split a path into its last segment and its parent, for a two-line label. */
 export function folderLabel(fullPath) {
   const value = String(fullPath || '');

@@ -52,10 +52,20 @@ function summarize(rows, { speakerOf, hasContent, modelName }) {
   const models = new Map();
   const months = new Map();
   const folderActivity = new Map();
+  // A subagent's work, apart: it is opened from its parent and never listed,
+  // so the figures above it must describe the sidebar without it — and its
+  // transcript does not always keep the final count (claude.js).
+  const subagents = { sessions: new Set(), sent: 0, received: 0, cacheRead: 0 };
   let records = 0;
   let undated = 0;
 
   for (const row of rows) {
+    if (row.isSubagent) {
+      subagents.sessions.add(row.sessionId);
+      const cost = costOf(row);
+      if (cost) for (const key of ['sent', 'received', 'cacheRead']) subagents[key] += cost[key];
+      continue;
+    }
     records++;
     sessions.add(row.sessionId);
     folders.add(row.folderPath);
@@ -84,8 +94,8 @@ function summarize(rows, { speakerOf, hasContent, modelName }) {
       if (speaker === 'you') speakers.you++;
       else if (speaker === 'assistant') speakers.assistant++;
       else if (message.isNotice) speakers.notices++;
-      // Tool output — and, once subagents are read, the briefings an assistant
-      // writes to them: nobody's words either. None in the index measured.
+      // Tool output, and the briefing an assistant wrote to a subagent inside
+      // an older transcript: nobody's words either.
       else speakers.tools++;
     }
     if (speaker === 'you') agent.you++;
@@ -147,6 +157,12 @@ function summarize(rows, { speakerOf, hasContent, modelName }) {
     activeFolders: [...folderActivity]
       .map(([path, messages]) => ({ path, messages }))
       .sort((a, b) => b.messages - a.messages || a.path.localeCompare(b.path)),
+    subagents: {
+      count: subagents.sessions.size,
+      sent: subagents.sent,
+      received: subagents.received,
+      cacheRead: subagents.cacheRead,
+    },
   };
 }
 

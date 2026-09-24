@@ -92,6 +92,10 @@ const adapter = {
         filePath: file,
         legacy: !modern,
         startedAt: header.timestamp || timestampFromName(file),
+        // A subagent: opened from the conversation that spawned it.
+        ...(header.parentId && header.parentId !== header.sessionId
+          ? { parentId: header.parentId, title: header.nickname || undefined }
+          : {}),
       };
     }
   },
@@ -279,7 +283,7 @@ async function* readLegacy(descriptor) {
  * order the reconnaissance found them reliable.
  */
 async function readHeader(file) {
-  const out = { cwd: '', sessionId: '', timestamp: '' };
+  const out = { cwd: '', sessionId: '', timestamp: '', parentId: '', nickname: '' };
   let seen = 0;
 
   try {
@@ -292,6 +296,8 @@ async function readHeader(file) {
         if (!out.cwd && item.cwd) out.cwd = item.cwd;
         if (!out.sessionId && item.sessionId) out.sessionId = item.sessionId;
         if (!out.timestamp && item.timestamp) out.timestamp = item.timestamp;
+        if (!out.parentId && item.parentId) out.parentId = item.parentId;
+        if (!out.nickname && item.nickname) out.nickname = item.nickname;
         if (out.cwd && out.sessionId) break;
         continue;
       }

@@ -668,6 +668,38 @@ const SCRIPT = `(async () => {
   chainCheck.alone = partBar.hidden;
   copiedCheck.hiddenElsewhere = originBar.hidden;
 
+  // Les sous-agents : rejoints depuis la conversation qui les a lancés.
+  const subBar = document.getElementById('subagents');
+  const subToggle = document.getElementById('subagents-toggle');
+  const subList = document.getElementById('subagents-list');
+  await openByName('Session Codex A');
+  const subagentCheck = {
+    shown: !subBar.hidden,
+    toggle: subToggle.textContent,
+    folded: subList.hidden && subToggle.getAttribute('aria-expanded') === 'false',
+    inSidebar: [...tree.querySelectorAll('.session-btn')].some((b) => b.textContent.includes('Huygens')),
+  };
+  subToggle.click();
+  subagentCheck.unfolded = !subList.hidden && subToggle.getAttribute('aria-expanded') === 'true';
+  subagentCheck.items = [...subList.querySelectorAll('.subagent-btn')].map((b) => b.textContent);
+  subList.querySelector('.subagent-btn').click();
+  for (let i = 0; i < 60 && document.getElementById('convo-title').textContent !== 'Huygens'; i++) await sleep(50);
+  await sleep(200);
+  subagentCheck.openedTitle = document.getElementById('convo-title').textContent;
+  subagentCheck.origin = document.getElementById('origin-text').textContent;
+  subagentCheck.originButton = document.getElementById('origin-open').textContent;
+  subagentCheck.noListHere = subBar.hidden;
+  const briefing = [...transcript.querySelectorAll('.msg')].find((m) => m.textContent.includes('consigne du parent'));
+  subagentCheck.briefing = briefing
+    ? { unattributed: briefing.classList.contains('msg-unattributed'), who: !!briefing.querySelector('.who') }
+    : null;
+  document.getElementById('origin-open').click();
+  for (let i = 0; i < 60 && document.getElementById('convo-title').textContent !== 'Session Codex A'; i++) await sleep(50);
+  await sleep(200);
+  subagentCheck.backTitle = document.getElementById('convo-title').textContent;
+  await openByName('Session de test');
+  subagentCheck.hiddenElsewhere = subBar.hidden;
+
   // The person's own marks: a star, and a note (marks.js). Neither can be
   // rebuilt from anything, so both are followed all the way to storage.
   const star = document.getElementById('favorite');
@@ -985,6 +1017,7 @@ const SCRIPT = `(async () => {
     exportCheck: { menuOpen, afterMd, calls: window.mock.exportCalls(), closesOutside, copied, icons },
     chainCheck,
     copiedCheck,
+    subagentCheck,
     marksCheck,
     settingsCheck,
     outlineCheck: { smallTicks, onBig, widths, viaTick, nearEnd, viaKeys, outlineOnHome },
@@ -1770,6 +1803,25 @@ async function run() {
   check('and its button opens the conversation the copies came from',
     cp.openedTitle === 'Session Codex A' && cp.hiddenOnOriginal === true, JSON.stringify(cp));
   check('a conversation that copied nothing shows no such line', cp.hiddenElsewhere === true);
+
+  // -- subagents: reached from their parent, never listed --------------------
+  const sa = r.subagentCheck;
+  check('a conversation says how many subagents it launched, folded',
+    sa.shown && sa.toggle === 'Un sous-agent lancé depuis cette conversation' && sa.folded,
+    JSON.stringify(sa));
+  check('and they are not in the sidebar', sa.inSidebar === false);
+  check('unfolded, each names itself, its size and a floor for what it received',
+    sa.unfolded && sa.items.length === 1 && sa.items[0].includes('Huygens')
+      && /2\smessages/.test(sa.items[0]) && sa.items[0].includes('au moins'),
+    JSON.stringify(sa.items));
+  check('a subagent opens, and says which conversation launched it',
+    sa.openedTitle === 'Huygens' && sa.origin === 'Sous-agent lancé depuis « Session Codex A »'
+      && sa.originButton === "Ouvrir la conversation qui l'a lancé" && sa.noListHere,
+    JSON.stringify(sa));
+  check('its briefing is shown, and credited to nobody',
+    sa.briefing && sa.briefing.unattributed && !sa.briefing.who, JSON.stringify(sa.briefing));
+  check('and its button leads back', sa.backTitle === 'Session Codex A', sa.backTitle);
+  check('a conversation that launched nothing shows no such list', sa.hiddenElsewhere === true);
 
   // -- the person's own marks: a star and a note ------------------------------
   const mk = r.marksCheck;

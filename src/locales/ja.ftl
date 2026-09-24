@@ -75,6 +75,7 @@ session-tokens-cached = ↑ { $sent } · ↓ { $received } · キャッシュ { 
         送信：プロンプト内の新しいトークン { $sentExact }
         受信：{ $receivedExact } トークン
         キャッシュからの再読み込み：{ $cachedExact } トークン（毎ターン再送されるコンテキスト）
+session-tokens-subagents = さらにサブエージェント { $count } 件：送信 { $sent }、受信 少なくとも { $received }、キャッシュから再読込 { $cached }
 
 ## フッターとインデックス作成
 
@@ -125,6 +126,10 @@ convo-part-next =
     .aria-label = 次のパートへ移動
 convo-copied = この会話は「{ $title }」から { $count } 件のメッセージをコピーして始まりました。それらは元の会話に表示され、ここでは繰り返しません。
 convo-copied-open = 元の会話を開く
+convo-subagent = 「{ $title }」から起動されたサブエージェント
+convo-subagent-open = 起動元の会話を開く
+convo-subagents = この会話から起動されたサブエージェント { $count } 件
+subagent-received = ↓ 少なくとも { $received }
 convo-purged = 会話ログは削除済み
 convo-saved = Ariane が保存：元のファイルはもうありません
 speaker-you = あなた
@@ -394,6 +399,7 @@ stats-cache = キャッシュからの再読み込み
 stats-exact = { $value } トークン
 stats-coverage = 会話 { $total } 件のうち { $measured } 件で計測。
 stats-uncovered = { $agents } は Ariane が読めるトークン数を記録しません。
+stats-subagents = さらにサブエージェント { $count } 件が { $sent } トークンを送信し、少なくとも { $received } トークンを受信し、{ $cached } トークンをキャッシュから再読込しました。上の数値には含まれていません。サブエージェントの記録には最終的なカウントが残るとは限らないためです。
 stats-months = 月ごと
 stats-measure-you = あなたのメッセージ
 stats-measure-replies = 返答

@@ -24,6 +24,7 @@ const { withoutRepeatedUsage } = require('./archive');
  * already stored. Raising this version drops the index and rebuilds it, which
  * takes about ten seconds.
  *
+ * 16: subagents read, each attached to the conversation that launched it
  * 15: messages copied from another conversation flagged; a Claude line counts what it adds
  * 14: Gemini's and Copilot's tokens
  * 13: Antigravity's tool calls; queued harness notices; masked reasoning named
@@ -40,7 +41,7 @@ const { withoutRepeatedUsage } = require('./archive');
  * 2: multi-agent schema
  * 1: initial
  */
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 16;
 /** The five token columns of one message, from the contract's shape. */
 function usageColumns(usage) {
   const u = usage || {};
@@ -76,11 +77,24 @@ const SCHEMA_SQL = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
  * everything unproven before dropping the tables — one description, so the
  * two can never disagree about what a saved conversation contains.
  */
-const ARCHIVE_SESSION_SQL = `
-  SELECT s.id, s.agent_id, s.title, s.slug, s.git_branch, s.first_prompt,
-         s.first_at, s.last_at, s.source, s.file_path,
+const ARCHIVE_SESSION_COLUMNS = [
+  'id', 'agent_id', 'title', 'slug', 'git_branch', 'first_prompt',
+  'first_at', 'last_at', 'source', 'file_path', 'parent_id',
+];
+const ARCHIVE_SESSION_SQL = archiveSessionSelect(ARCHIVE_SESSION_COLUMNS);
+
+function archiveSessionSelect(columns) {
+  return `
+  SELECT ${columns.map((name) => `s.${name}`).join(', ')},
          f.path AS folder_path, f.path_exact AS folder_exact
   FROM sessions s JOIN folders f ON f.id = s.folder_id`;
+}
+
+/** The same, restricted to what an older index has — see archiveMessagesSql. */
+function archiveSessionSql(db) {
+  const present = new Set(db.prepare('PRAGMA table_info(sessions)').all().map((c) => c.name));
+  return archiveSessionSelect(ARCHIVE_SESSION_COLUMNS.filter((name) => present.has(name)));
+}
 const ARCHIVE_MESSAGE_COLUMNS = [
   'seq', 'uuid', 'parent_uuid', 'role', 'ts', 'model',
   'tok_input', 'tok_output', 'tok_cache_read', 'tok_cache_write', 'tok_reasoning',
@@ -140,6 +154,22 @@ const ELLIPSIS = '…';
  * transcript shows them — and failing that, the session's start.
  */
 /**
+ * Is message `m` of session `s` a copy — does an EARLIER conversation of the
+ * same agent hold it? Earlier by first line, then last, then id: the dates
+ * count every line, copies included, so flagging never reorders anything. The
+ * lookup goes by uuid (`INDEXED BY`, and `o.uuid <> ''` so the partial index
+ * applies): written plainly, SQLite walked every session of the agent for
+ * every message — 272 s on the real corpus.
+ */
+const IS_COPY_NOW = `EXISTS (
+  SELECT 1 FROM messages o INDEXED BY messages_by_uuid
+  JOIN sessions so ON so.id = o.session_id
+  WHERE o.uuid = m.uuid AND o.uuid <> '' AND o.session_id <> m.session_id
+    AND so.agent_id = s.agent_id
+    AND (COALESCE(so.first_at, ''), COALESCE(so.last_at, ''), so.id)
+      < (COALESCE(s.first_at, ''), COALESCE(s.last_at, ''), s.id))`;
+
+/**
  * A conversation is listed unless every message it holds is a copy: a fork
  * nobody went on with has nothing to show that its original does not already
  * show (Index.markCopies). Written so the usual case stops at the first row.
@@ -147,6 +177,13 @@ const ELLIPSIS = '…';
 const OWN_MESSAGES = `(EXISTS (SELECT 1 FROM messages own
     WHERE own.session_id = s.id AND own.is_copy = 0)
   OR NOT EXISTS (SELECT 1 FROM messages held WHERE held.session_id = s.id))`;
+
+/**
+ * What the sidebar lists, and so what every count beside it counts: not a
+ * subagent — it is opened from the conversation that launched it — and not a
+ * conversation made of copies alone.
+ */
+const LISTED = `s.parent_id IS NULL AND ${OWN_MESSAGES}`;
 
 const MESSAGE_TIME_SQL = `COALESCE(
   NULLIF(m.ts, ''),
@@ -212,7 +249,7 @@ class Index {
   #saveBeforeRebuild(fromVersion) {
     try {
       const messagesOf = this.db.prepare(archiveMessagesSql(this.db));
-      for (const session of this.db.prepare(ARCHIVE_SESSION_SQL).all()) {
+      for (const session of this.db.prepare(archiveSessionSql(this.db)).all()) {
         const file = session.file_path ? session.file_path.split('#')[0] : '';
         const proven = session.source !== 'archive' && file && fs.existsSync(file);
         if (proven || this.archive.has(session.id)) continue;
@@ -250,7 +287,7 @@ class Index {
                COUNT(s.id) AS sessionCount,
                COALESCE(SUM(s.message_count), 0) AS messageCount,
                MAX(s.last_at) AS lastAt
-        FROM agents a LEFT JOIN sessions s ON s.agent_id = a.id
+        FROM agents a LEFT JOIN sessions s ON s.agent_id = a.id AND ${LISTED}
         GROUP BY a.id ORDER BY lastAt IS NULL, lastAt DESC, a.label
       `),
       folderByPath: db.prepare('SELECT id FROM folders WHERE path = ?'),
@@ -264,9 +301,9 @@ class Index {
       ),
       upsertSession: db.prepare(`
         INSERT INTO sessions (id, agent_id, folder_id, title, slug, git_branch, first_prompt,
-                              message_count, first_at, last_at, source, file_path)
+                              message_count, first_at, last_at, source, file_path, parent_id)
         VALUES (@id, @agent_id, @folder_id, @title, @slug, @git_branch, @first_prompt,
-                @message_count, @first_at, @last_at, @source, @file_path)
+                @message_count, @first_at, @last_at, @source, @file_path, @parent_id)
         ON CONFLICT(id) DO UPDATE SET
           agent_id      = excluded.agent_id,
           folder_id     = excluded.folder_id,
@@ -276,7 +313,8 @@ class Index {
           first_prompt  = COALESCE(sessions.first_prompt, excluded.first_prompt),
           message_count = excluded.message_count,
           source        = excluded.source,
-          file_path     = COALESCE(excluded.file_path, sessions.file_path)
+          file_path     = COALESCE(excluded.file_path, sessions.file_path),
+          parent_id     = COALESCE(excluded.parent_id, sessions.parent_id)
       `),
       insertMessage: db.prepare(`
         INSERT INTO messages (session_id, seq, uuid, parent_uuid, role, ts, model,
@@ -359,32 +397,37 @@ class Index {
         JOIN messages m ON m.uuid = s.continues_uuid AND m.is_copy = 0
         WHERE m.session_id = ? AND s.id <> ? LIMIT 1
       `),
-      // A message is a copy when an earlier conversation of the same agent holds
-      // it. "Earlier" orders by first line, then last, then id — the dates count
-      // every line, copies included, so flagging them never reorders anything.
-      //
-      // Only rows that can change are looked at: a uuid held twice, or a flag
-      // already set. And the lookup goes by uuid (`INDEXED BY`, `o.uuid <> ''`
-      // so the partial index applies). Written plainly, SQLite walked every
-      // session of the agent for every message: 272 s on the real corpus,
-      // against 72 ms now.
+      // Every row whose flag can change: a uuid held twice, or a flag already
+      // set. IS_COPY_NOW says what a copy is. 72 ms on the real corpus.
       markCopies: db.prepare(`
         UPDATE messages SET is_copy = 1 - is_copy
         WHERE id IN (
           SELECT m.id FROM messages m JOIN sessions s ON s.id = m.session_id
-          WHERE s.agent_id IN (SELECT value FROM json_each(?))
+          WHERE s.agent_id IN (SELECT value FROM json_each(@agents))
             AND m.uuid <> ''
             AND (m.is_copy = 1 OR m.uuid IN (
               SELECT uuid FROM messages WHERE uuid <> '' GROUP BY uuid HAVING COUNT(*) > 1))
-            AND m.is_copy <> EXISTS (
-              SELECT 1 FROM messages o INDEXED BY messages_by_uuid
-              JOIN sessions so ON so.id = o.session_id
-              WHERE o.uuid = m.uuid AND o.uuid <> '' AND o.session_id <> m.session_id
-                AND so.agent_id = s.agent_id
-                AND (COALESCE(so.first_at, ''), COALESCE(so.last_at, ''), so.id)
-                  < (COALESCE(s.first_at, ''), COALESCE(s.last_at, ''), s.id)))
+            AND m.is_copy <> ${IS_COPY_NOW}
+        )
         RETURNING session_id AS sessionId
       `),
+      // The same, looking only at what a pass wrote: the uuids of rows newer
+      // than `since`, wherever else they are held — and every flag already
+      // set, in case the message it copied is gone. A conversation being
+      // written is re-read at every pass; this keeps that pass near-free.
+      markNewCopies: db.prepare(`
+        UPDATE messages SET is_copy = 1 - is_copy
+        WHERE id IN (
+          SELECT m.id FROM messages m JOIN sessions s ON s.id = m.session_id
+          WHERE s.agent_id IN (SELECT value FROM json_each(@agents))
+            AND m.uuid <> ''
+            AND (m.is_copy = 1 OR m.uuid IN (
+              SELECT uuid FROM messages WHERE id > @since AND uuid <> ''))
+            AND m.is_copy <> ${IS_COPY_NOW}
+        )
+        RETURNING session_id AS sessionId
+      `),
+      lastMessageId: db.prepare('SELECT COALESCE(MAX(id), 0) AS id FROM messages'),
       // Where a conversation's copies come from: the one holding most of them.
       copiedFrom: db.prepare(`
         SELECT o.session_id AS id, COUNT(*) AS n
@@ -394,6 +437,20 @@ class Index {
         JOIN sessions so ON so.id = o.session_id AND so.agent_id = s.agent_id
         WHERE m.session_id = ? AND m.is_copy = 1
         GROUP BY o.session_id ORDER BY n DESC, o.session_id LIMIT 1
+      `),
+      // The subagents a conversation launched, in the order they started.
+      subagents: db.prepare(`
+        SELECT s.id, s.agent_id AS agentId, s.title, s.first_prompt AS firstPrompt,
+               s.message_count AS messageCount, s.first_at AS firstAt, s.last_at AS lastAt,
+               u.tokOutput
+        FROM sessions s
+        LEFT JOIN (
+          SELECT session_id, SUM(tok_output) AS tokOutput FROM messages
+          WHERE is_copy = 0 AND session_id IN (SELECT id FROM sessions WHERE parent_id = ?)
+          GROUP BY session_id
+        ) u ON u.session_id = s.id
+        WHERE s.parent_id = ?
+        ORDER BY s.first_at IS NULL, s.first_at, s.id
       `),
       countCopies: db.prepare(
         'SELECT COUNT(*) AS n FROM messages WHERE session_id = ? AND is_copy = 1'
@@ -423,7 +480,7 @@ class Index {
                GROUP_CONCAT(DISTINCT s.agent_id) AS agentIds,
                COALESCE(SUM(s.message_count), 0) AS messageCount,
                MAX(s.last_at) AS lastAt
-        FROM folders f LEFT JOIN sessions s ON s.folder_id = f.id AND ${OWN_MESSAGES}
+        FROM folders f LEFT JOIN sessions s ON s.folder_id = f.id AND ${LISTED}
         GROUP BY f.id HAVING sessionCount > 0
         ORDER BY lastAt IS NULL, lastAt DESC, f.path
       `),
@@ -432,7 +489,8 @@ class Index {
         SELECT s.id, s.agent_id AS agentId, s.title, s.slug, s.git_branch AS gitBranch,
                s.first_prompt AS firstPrompt,
                s.message_count AS messageCount, s.first_at AS firstAt, s.last_at AS lastAt,
-               s.source, s.file_path AS filePath, f.path AS folderPath, f.id AS folderId
+               s.source, s.file_path AS filePath, f.path AS folderPath, f.id AS folderId,
+               s.parent_id AS parentId
         FROM sessions s JOIN folders f ON f.id = s.folder_id WHERE s.id = ?
       `),
       getMessages: db.prepare(`
@@ -450,12 +508,13 @@ class Index {
         -- A conversation holding nothing but copies is not listed either.
         SELECT (SELECT COUNT(*) FROM agents WHERE EXISTS
                  (SELECT 1 FROM sessions s WHERE s.agent_id = agents.id
-                    AND ${OWN_MESSAGES})) AS agents,
+                    AND ${LISTED})) AS agents,
                (SELECT COUNT(*) FROM folders WHERE EXISTS
                  (SELECT 1 FROM sessions s WHERE s.folder_id = folders.id
-                    AND ${OWN_MESSAGES})) AS folders,
-               (SELECT COUNT(*) FROM sessions s WHERE ${OWN_MESSAGES}) AS sessions,
-               (SELECT COUNT(*) FROM messages WHERE is_copy = 0) AS messages
+                    AND ${LISTED})) AS folders,
+               (SELECT COUNT(*) FROM sessions s WHERE ${LISTED}) AS sessions,
+               (SELECT COUNT(*) FROM messages m JOIN sessions s ON s.id = m.session_id
+                  WHERE m.is_copy = 0 AND s.parent_id IS NULL) AS messages
       `),
       getMeta: db.prepare('SELECT value FROM meta WHERE key = ?'),
       setMeta: db.prepare(
@@ -501,6 +560,7 @@ class Index {
       last_at: null,
       source: 'transcript',
       file_path: null,
+      parent_id: null,
       ...row,
     });
   }
@@ -694,7 +754,7 @@ class Index {
               COALESCE(SUM(s.message_count), 0) AS messageCount,
               MAX(s.last_at) AS lastAt
        FROM folders f
-       LEFT JOIN sessions s ON s.folder_id = f.id AND ${OWN_MESSAGES}${hiding.where}
+       LEFT JOIN sessions s ON s.folder_id = f.id AND ${LISTED}${hiding.where}
        GROUP BY f.id HAVING sessionCount > 0
        ORDER BY lastAt IS NULL, lastAt DESC, f.path`
     ).all(...hiding.params);
@@ -708,9 +768,10 @@ class Index {
           folderId,
           folderId,
           folderId,
+          folderId,
           ...hiding.params
         )
-      : this.s.listSessions.all(folderId, folderId, folderId);
+      : this.s.listSessions.all(folderId, folderId, folderId, folderId);
     return rows.map(withModels);
   }
 
@@ -756,14 +817,15 @@ class Index {
       const row = this.#dynamic(
         `stats:${hiding.params.length}`,
         `SELECT (SELECT COUNT(DISTINCT s.agent_id) FROM sessions s
-                   WHERE ${OWN_MESSAGES} AND s.agent_id NOT IN (${list})) AS agents,
+                   WHERE ${LISTED} AND s.agent_id NOT IN (${list})) AS agents,
                 (SELECT COUNT(*) FROM folders WHERE EXISTS
                   (SELECT 1 FROM sessions s WHERE s.folder_id = folders.id
-                     AND ${OWN_MESSAGES} AND s.agent_id NOT IN (${list}))) AS folders,
+                     AND ${LISTED} AND s.agent_id NOT IN (${list}))) AS folders,
                 (SELECT COUNT(*) FROM sessions s
-                   WHERE ${OWN_MESSAGES} AND s.agent_id NOT IN (${list})) AS sessions,
+                   WHERE ${LISTED} AND s.agent_id NOT IN (${list})) AS sessions,
                 (SELECT COUNT(*) FROM messages m JOIN sessions s ON s.id = m.session_id
-                   WHERE m.is_copy = 0 AND s.agent_id NOT IN (${list})) AS messages`
+                   WHERE m.is_copy = 0 AND s.parent_id IS NULL
+                     AND s.agent_id NOT IN (${list})) AS messages`
       ).get(...hiding.params, ...hiding.params, ...hiding.params, ...hiding.params);
       return row;
     }
@@ -798,7 +860,8 @@ class Index {
              CASE WHEN m.is_notice THEN m.command END AS command,
              ${MESSAGE_TIME_SQL} AS at,
              m.tok_input AS tokInput, m.tok_output AS tokOutput,
-             m.tok_cache_read AS tokCacheRead, m.tok_cache_write AS tokCacheWrite
+             m.tok_cache_read AS tokCacheRead, m.tok_cache_write AS tokCacheWrite,
+             (s.parent_id IS NOT NULL) AS isSubagent
       FROM messages m
       JOIN sessions s ON s.id = m.session_id
       JOIN folders f ON f.id = s.folder_id
@@ -917,6 +980,8 @@ class Index {
         first_prompt: session.first_prompt,
         source: 'archive',
         file_path: session.file_path,
+        // Absent from archives written before subagents were read.
+        parent_id: session.parent_id || null,
       });
       for (const row of messages) {
         this.s.insertMessage.run({ ...ARCHIVED_MESSAGE_DEFAULTS, ...row, session_id: sessionId });
@@ -961,13 +1026,19 @@ class Index {
    * conversations (`globalIds` in the contract): Copilot and Gemini number
    * their tool calls per session, and `bash_5` in two sessions is two calls.
    *
-   * @param {string[]} [agentIds] Defaults to the adapters that declare it.
+   * @param {{agents?: string[], since?: number|null}} [opts] `agents` defaults
+   *   to the adapters that declare it. With `since` — a message id taken
+   *   before a pass — only what the pass wrote is looked at (lastMessageId).
    * @returns {number} Messages whose flag changed.
    */
-  markCopies(agentIds = copyAgentIds()) {
-    if (!agentIds.length) return 0;
+  markCopies({ agents = copyAgentIds(), since = null } = {}) {
+    if (!agents.length) return 0;
     const changed = this.db.transaction(() => {
-      const rows = this.s.markCopies.all(JSON.stringify(agentIds));
+      const params = { agents: JSON.stringify(agents) };
+      const rows =
+        since == null
+          ? this.s.markCopies.all(params)
+          : this.s.markNewCopies.all({ ...params, since });
       for (const id of new Set(rows.map((r) => r.sessionId))) {
         this.s.clearFirstPrompt.run(id);
         this.s.touchSession.run(id);
@@ -977,12 +1048,22 @@ class Index {
     return changed;
   }
 
+  /** The newest message's id: what a pass wrote is everything above it. */
+  lastMessageId() {
+    return this.s.lastMessageId.get().id;
+  }
+
   /**
    * How many of a conversation's messages are copies, and the conversation
    * holding most of them — so the reader can be sent there.
    *
    * @returns {{count: number, from: object|null}|null} null without copies.
    */
+  /** The subagents a conversation launched, oldest first; [] for most. */
+  subagents(sessionId) {
+    return this.s.subagents.all(sessionId, sessionId);
+  }
+
   copiedFrom(sessionId) {
     const { n } = this.s.countCopies.get(sessionId);
     if (!n) return null;
@@ -1037,14 +1118,19 @@ function cleanIds(hidden) {
  * same replies the header counts: an assistant's, with prose. The sidebar
  * shows the one that answered most (format.js, sessionModels).
  *
- * Takes the folder id THREE times: for the sums, for the models, for the rows.
+ * And what its subagents cost, kept apart (`sub*`): they are opened from it and
+ * never listed, and their transcripts do not always keep the final count.
+ *
+ * Takes the folder id FOUR times: for the sums, the models, the subagents and
+ * the rows.
  */
 function sessionsOfFolderSql(hidingWhere) {
   return `
     SELECT s.id, s.agent_id AS agentId, s.title, s.slug, s.git_branch AS gitBranch,
            s.first_prompt AS firstPrompt, s.message_count AS messageCount,
            s.first_at AS firstAt, s.last_at AS lastAt, s.source, s.file_path AS filePath,
-           u.tokInput, u.tokOutput, u.tokCacheRead, u.tokCacheWrite, md.models
+           u.tokInput, u.tokOutput, u.tokCacheRead, u.tokCacheWrite, md.models,
+           sa.subagents, sa.subInput, sa.subOutput, sa.subCacheRead, sa.subCacheWrite
     FROM sessions s
     LEFT JOIN (
       SELECT session_id,
@@ -1065,7 +1151,17 @@ function sessionsOfFolderSql(hidingWhere) {
       )
       GROUP BY session_id
     ) md ON md.session_id = s.id
-    WHERE s.folder_id = ? AND ${OWN_MESSAGES}${hidingWhere}
+    -- What its subagents cost, apart: they are opened from it, never listed.
+    -- By parent, not by folder — a subagent may have worked somewhere else.
+    LEFT JOIN (
+      SELECT sp.parent_id, COUNT(DISTINCT sp.id) AS subagents,
+             SUM(m.tok_input) AS subInput, SUM(m.tok_output) AS subOutput,
+             SUM(m.tok_cache_read) AS subCacheRead, SUM(m.tok_cache_write) AS subCacheWrite
+      FROM sessions sp LEFT JOIN messages m ON m.session_id = sp.id AND m.is_copy = 0
+      WHERE sp.parent_id IN (SELECT id FROM sessions WHERE folder_id = ?)
+      GROUP BY sp.parent_id
+    ) sa ON sa.parent_id = s.id
+    WHERE s.folder_id = ? AND ${LISTED}${hidingWhere}
     ORDER BY s.last_at IS NULL, s.last_at DESC, s.id`;
 }
 

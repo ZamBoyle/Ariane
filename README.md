@@ -56,6 +56,10 @@ three busiest:
   appear in the conversation, not just in the snippet.
 - **A compacted conversation stays one conversation**: when Claude Code splits it across two files,
   Ariane says so — *“Part 2 of 3”* — and takes you from one part to the next.
+- **Subagents, reached from where they started**: the transcript Claude Code or Codex writes for
+  each subagent is read, and opened from the conversation that launched it — a workflow of 300
+  agents does not bury your list. What they cost is shown apart, and as a floor. A **resumed**
+  conversation shows only what it added, and says where the rest is.
 - **Your own marks**: a star on a conversation **or on a single message**, a note under the title,
   and a view that shows only what you marked. They live in a file of yours, outside the index: an
   update of Ariane cannot erase them.

@@ -78,6 +78,10 @@ function indexWithoutTokenColumns(t, archive) {
   ]) {
     old.exec(`ALTER TABLE messages DROP COLUMN ${column}`);
   }
+  // Et celles d'après : les copies (v15), les sous-agents (v16).
+  old.exec('ALTER TABLE messages DROP COLUMN is_copy');
+  old.exec('DROP INDEX sessions_parent');
+  old.exec('ALTER TABLE sessions DROP COLUMN parent_id');
   old.pragma(`user_version = ${SCHEMA_VERSION - 1}`);
   old.close();
   return file;

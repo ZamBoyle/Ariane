@@ -56,6 +56,10 @@
  * @property {boolean} [folderOnDisk]  False when the folder has no real transcript
  *                                 (e.g. rebuilt from a prompt log after a purge).
  * @property {string} [title]      Human-readable title, when known upfront.
+ * @property {string} [parentId]   For a subagent's conversation: the agent-local
+ *                                 id of the conversation that launched it. It is
+ *                                 not listed by itself but opened from there, and
+ *                                 none of its turns is the person's.
  * @property {number} [bytes]      Size on disk, for progress reporting.
  *
  * @typedef {object} Item

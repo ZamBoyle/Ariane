@@ -75,6 +75,7 @@ session-tokens-cached = ↑ { $sent } · ↓ { $received } · 缓存 { $cached }
         发送：提示词中的新 token { $sentExact } 个
         接收：{ $receivedExact } 个 token
         从缓存重读：{ $cachedExact } 个 token，即每轮重新发送的上下文
+session-tokens-subagents = 另有 { $count } 个子代理：发送 { $sent }，至少接收 { $received }，从缓存重新读取 { $cached }
 
 ## 页脚与索引
 
@@ -125,6 +126,10 @@ convo-part-next =
     .aria-label = 跳到下一部分
 convo-copied = 此对话开头复制了“{ $title }”中的 { $count } 条消息：它们在原对话中显示，此处不再重复。
 convo-copied-open = 打开原对话
+convo-subagent = 从“{ $title }”启动的子代理
+convo-subagent-open = 打开启动它的对话
+convo-subagents = 此对话启动了 { $count } 个子代理
+subagent-received = ↓ 至少 { $received }
 convo-purged = 对话记录已清除
 convo-saved = 由 Ariane 保存：原始文件已不存在
 speaker-you = 你
@@ -394,6 +399,7 @@ stats-cache = 从缓存重读
 stats-exact = { $value } 个 token
 stats-coverage = 在 { $total } 个对话中的 { $measured } 个里有计量。
 stats-uncovered = { $agents } 没有记录 Ariane 能读取的 token 数。
+stats-subagents = 另有 { $count } 个子代理发送了 { $sent } 个 token，至少接收了 { $received } 个，并从缓存重新读取了 { $cached } 个。它们未计入上方数字：子代理的记录并不总是保留最终计数。
 stats-months = 按月
 stats-measure-you = 你的消息
 stats-measure-replies = 回复

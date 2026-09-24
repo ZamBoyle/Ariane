@@ -1778,6 +1778,65 @@ details.fold pre {
   min-width: 0;
 }
 
+/* Les sous-agents qu'une conversation a lancés : jamais dans la liste de
+   gauche, on les ouvre d'ici. Un workflow en lance des centaines, d'où la
+   hauteur bornée. */
+.subagents-bar {
+  flex-basis: 100%;
+  margin-top: 6px;
+  font-size: 0.85em;
+}
+
+.subagents-bar[hidden] {
+  display: none;
+}
+
+.subagents-list {
+  max-height: 40vh;
+  margin: 6px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.subagents-list[hidden] {
+  display: none;
+}
+
+.subagent-btn {
+  display: flex;
+  width: 100%;
+  gap: 10px;
+  align-items: baseline;
+  padding: 5px 10px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.subagent-btn:hover,
+.subagent-btn:focus-visible {
+  background: var(--bg-panel);
+}
+
+.subagent-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subagent-meta {
+  flex: none;
+  color: var(--text-soft);
+}
+
 .note-input {
   flex: 1;
   min-width: 0;

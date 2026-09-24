@@ -86,6 +86,11 @@ function extractCodexRecord(raw) {
       // behind it. In the 130 other headers carrying both, they are equal.
       sessionId: str(payload.id) || str(payload.session_id),
       timestamp: str(payload.timestamp) || str(raw.timestamp),
+      // The conversation that spawned this one, when it is a subagent's (7 of
+      // 145 rollouts, 25 September 2026). Named nowhere else.
+      parentId: str(payload.parent_thread_id),
+      // What the parent called it: "Huygens", "Laplace".
+      nickname: str(payload.agent_nickname),
     };
   }
 

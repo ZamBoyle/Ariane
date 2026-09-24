@@ -845,6 +845,43 @@ test.describe('end to end through the bridge', () => {
     assert.equal(elsewhere.data.length, 0);
   });
 
+  test('a subagent is reached from its parent, leads back to it, and is never resumed', async (t) => {
+    const ctx = setupIpc();
+    t.after(ctx.teardown);
+
+    const project = ctx.fx.project('-p', { originalPath: '/home/zam/projet' });
+    project.session('s1', [records.aiTitle('La mère'), records.userText('lance un agent')]);
+    const dir = path.join(project.dirPath, 's1', 'subagents');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'agent-a1.jsonl'),
+      JSON.stringify({ ...records.userText('consigne'), sessionId: 's1', isSidechain: true }) + '\n'
+    );
+    fs.writeFileSync(
+      path.join(dir, 'agent-a1.meta.json'),
+      JSON.stringify({ description: 'Relire' })
+    );
+    ctx.start();
+    await invoke('index:refresh', {});
+
+    const parent = (await invoke('session:get', { id: SID })).data;
+    assert.deepEqual(
+      parent.subagents.map((s) => [s.id, s.title, s.messageCount]),
+      [['claude:agent-a1', 'Relire', 1]]
+    );
+    assert.equal(parent.parent, null);
+
+    const child = (await invoke('session:get', { id: 'claude:agent-a1' })).data;
+    assert.deepEqual(child.parent, { id: SID, title: 'La mère', firstPrompt: 'lance un agent' });
+    assert.deepEqual(child.subagents, []);
+    assert.ok(!('folderPath' in child.parent), 'the header is given a name, never a path');
+
+    const info = (await invoke('session:resumeInfo', { id: 'claude:agent-a1' })).data;
+    assert.deepEqual(info, { ok: false, reason: 'subagent', note: null });
+    const resumed = await invoke('session:resume', { id: 'claude:agent-a1' });
+    assert.equal(resumed.ok, false, 'its CLI would refuse it: the parent is what to reopen');
+  });
+
   test('searches within a period, counted from now', async (t) => {
     const ctx = setupIpc();
     t.after(ctx.teardown);

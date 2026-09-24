@@ -35,6 +35,33 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### Les sous-agents, lus et rattachés à leur conversation
+
+**Ce que ça change.** Les transcriptions que Claude Code écrit pour chaque sous-agent — et celles
+de Codex — sont enfin lues. Un sous-agent n'entre pas dans la liste de gauche : on le rejoint
+depuis la conversation qui l'a lancé, par une ligne dépliable sous son en-tête (« 327 sous-agents
+lancés depuis cette conversation »), et il y ramène par un bouton. Il se lit, se cherche et
+s'exporte comme une conversation ; « Reprendre » ne le propose pas, puisque son outil refuse de le
+rouvrir. Sa consigne est écrite par l'assistant parent : elle s'affiche sans être attribuée à
+personne. Ce qu'ils ont coûté apparaît au survol de la ligne de jetons de leur conversation et
+dans une phrase des statistiques — à part, et comme un minimum.
+
+**Mesuré sur la machine**, avant d'écrire : 381 transcriptions sous 6 conversations de Claude — 23
+sous-agents et 358 agents de workflow —, 122 Mo, et 7 sous-agents chez Codex. Aucune ligne commune
+avec la transcription principale. Trois pièges : le compte d'une réponse qui grandit de ligne en
+ligne (réglé juste avant, ci-dessous) ; la consigne, que rien ne distingue d'un message tapé ; et le
+lien vers la conversation mère, que Claude donne par le dossier et Codex par `parent_thread_id`.
+
+**Vérifié** avec le vrai indexeur sur les vrais fichiers : 381 + 7 sous-agents, chacun rattaché à
+son parent, aucun orphelin ; 4 399 539 jetons reçus chez Claude, exactement la mesure brute. Et
+dans l'application réelle, sur une copie des réglages : les 327 sous-agents de la conversation qui
+a lancé trois workflows, dépliés, ouverts, et le retour.
+
+**Ce que ça coûte.** 24 000 messages de plus : une indexation complète — après une mise à jour qui
+reconstruit l'index — passe de 14 à 24 s. La passe de fond, toutes les 30 secondes, de 72 à 82 ms :
+la première version en prenait 105, parce qu'elle interrogeait deux fois chacun des 381 fichiers,
+l'un après l'autre. Le tri des copies ne regarde plus que ce que la passe vient d'écrire.
+
 ### Une conversation reprise ne répète plus celle qu'elle reprend
 
 **Signalé en mesurant les sous-agents.** Deux conversations de Claude partageaient 922 messages :

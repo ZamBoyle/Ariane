@@ -56,15 +56,23 @@ CREATE TABLE IF NOT EXISTS sessions (
   -- Claude Code compacts a conversation by opening a NEW transcript. The
   -- boundary record names the last message of the previous one, and that uuid
   -- is the only thread back to it (see indexer.#chain).
-  continues_uuid TEXT
+  continues_uuid TEXT,
+  -- The conversation that launched this one, when it is a subagent's: Claude
+  -- Code writes each in a file of its own, Codex in a rollout of its own. A
+  -- subagent is not listed by itself; it is opened from its parent.
+  parent_id     TEXT
 );
 
 CREATE INDEX IF NOT EXISTS sessions_folder ON sessions(folder_id, last_at DESC);
 CREATE INDEX IF NOT EXISTS sessions_last   ON sessions(last_at DESC);
 CREATE INDEX IF NOT EXISTS sessions_agent  ON sessions(agent_id, last_at DESC);
+CREATE INDEX IF NOT EXISTS sessions_parent ON sessions(parent_id) WHERE parent_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS messages (
-  id           INTEGER PRIMARY KEY,
+  -- AUTOINCREMENT: an id is never handed out twice, so "written by this pass"
+  -- is "id above the one taken before it" even after rows were deleted
+  -- (Index.markCopies, `since`). Plain INTEGER PRIMARY KEY reuses the top ids.
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
   session_id   TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
   seq          INTEGER NOT NULL,
   uuid         TEXT,

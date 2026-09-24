@@ -12,6 +12,7 @@
 import {
   renderMarkdown,
   sessionTokens,
+  subagentTokens,
   modelMarks,
   sessionModels,
   renderSnippet,
@@ -112,6 +113,10 @@ const state = {
   starred: new Set(),
   /** The parts of a conversation a compaction split in two or more. */
   chain: [],
+  // Where what the open conversation does not show comes from, and the
+  // subagents it launched (paintOrigin, paintSubagents).
+  origin: null,
+  subagents: [],
   results: [],
   activeResult: -1,
   filter: '',
@@ -190,6 +195,9 @@ const el = {
   origin: document.getElementById('origin'),
   originText: document.getElementById('origin-text'),
   originOpen: document.getElementById('origin-open'),
+  subagents: document.getElementById('subagents'),
+  subagentsToggle: document.getElementById('subagents-toggle'),
+  subagentsList: document.getElementById('subagents-list'),
   stats: document.getElementById('stats'),
   agentFilter: document.getElementById('agent-filter'),
   transcript: document.getElementById('transcript'),
@@ -393,6 +401,7 @@ function wireEvents() {
   el.originOpen.addEventListener('click', () => {
     if (state.origin) openSession(state.origin.id);
   });
+  el.subagentsToggle.addEventListener('click', () => setSubagentsOpen(el.subagentsList.hidden));
   el.favorites.addEventListener('click', onToggleFavoritesView);
   el.noteToggle.addEventListener('click', onToggleNote);
   el.noteInput.addEventListener('input', debounce(saveNote, NOTE_SAVE_MS));
@@ -996,6 +1005,9 @@ function lastLine(session) {
   const models = sessionModels(session);
   const cost = tokenLine(sessionTokens(session));
   if (!models.length && !cost) return null;
+  // Its subagents' cost, on hover and apart: they are never listed themselves.
+  const sub = subagentTokens(session);
+  if (cost && sub) cost.title = [cost.title, subagentCost(sub)].filter(Boolean).join('\n');
 
   const line = node('span', 'session-tokens');
   if (models.length === 1) {
@@ -1033,6 +1045,16 @@ function tokenLine(usage) {
     sentExact: exact(usage.sent),
     receivedExact: exact(usage.received),
     cachedExact: exact(usage.cacheRead),
+  });
+}
+
+function subagentCost(sub) {
+  const exact = (n) => (n === null ? '—' : l10n.number(n));
+  return t('session-tokens-subagents', {
+    count: sub.count,
+    sent: exact(sub.sent),
+    received: exact(sub.received),
+    cached: exact(sub.cacheRead),
   });
 }
 
@@ -1107,6 +1129,15 @@ function paintChain(sessionId) {
  * conversation they came from (core/db.js, markCopies), and this says so.
  */
 function originOf(payload) {
+  // A subagent's conversation came from the one that launched it.
+  const parent = payload && payload.parent;
+  if (parent) {
+    return {
+      id: parent.id,
+      text: t('convo-subagent', { title: nameOf(parent) }),
+      open: t('convo-subagent-open'),
+    };
+  }
   const copied = payload && payload.copied;
   if (!copied || !copied.from) return null;
   return {
@@ -1122,6 +1153,49 @@ function paintOrigin() {
   if (!origin) return;
   el.originText.textContent = origin.text;
   el.originOpen.textContent = origin.open;
+}
+
+/**
+ * The subagents this conversation launched. They are never in the sidebar — a
+ * workflow launches hundreds — so this is the one way to reach them: folded,
+ * one line each, in the order they started.
+ */
+function paintSubagents() {
+  const list = state.subagents;
+  // A pass refreshes the open conversation every 30 seconds: the list must not
+  // fold, nor lose its place, under someone reading it.
+  const same = el.subagents.dataset.session === state.currentSessionId;
+  el.subagents.dataset.session = state.currentSessionId || '';
+  el.subagents.hidden = list.length === 0;
+  if (!same) setSubagentsOpen(false);
+  if (!list.length) return;
+  const key = list.map((sub) => `${sub.id}:${sub.messageCount}`).join('|');
+  if (same && el.subagentsList.dataset.key === key) return;
+  el.subagentsList.dataset.key = key;
+  el.subagentsToggle.textContent = t('convo-subagents', { count: list.length });
+  el.subagentsList.replaceChildren(
+    ...list.map((sub) => {
+      const button = node('button', 'subagent-btn');
+      button.type = 'button';
+      const meta = [t('convo-message-count', { n: sub.messageCount })];
+      if (sub.tokOutput != null)
+        meta.push(t('subagent-received', { received: l10n.compact(sub.tokOutput) }));
+      if (sub.firstAt) meta.push(l10n.dateTime(sub.firstAt));
+      button.append(
+        node('span', 'subagent-name', nameOf(sub)),
+        node('span', 'subagent-meta', meta.join(' · '))
+      );
+      button.addEventListener('click', () => openSession(sub.id));
+      const item = document.createElement('li');
+      item.append(button);
+      return item;
+    })
+  );
+}
+
+function setSubagentsOpen(open) {
+  el.subagentsList.hidden = !open;
+  el.subagentsToggle.setAttribute('aria-expanded', String(open));
 }
 
 /** What the sidebar calls a conversation: its title, else its first words. */
@@ -1258,6 +1332,7 @@ async function openSession(sessionId, highlightMessageId = null, { starred = nul
   state.starred = new Set(payload.favoriteMessages || []);
   state.chain = payload.chain || [];
   state.origin = originOf(payload);
+  state.subagents = payload.subagents || [];
   state.currentSessionId = session.id;
   state.currentFolderId = session.folderId;
   disarmForget();
@@ -1443,6 +1518,7 @@ function paintHeader(session) {
 
   paintChain(session.id);
   paintOrigin();
+  paintSubagents();
 
   // What the person marked on it: their star, and their note (marks.js).
   state.favorite = session.favorite === true;
@@ -1491,6 +1567,7 @@ async function refreshOpenConversation() {
   // Saved since it was opened: the header says so, and offers to forget it.
   state.chain = payload.chain || [];
   state.origin = originOf(payload);
+  state.subagents = payload.subagents || [];
   state.models = modelMarks(payload.messages);
   paintHeader(payload.session);
   if (payload.messages.length === state.openMessageCount) return;

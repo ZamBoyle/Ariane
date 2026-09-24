@@ -49,6 +49,11 @@ deux par cinq d'entre eux :
   une période : 7 jours, 30 jours, cette année.
 - **Une conversation compactée reste une conversation** : quand Claude Code la coupe en deux
   fichiers, Ariane le dit — « Partie 2 sur 3 » — et vous emmène d'une partie à l'autre.
+- **Les sous-agents, rejoints d'où ils sont partis** : la transcription que Claude Code ou Codex
+  écrit pour chaque sous-agent est lue, et s'ouvre depuis la conversation qui l'a lancé — un
+  workflow de 300 agents n'enterre pas votre liste. Ce qu'ils ont coûté est montré à part, et
+  comme un minimum. Une conversation **reprise** ne montre que ce qu'elle a ajouté, et dit où est
+  le reste.
 - **Vos repères** : une étoile sur une conversation **ou sur un message précis**, une note sous le
   titre, et une vue qui ne montre que ce qui est marqué. Elles vivent dans un fichier à vous, hors de l'index :
   une mise à jour d'Ariane ne peut pas les effacer.

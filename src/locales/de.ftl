@@ -77,6 +77,10 @@ session-tokens-cached = ↑ { $sent } · ↓ { $received } · Cache { $cached }
         Gesendet: { $sentExact } neue Tokens in den Prompts
         Empfangen: { $receivedExact } Tokens
         Aus dem Cache gelesen: { $cachedExact } Tokens – der Kontext, der in jeder Runde erneut gesendet wird
+session-tokens-subagents = { $count ->
+    [one] Dazu sein Subagent: { $sent } gesendet, mindestens { $received } empfangen, { $cached } aus dem Cache gelesen
+   *[other] Dazu seine { $count } Subagenten: { $sent } gesendet, mindestens { $received } empfangen, { $cached } aus dem Cache gelesen
+}
 
 ## Die Fußzeile, und die Indizierung
 
@@ -140,6 +144,13 @@ convo-copied = { $count ->
    *[other] Dieses Gespräch begann mit der Kopie von { $count } Nachrichten aus „{ $title }“: Sie stehen dort und werden hier nicht wiederholt.
 }
 convo-copied-open = Original öffnen
+convo-subagent = Subagent, gestartet aus „{ $title }“
+convo-subagent-open = Das Gespräch öffnen, das ihn gestartet hat
+convo-subagents = { $count ->
+    [one] Ein Subagent, gestartet aus diesem Gespräch
+   *[other] { $count } Subagenten, gestartet aus diesem Gespräch
+}
+subagent-received = ↓ mindestens { $received }
 convo-purged = Transkript gelöscht
 convo-saved = von Ariane gesichert: Die Originaldatei ist weg
 speaker-you = Sie
@@ -428,6 +439,10 @@ stats-uncovered = { $agents } { $count ->
         [one] zeichnet
        *[other] zeichnen
     } keine Token-Zahlen auf, die Ariane lesen kann.
+stats-subagents = { $count ->
+    [one] Ein Subagent hat zusätzlich { $sent } Tokens gesendet, mindestens { $received } empfangen und { $cached } aus dem Cache gelesen. Er ist oben nicht mitgezählt: Das Protokoll eines Subagenten enthält nicht immer seinen letzten Zählerstand.
+   *[other] { $count } Subagenten haben zusätzlich { $sent } Tokens gesendet, mindestens { $received } empfangen und { $cached } aus dem Cache gelesen. Sie sind oben nicht mitgezählt: Das Protokoll eines Subagenten enthält nicht immer seinen letzten Zählerstand.
+}
 stats-months = Monat für Monat
 stats-measure-you = Ihre Nachrichten
 stats-measure-replies = Antworten

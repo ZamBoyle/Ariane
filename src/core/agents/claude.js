@@ -237,7 +237,96 @@ async function* discoverTranscripts(ctx) {
         dirName: entry.name,
       };
     }
+
+    // A session's own directory holds what it launched: one transcript per
+    // subagent, and one per agent of each workflow it ran.
+    for (const name of files) {
+      if (name.includes('.')) continue;
+      yield* discoverSubagents(ctx, path.join(dirPath, name), name, entry.name, originalPath);
+    }
   }
+}
+
+/**
+ * The subagents a session launched, each in a transcript of its own:
+ * `<session>/subagents/agent-<id>.jsonl`, and for a workflow's agents
+ * `<session>/subagents/workflows/<run>/agent-<id>.jsonl`. Measured on 25
+ * September 2026: 381 transcripts under 6 conversations — 23 subagents and 358
+ * workflow agents — none nested deeper. Beside each, `agent-<id>.meta.json`
+ * names what it was asked to do (`description`), which becomes its title.
+ *
+ * Every line in them is `isSidechain`, the opening prompt included: it is the
+ * parent assistant's briefing, never the person's words (format.speakerOf).
+ */
+async function* discoverSubagents(ctx, sessionDir, parentId, dirName, originalPath) {
+  const files = await agentTranscripts(path.join(sessionDir, 'subagents'), 2);
+  // Every pass stats every transcript — 381 here — so all at once, not in turn:
+  // one after the other they took 45 ms of a pass that has nothing to do.
+  const stats = await Promise.all(files.map((file) => fsp.stat(file).catch(() => null)));
+
+  for (let i = 0; i < files.length; i += 1) {
+    const filePath = files[i];
+    const stat = stats[i];
+    if (!stat) continue;
+    const meta = await rememberMeta(ctx, filePath, stat);
+    const folder = originalPath
+      ? { path: originalPath, exact: true }
+      : await remember(ctx, `claude:folder:${filePath}`, stampOf(stat), () =>
+          folderFromTranscript(filePath, dirName)
+        );
+
+    yield {
+      sessionId: path.basename(filePath, '.jsonl'),
+      key: filePath,
+      fingerprint: `${stat.size}:${Math.floor(stat.mtimeMs)}`,
+      folderPath: folder.path,
+      folderExact: folder.exact,
+      bytes: stat.size,
+      parentId,
+      title:
+        typeof meta.description === 'string' && meta.description ? meta.description : undefined,
+      // adapter-private
+      filePath,
+      dirName,
+    };
+  }
+}
+
+/** `agent-*.jsonl` under a directory, looking `depth` levels further down. */
+async function agentTranscripts(dir, depth) {
+  let entries;
+  try {
+    entries = await fsp.readdir(dir, { withFileTypes: true });
+  } catch {
+    return []; // most sessions launched nothing
+  }
+  const found = [];
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isFile() && entry.name.startsWith('agent-') && entry.name.endsWith('.jsonl')) {
+      found.push(full);
+    } else if (entry.isDirectory() && depth > 0) {
+      found.push(...(await agentTranscripts(full, depth - 1)));
+    }
+  }
+  return found;
+}
+
+/**
+ * What a subagent was asked to do, from the `.meta.json` beside its transcript.
+ * Written when it is launched, so it is read again only when the transcript
+ * itself changes — one stat per subagent and per pass, not two.
+ */
+async function rememberMeta(ctx, filePath, stat) {
+  const metaPath = filePath.replace(/\.jsonl$/, '.meta.json');
+  return remember(ctx, `claude:meta:${metaPath}`, stampOf(stat), async () => {
+    try {
+      const parsed = JSON.parse(await fsp.readFile(metaPath, 'utf8'));
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  });
 }
 
 /**

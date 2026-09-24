@@ -76,6 +76,10 @@ session-tokens-cached = ↑ { $sent } · ↓ { $received } · cache { $cached }
         Envoyés : { $sentExact } jetons nouveaux dans les prompts
         Reçus : { $receivedExact } jetons
         Relus depuis le cache : { $cachedExact } jetons, le contexte renvoyé à chaque tour
+session-tokens-subagents = { $count ->
+    [one] Son sous-agent, en plus : { $sent } envoyés, au moins { $received } reçus, { $cached } relus depuis le cache
+   *[other] Ses { $count } sous-agents, en plus : { $sent } envoyés, au moins { $received } reçus, { $cached } relus depuis le cache
+}
 
 ## Le pied de colonne, et l'indexation
 
@@ -139,6 +143,13 @@ convo-copied = { $count ->
    *[other] Cette conversation a commencé par recopier { $count } messages de « { $title } » : ils se lisent là-bas, ils ne sont pas répétés ici.
 }
 convo-copied-open = Ouvrir l'original
+convo-subagent = Sous-agent lancé depuis « { $title } »
+convo-subagent-open = Ouvrir la conversation qui l'a lancé
+convo-subagents = { $count ->
+    [one] Un sous-agent lancé depuis cette conversation
+   *[other] { $count } sous-agents lancés depuis cette conversation
+}
+subagent-received = ↓ au moins { $received }
 convo-purged = transcription purgée
 convo-saved = sauvée par Ariane : le fichier d'origine a disparu
 speaker-you = Vous
@@ -428,6 +439,10 @@ stats-uncovered = { $agents } { $count ->
         [one] n’enregistre
        *[other] n’enregistrent
     } pas de jetons qu’Ariane sait lire.
+stats-subagents = { $count ->
+    [one] Un sous-agent a en plus envoyé { $sent } jetons, en a reçu au moins { $received } et en a relu { $cached } depuis le cache. Il n'est pas compté ci-dessus : la transcription d'un sous-agent ne garde pas toujours son dernier compte.
+   *[other] { $count } sous-agents ont en plus envoyé { $sent } jetons, en ont reçu au moins { $received } et en ont relu { $cached } depuis le cache. Ils ne sont pas comptés ci-dessus : la transcription d'un sous-agent ne garde pas toujours son dernier compte.
+}
 stats-months = Mois par mois
 stats-measure-you = Vos messages
 stats-measure-replies = Réponses

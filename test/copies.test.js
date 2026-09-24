@@ -293,3 +293,13 @@ test('un usage recopié n’est compté qu’une fois dans les statistiques', (t
     'et ses jetons avec lui'
   );
 });
+
+test('ce qu’une passe écrit a toujours un identifiant plus haut, même après un effacement', (t) => {
+  const index = twoSessions(t, 'claude');
+  const since = index.lastMessageId();
+  // Une conversation réécrite est effacée puis relue : ses lignes du haut disparaissent.
+  index.resetSession('claude:B', null);
+  index.addMessages('claude:B', [{ role: 'user', uuid: 'neuf', text: 'relu', parts: [] }]);
+  const [row] = index.db.prepare("SELECT id FROM messages WHERE uuid = 'neuf'").all();
+  assert.ok(row.id > since, 'sans quoi la recherche des copies de cette passe ne la verrait pas');
+});

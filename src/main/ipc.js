@@ -272,6 +272,10 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
       // A resumed or forked session began by copying another's history: how
       // much, and from where, so the reader can be sent there (core/db.js).
       copied: copiedFrom(state.index.copiedFrom(id)),
+      // A subagent's conversation names the one that launched it; any other
+      // lists the subagents it launched. Neither is listed in the sidebar.
+      parent: session.parentId ? briefOf(state.index.session(session.parentId)) : null,
+      subagents: state.index.subagents(id).map((sub) => ({ ...briefOf(sub), ...counts(sub) })),
       messages,
       // Row ids change at every rebuild, so a starred message is resolved here,
       // against the conversation as it stands now (core/marks.js).
@@ -427,7 +431,7 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
     const session = state.index.session(id);
     if (!session) return null;
 
-    const plan = resumeCommand(session.agentId, session.id, session.folderPath);
+    const plan = planFor(session);
     return plan.ok
       ? { ok: true, display: plan.display, exact: plan.exact, note: plan.note || null }
       : { ok: false, reason: plan.reason, note: plan.note || null };
@@ -444,7 +448,7 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
     const session = state.index.session(id);
     if (!session) throw new Error(t('convo-not-found'));
 
-    const plan = resumeCommand(session.agentId, session.id, session.folderPath);
+    const plan = planFor(session);
     if (!plan.ok) {
       throw new Error(plan.note ? t(`resume-note-${plan.note}`) : t('error-resume-impossible', { reason: plan.reason }));
     }
@@ -749,12 +753,30 @@ function withMarks(sessions) {
 
 const withMark = (session) => ({ ...session, ...state.marks.of(session.id) });
 
+/**
+ * How to reopen a conversation — never a subagent's: its CLI refuses to resume
+ * one (the SDK reads a sidechain as no session at all), and the conversation
+ * to reopen is the one that launched it.
+ */
+function planFor(session) {
+  if (session.parentId) return { ok: false, reason: 'subagent' };
+  return resumeCommand(session.agentId, session.id, session.folderPath);
+}
+
 /** Where a conversation's copies come from, reduced to what the header names. */
 function copiedFrom(copied) {
   if (!copied || !copied.from) return null;
-  const { id, title, firstPrompt } = copied.from;
-  return { count: copied.count, from: { id, title, firstPrompt } };
+  return { count: copied.count, from: briefOf(copied.from) };
 }
+
+/** A conversation as the header names it: never a path. */
+function briefOf(session) {
+  if (!session) return null;
+  const { id, title, firstPrompt } = session;
+  return { id, title, firstPrompt };
+}
+
+const counts = ({ messageCount, firstAt, tokOutput }) => ({ messageCount, firstAt, tokOutput });
 
 /** A path as the person typed it: text, of a sane length, with no control characters. */
 function asCommand(value) {

@@ -166,6 +166,15 @@ automatique coûteux.
 caractère non alphanumérique par `-`, ce qui détruit les accents et rend les vrais tirets
 ambigus. `paths.decodeHint()` existe pour l'affichage, en dernier recours seulement.
 
+**Les sous-agents.** Claude Code écrit la conversation de chaque sous-agent dans un fichier à
+part, `<id>/subagents/agent-<a>.jsonl` — ceux d'un workflow un niveau plus bas, sous
+`workflows/wf_…/` —, avec à côté un `agent-<a>.meta.json` qui nomme sa tâche. Codex écrit un
+rollout par sous-agent, dont l'en-tête nomme `parent_thread_id`. Dans les deux cas le descripteur
+porte `parentId`, l'indexeur le range dans `sessions.parent_id` et marque chaque tour comme « de
+côté » — le premier est la consigne de l'assistant parent, jamais les mots de la personne. Un
+sous-agent n'est pas listé ; on l'ouvre depuis son parent. Mesuré le 25 septembre 2026 : 381
+sous-agents chez Claude (122 Mo, 24 000 messages) et 7 chez Codex.
+
 ---
 
 ## 4. La base
@@ -176,7 +185,7 @@ ambigus. `paths.decodeHint()` existe pour l'affichage, en dernier recours seulem
 |---|---|---|
 | `folders` | un dossier réel, **partagé entre agents** | c'est le cœur du produit : une ligne par chemin, quelles que soient les conversations qui s'y rattachent. `path_exact` ne monte jamais vers l'approximation |
 | `agents` | un assistant connu | — |
-| `sessions` | une conversation | identifiant `agent:session` ; `source` vaut `transcript`, `history` ou `archive` ; `continues_uuid` chaîne une conversation compactée à celle qu'elle poursuit |
+| `sessions` | une conversation | identifiant `agent:session` ; `source` vaut `transcript`, `history` ou `archive` ; `continues_uuid` chaîne une conversation compactée à celle qu'elle poursuit ; `parent_id` rattache la conversation d'un sous-agent à celle qui l'a lancé |
 | `messages` | un message | `parts` en JSON ; `is_notice` marque ce que personne n'a dit ; `is_copy` ce qu'une autre conversation contient déjà |
 | `messages_fts` | index plein texte | FTS5 en _external content_ : seul `text` y entre, les lignes restent dans `messages` |
 | `sources` | l'état d'incrémentalité | `fingerprint` et `cursor`, opaques |
@@ -557,6 +566,7 @@ de `git status` — passait tous les tests unitaires de `speakerOf()` pendant qu
 | ajouter un assistant | un module sous `src/core/agents/`, puis `agents/index.js` ; lire `contract.js` d'abord |
 | changer ce qui est indexé | `extract.js` ou le `*-extract.js` de l'agent, **et hausser `SCHEMA_VERSION`** |
 | ajouter une colonne à `messages` | `schema.sql`, l'`INSERT` de `db.js`, **et les deux constantes d'archive** — voir § 4 |
+| toucher aux sous-agents | la découverte dans `claude.js` (`discoverSubagents`) et `codex.js` (l'en-tête), `parentId` dans le contrat, `LISTED` et `Index.subagents` dans `db.js`, `paintSubagents` dans `app.js` |
 | toucher à ce qui compte comme copie | `Index.markCopies` dans `db.js` (la règle), `globalIds` sur l'adaptateur (à qui elle s'applique), `OWN_MESSAGES` (ce qui est listé) |
 | toucher aux marques | `src/core/marks.js` ; elles vivent dans `marks.json`, jamais dans l'index |
 | ajouter une phrase à l'écran | `src/locales/en.ftl` **et tous les autres fichiers** ; jamais dans le code |

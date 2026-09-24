@@ -72,6 +72,8 @@ class Indexer {
 
     const adapters = this.targets;
     this.onProgress({ phase: 'start', agents: adapters.map((a) => a.id) });
+    // Whatever this pass writes has a higher id: copies are looked for there.
+    const since = this.index.lastMessageId();
 
     // Every session some source still offers, and those offered WHOLE — not
     // reduced to the prompts history.jsonl keeps of them.
@@ -98,7 +100,7 @@ class Indexer {
     // Sorted out once everything is in, since either side may have come first;
     // skipped when nothing changed, so an idle pass stays free.
     if (report.indexed || report.saved || report.restored) {
-      report.copies = this.index.markCopies();
+      report.copies = this.index.markCopies({ since });
     }
 
     this.index.setMeta('lastIndexedAt', new Date().toISOString());
@@ -240,6 +242,8 @@ class Indexer {
       source: descriptor.source === 'history' ? 'history' : 'transcript',
       file_path: descriptor.filePath || null,
       title: descriptor.title || null,
+      // A subagent's conversation hangs off the one that launched it.
+      parent_id: descriptor.parentId ? globalSessionId(adapter.id, descriptor.parentId) : null,
     });
 
     let buffer = [];
@@ -280,6 +284,10 @@ class Indexer {
 
       switch (item.kind) {
         case 'message':
+          // In a subagent's conversation nobody is the person: its opening
+          // "user" turn is the briefing the parent assistant wrote. Claude marks
+          // every such line itself; Codex does not, so the whole session is.
+          if (descriptor.parentId) item.isSidechain = true;
           if (!gitBranch && item.gitBranch) gitBranch = item.gitBranch;
           // Some records name the session AND say something; both are kept.
           if (item.slug) this.index.setSlug(id, item.slug);
