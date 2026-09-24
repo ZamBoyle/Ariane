@@ -18,7 +18,7 @@ Voici à quelle version chacune appartient.
 
 | Version | Date | Ce qu'elle apporte |
 |---|---|---|
-| [0.4.2](https://github.com/ZamBoyle/Ariane/releases/tag/v0.4.2) | 24 sept. 2026 | les jetons de Gemini et de Copilot ; la couverture du code visible sur GitHub |
+| [0.4.2](https://github.com/ZamBoyle/Ariane/releases/tag/v0.4.2) | 25 sept. 2026 | les jetons de Gemini et de Copilot ; la couverture du code visible sur GitHub |
 | [0.4.1](https://github.com/ZamBoyle/Ariane/releases/tag/v0.4.1) | 24 sept. 2026 | les appels d'outils d'Antigravity ; le raisonnement masqué de Claude nommé dans les statistiques |
 | [0.4.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.4.0) | 24 sept. 2026 | une vue Statistiques : qui a écrit, les jetons, mois par mois, par assistant, modèle et dossier |
 | [0.3.7](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.7) | 24 sept. 2026 | l'indexation retrouve sa vitesse d'avant les jetons de Codex |
