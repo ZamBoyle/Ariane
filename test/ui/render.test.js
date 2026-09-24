@@ -1396,6 +1396,10 @@ async function run() {
     sv.notes.some((n) => n === 'Mesurés dans 37 conversations sur 363.')
       && sv.notes.some((n) => n.startsWith('Codex n’enregistre pas')),
     sv.notes.join(' | '));
+  check('ce qui ne montre rien est expliqué : surtout le raisonnement masqué de Claude',
+    sv.notes.includes('La barre latérale compte 49\u202f411 enregistrements : 6\u202f501 ne contiennent rien à afficher.')
+      && sv.notes.includes('Parmi eux, 6\u202f093 sont des raisonnements que Claude ne garde plus que chiffrés : il n’en reste qu’une signature.'),
+    sv.notes.join(' | '));
   check('une colonne par mois, le mois vide compris, sans barre pour lui',
     sv.hitCount === 5 && sv.bars[2] === '' && sv.bars.filter(Boolean).length === 4,
     `${sv.hitCount} colonnes, barres : ${sv.bars.map((b) => (b ? 'x' : '·')).join('')}`);

@@ -115,6 +115,12 @@ function whoWrote(data, { t, l10n }) {
       t('stats-records', { records: l10n.number(data.records), empty: l10n.number(speakers.empty) })
     )
   );
+  // The largest share of what shows nothing, named: Claude's masked reasoning.
+  if (speakers.masked) {
+    section.append(
+      el('p', 'stats-note', t('stats-masked', { masked: l10n.number(speakers.masked) }))
+    );
+  }
   return section;
 }
 

@@ -33,6 +33,34 @@ Voici à quelle version chacune appartient.
 
 ## 24 septembre 2026
 
+### Ce qui ne s'affiche pas, expliqué — et deux défauts qui s'y cachaient
+
+**Signalé à l'usage.** La vue Statistiques annonçait « 6 561 ne contiennent rien à afficher, comme
+une enveloppe vide ». Le nombre semblait trop grand pour être normal.
+
+**Analysé enregistrement par enregistrement, jusqu'à la ligne d'origine.** **6 093** sont le
+raisonnement de Claude, que Claude Code n'écrit plus en clair depuis avril 2026 : un bloc `thinking`
+de 0 caractère et sa seule signature (0 raisonnement lisible sur 1 408 en août). Normal, et ce sont
+eux qui portent les jetons de la réponse. 167 sont des enveloppes de Claude Code qu'Ariane retire
+exprès. Mais deux groupes étaient des défauts, anciens tous les deux :
+
+- **Antigravity perdait tous ses appels d'outils.** L'adaptateur ignorait le champ `tool_calls` :
+  104 appels (`run_command` ×63, `view_file` ×21…), et 72 réponses qui n'étaient que des appels
+  s'affichaient vides. On voyait la sortie d'une commande, jamais la commande. Les appels sont
+  maintenant lus comme chez les autres assistants, leurs arguments décodés — chaque valeur arrive
+  encodée en JSON une seconde fois.
+- **Les avis de fin de tâche passés par la file d'attente** de Claude Code étaient rangés comme 218
+  messages vides de la personne, alors que le même texte arrivé par une ligne ordinaire devient un
+  avis. La file suit maintenant la même règle.
+
+**Et le libellé est juste.** Un raisonnement masqué laisse désormais une trace (invisible) à
+l'indexation, et la vue le nomme : « Parmi eux, 6 093 sont des raisonnements que Claude ne garde
+plus que chiffrés : il n'en reste qu'une signature. »
+
+**Vérifié sur les vrais fichiers**, dans une base jetable : 6 021 raisonnements masqués nommés
+(sans l'archive), les 104 appels d'Antigravity lus et 7 réponses vraiment vides chez lui, plus aucun
+message vide de la personne venu de la file. L'index est reconstruit une fois (`SCHEMA_VERSION` 13).
+
 ### Des statistiques, qui disent ce qu'elles mesurent
 
 **Signalé à l'usage.** Le pied de la barre latérale annonçait « 49 411 messages », sans dire ce que

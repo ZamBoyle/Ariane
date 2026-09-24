@@ -61,8 +61,25 @@ test('chaque message est rangé avec les règles de l’écran', () => {
     ],
     F
   );
-  assert.deepEqual(s.speakers, { you: 1, assistant: 1, tools: 1, notices: 1, empty: 1 });
+  assert.deepEqual(s.speakers, { you: 1, assistant: 1, tools: 1, notices: 1, empty: 1, masked: 0 });
   assert.equal(s.records, 5, 'le pied compte tout ; la ventilation dit ce que c’est');
+});
+
+test('un raisonnement masqué ne montre rien, mais il est nommé à part', () => {
+  // 6 093 des 6 561 enregistrements sans rien à afficher, sur un vrai index.
+  const s = summarize(
+    [
+      row({
+        role: 'assistant',
+        hasText: 0,
+        parts: JSON.stringify([{ type: 'other', name: 'masked-thinking' }]),
+      }),
+      row({ role: 'assistant', hasText: 0, parts: '[]' }),
+    ],
+    F
+  );
+  assert.equal(s.speakers.empty, 2);
+  assert.equal(s.speakers.masked, 1, 'seul le vrai raisonnement masqué est compté comme tel');
 });
 
 test('un raisonnement seul est une réponse, pas une enveloppe vide', () => {

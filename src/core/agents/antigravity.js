@@ -225,10 +225,46 @@ function extractAntigravityRecord(raw) {
 
   if (type !== 'PLANNER_RESPONSE') return { kind: 'ignored', reason: `model:${type || 'unknown'}` };
 
-  // 107 of 118 measured replies carry no text at all — a thought, or nothing.
-  // They are kept, like Claude's empty shells, so the counts stay honest;
-  // format.hasContent() decides what is worth drawing.
-  return message(raw, { role: 'assistant', text: content.trim(), thinking });
+  // A reply's tool calls travel in `tool_calls`, beside the prose. Measured on
+  // a real machine (24 September 2026): 100 of 118 replies carry calls — 104
+  // in all, run_command 63, view_file 21 — and 72 carry nothing else. Ignoring
+  // the field left those 72 replies empty and showed every command's output
+  // with no command before it.
+  const text = content.trim();
+  const parts = text ? [{ type: 'text', text }] : [];
+  for (const call of Array.isArray(raw.tool_calls) ? raw.tool_calls : []) {
+    if (!call || typeof call !== 'object') continue;
+    parts.push({
+      type: 'tool_use',
+      id: '',
+      name: str(call.name) || 'tool',
+      preview: callPreview(call.args),
+    });
+  }
+  // A reply with nothing at all (7 measured) is kept, like Claude's empty
+  // shells, so the counts stay honest; format.hasContent() decides what is drawn.
+  return message(raw, { role: 'assistant', text, thinking, parts });
+}
+
+/**
+ * A call's arguments, readable. Each value arrives JSON-encoded a second time
+ * — `"CommandLine": "\"ls -la\""` — so it is decoded before being shown.
+ */
+function callPreview(args) {
+  if (!args || typeof args !== 'object') return '';
+  const decoded = {};
+  for (const [key, value] of Object.entries(args)) {
+    decoded[key] = typeof value === 'string' ? decodeValue(value) : value;
+  }
+  return JSON.stringify(decoded).slice(0, TOOL_PREVIEW_LIMIT);
+}
+
+function decodeValue(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
 }
 
 /** One normalised message, shaped like extract.js output. */

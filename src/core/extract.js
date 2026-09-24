@@ -263,6 +263,10 @@ function noticeMessage(raw, text, detail) {
 function queuedMessage(raw, text) {
   const cleaned = clean(text);
   const command = detectCommand(text);
+  // Text that the strip leaves empty was the harness's, not the person's — the
+  // rule extractMessage applies. The queue did not: 218 <task-notification>
+  // rows were stored as empty messages from the person rather than as notices.
+  const strippedToNothing = String(text).trim() !== '' && cleaned === '';
 
   return {
     kind: 'message',
@@ -280,7 +284,7 @@ function queuedMessage(raw, text) {
     thinking: '',
     parts: cleaned ? [{ type: 'text', text: cleaned }] : [],
     isMeta: false,
-    isNotice: false,
+    isNotice: strippedToNothing,
     isSidechain: false,
     command,
     queued: true,
@@ -377,6 +381,12 @@ function readBlock(block, parts, texts, thinkings) {
       if (value) {
         parts.push({ type: 'thinking', text: value });
         thinkings.push(value);
+      } else if (block.signature) {
+        // Masked: since April 2026 Claude Code keeps no readable reasoning, only
+        // its signature (0 readable of 1 408 in August). Nothing to show, but a
+        // trace to count — 6 093 of the 6 561 records that show nothing were
+        // these, and without it the statistics could only call them "empty".
+        parts.push({ type: 'other', name: 'masked-thinking' });
       }
       break;
     }

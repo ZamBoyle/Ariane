@@ -161,6 +161,75 @@ test.describe('the folder agy never writes down', () => {
   });
 });
 
+// ── the tool calls ────────────────────────────────────────────────────────
+//
+// Measured on a real machine (24 September 2026): 100 of 118 replies carry
+// tool_calls — 104 calls — and 72 carry nothing else. The field was ignored:
+// those replies were empty, and every command's output came without it.
+
+const call = (name, args) => ({ name, args });
+
+test.describe('tool calls', () => {
+  test('a reply that only calls a tool shows the call, its arguments decoded', () => {
+    const item = adapter.extractAntigravityRecord(
+      agy.base('MODEL', 'PLANNER_RESPONSE', {
+        tool_calls: [
+          call('run_command', {
+            CommandLine: '"ls -la"',
+            WaitMsBeforeAsync: '2000',
+            toolSummary: '"List scratch directory"',
+          }),
+        ],
+      })
+    );
+    assert.equal(item.role, 'assistant');
+    assert.equal(item.text, '', 'a call is not prose: never indexed');
+    assert.equal(item.parts.length, 1);
+    assert.equal(item.parts[0].type, 'tool_use');
+    assert.equal(item.parts[0].name, 'run_command');
+    assert.deepEqual(
+      JSON.parse(item.parts[0].preview),
+      {
+        CommandLine: 'ls -la',
+        WaitMsBeforeAsync: 2000,
+        toolSummary: 'List scratch directory',
+      },
+      'each value arrives JSON-encoded a second time'
+    );
+  });
+
+  test('prose and calls together keep both, prose first', () => {
+    const item = adapter.extractAntigravityRecord(
+      agy.base('MODEL', 'PLANNER_RESPONSE', {
+        content: 'Je regarde le dossier.',
+        tool_calls: [
+          call('list_dir', { DirectoryPath: '"/p"' }),
+          call('view_file', { AbsolutePath: '"/p/a.js"' }),
+        ],
+      })
+    );
+    assert.deepEqual(
+      item.parts.map((p) => p.type),
+      ['text', 'tool_use', 'tool_use']
+    );
+    assert.equal(item.text, 'Je regarde le dossier.');
+  });
+
+  test('an argument that is not JSON is shown as it came', () => {
+    const item = adapter.extractAntigravityRecord(
+      agy.base('MODEL', 'PLANNER_RESPONSE', {
+        tool_calls: [call('search_web', { query: 'pas du json' })],
+      })
+    );
+    assert.deepEqual(JSON.parse(item.parts[0].preview), { query: 'pas du json' });
+  });
+
+  test('a reply with neither prose nor calls stays empty, as before', () => {
+    const item = adapter.extractAntigravityRecord(agy.base('MODEL', 'PLANNER_RESPONSE', {}));
+    assert.deepEqual(item.parts, []);
+  });
+});
+
 test.describe('who said what', () => {
   test('the request is unwrapped, and what the harness added goes', async (t) => {
     const { fx, ctx } = setup(t);

@@ -46,7 +46,7 @@ function summarize(rows, { speakerOf, hasContent, modelName }) {
   const sessions = new Set();
   const folders = new Set();
   const measured = new Set();
-  const speakers = { you: 0, assistant: 0, tools: 0, notices: 0, empty: 0 };
+  const speakers = { you: 0, assistant: 0, tools: 0, notices: 0, empty: 0, masked: 0 };
   const tokens = { sent: 0, received: 0, cacheRead: 0 };
   const agents = new Map();
   const models = new Map();
@@ -76,6 +76,9 @@ function summarize(rows, { speakerOf, hasContent, modelName }) {
     let speaker = null;
     if (!hasContent(message)) {
       speakers.empty++;
+      // The largest part of what shows nothing, named rather than lumped in.
+      if (message.parts.some((p) => p && p.type === 'other' && p.name === 'masked-thinking'))
+        speakers.masked++;
     } else {
       speaker = speakerOf(message);
       if (speaker === 'you') speakers.you++;

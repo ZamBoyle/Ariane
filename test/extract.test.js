@@ -92,6 +92,16 @@ test.describe('messages typed mid-turn', () => {
     assert.equal(extractRecord(queue(undefined, 'x')).kind, 'ignored');
   });
 
+  // A background task's notice travels through the same queue: stripped to
+  // nothing, it is the harness speaking. 218 were stored as empty messages
+  // "from the person" before this — the ordinary path flagged the same text.
+  test('a task notification in the queue is a notice, never the person', () => {
+    const r = extractRecord(queue('enqueue', '<task-notification>\n<task-id>b1</task-id>\n<status>completed</status>\n</task-notification>'));
+    assert.equal(r.kind, 'message');
+    assert.equal(r.text, '');
+    assert.equal(r.isNotice, true);
+  });
+
   test('injected context is stripped from a queued message too', () => {
     const r = extractRecord(queue('enqueue', 'vrai texte <system-reminder>bruit</system-reminder>'));
     assert.equal(r.text, 'vrai texte');
@@ -230,8 +240,16 @@ test.describe('thinking blocks', () => {
     assert.ok(!JSON.stringify(r).includes('SECRET'));
   });
 
-  test('an empty thinking block is skipped', () => {
+  // Since April 2026 Claude Code writes no readable reasoning, only its
+  // signature: 6 093 of the 6 561 records that show nothing on a real index.
+  test('a masked thinking block leaves a marker to count, and nothing to show', () => {
     const r = extractRecord(msg('assistant', [{ type: 'thinking', thinking: '', signature: 'x' }]));
+    assert.deepEqual(r.parts, [{ type: 'other', name: 'masked-thinking' }]);
+    assert.equal(r.thinking, '', 'no reasoning is invented');
+  });
+
+  test('an empty thinking block without a signature leaves nothing', () => {
+    const r = extractRecord(msg('assistant', [{ type: 'thinking', thinking: '' }]));
     assert.equal(r.parts.length, 0);
   });
 });

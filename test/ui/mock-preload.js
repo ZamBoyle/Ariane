@@ -134,7 +134,7 @@ const STATISTICS = {
   records: 49411,
   sessions: 363,
   folders: 52,
-  speakers: { you: 2789, assistant: 23339, tools: 16156, notices: 626, empty: 6501 },
+  speakers: { you: 2789, assistant: 23339, tools: 16156, notices: 626, empty: 6501, masked: 6093 },
   tokens: { sent: 116105691, received: 16329338, cacheRead: 4777562277, measuredSessions: 37 },
   agents: [
     { agentId: 'claude', sessions: 73, you: 1647, replies: 14388, measuredSessions: 37,
