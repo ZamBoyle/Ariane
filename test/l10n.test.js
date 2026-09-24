@@ -176,6 +176,19 @@ test.describe('the words, in French and in English', () => {
     assert.equal(en.compact('12'), '', 'only a number is a count');
   });
 
+  test('a share and a month, as each language writes them', async () => {
+    const fr = await localizer('fr');
+    const en = await localizer('en');
+    assert.equal(fr.percent(0.0564), '6\u00a0%', 'le français met une espace insécable avant %');
+    assert.equal(en.percent(0.47), '47%');
+    assert.equal(en.percent(0.001), '<1%', 'a sliver is not rounded down to nothing');
+    assert.equal(en.percent(null), '', 'an absence is not zero percent');
+    assert.equal(fr.month('2026-09'), 'sept. 26');
+    assert.equal(fr.month('2026-09', { long: true }), 'septembre 2026');
+    assert.equal(en.month('2026-01', { long: true }), 'January 2026', 'the 15th: no time zone moves it');
+    assert.equal(en.month('not a month'), '');
+  });
+
   test('a value that rounds up takes the next prefix', async () => {
     const en = await localizer('en');
     assert.equal(en.compact(999.6), '1K', 'never "1000"');

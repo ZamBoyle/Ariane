@@ -52,6 +52,10 @@ deux par cinq d'entre eux :
 - **Vos repères** : une étoile sur une conversation **ou sur un message précis**, une note sous le
   titre, et une vue qui ne montre que ce qui est marqué. Elles vivent dans un fichier à vous, hors de l'index :
   une mise à jour d'Ariane ne peut pas les effacer.
+- **Des statistiques** : qui a écrit quoi — les messages que vous avez tapés, les réponses, les
+  sorties d'outils —, puis les jetons envoyés, reçus et relus depuis le cache, mois par mois, par
+  assistant, par modèle et par dossier. Elles disent combien de conversations ont vraiment été
+  mesurées, et n'estiment rien : aucun montant en dollars tiré d'une grille de prix.
 - **Dans votre langue** : français, anglais, néerlandais, allemand, espagnol, italien, portugais
   (Brésil), japonais et chinois — celle du système par défaut, une autre au choix dans les
   Réglages. Ajouter une langue, c'est ajouter un fichier dans `src/locales/`.

@@ -709,6 +709,40 @@ class Index {
   }
 
   /**
+   * Every message, with what the statistics need and nothing more — for
+   * statistics.js, which applies the screen's own rules to them.
+   *
+   * The prose itself never leaves SQLite: only whether there is any. The parts
+   * come out only when there is none, which is the one case the rules read
+   * them; the command only on notices. Filtered like everything else the
+   * sidebar describes: the hidden assistants, and a period.
+   *
+   * @param {{hidden?: string[], since?: string|null}} [opts]
+   * @returns {IterableIterator<object>} Streamed, not a 49 000-row array.
+   */
+  statisticsRows({ hidden = [], since = null } = {}) {
+    const hiding = hidingOn('s.agent_id', hidden);
+    const sql = `
+      SELECT m.session_id AS sessionId, s.agent_id AS agentId, f.path AS folderPath,
+             m.role, m.model,
+             (trim(m.text) <> '') AS hasText,
+             (trim(COALESCE(m.thinking, '')) <> '') AS hasThinking,
+             CASE WHEN trim(m.text) = '' THEN m.parts END AS parts,
+             m.is_notice AS isNotice, m.is_sidechain AS isSidechain,
+             CASE WHEN m.is_notice THEN m.command END AS command,
+             ${MESSAGE_TIME_SQL} AS at,
+             m.tok_input AS tokInput, m.tok_output AS tokOutput,
+             m.tok_cache_read AS tokCacheRead, m.tok_cache_write AS tokCacheWrite
+      FROM messages m
+      JOIN sessions s ON s.id = m.session_id
+      JOIN folders f ON f.id = s.folder_id
+      WHERE 1 = 1${hiding.where}${since != null ? ` AND ${MESSAGE_TIME_SQL} >= ?` : ''}`;
+    const params = since != null ? [...hiding.params, since] : hiding.params;
+    const statement = this.#dynamic(`statistics:${hiding.params.length}:${since != null}`, sql);
+    return statement.iterate(...params);
+  }
+
+  /**
    * Full-text search over message prose.
    *
    * @param {string} input Raw user input from the search box.

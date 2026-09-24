@@ -32,6 +32,42 @@ Voici à quelle version chacune appartient.
 
 ## 24 septembre 2026
 
+### Des statistiques, qui disent ce qu'elles mesurent
+
+**Signalé à l'usage.** Le pied de la barre latérale annonçait « 49 411 messages », sans dire ce que
+la personne avait envoyé ni reçu. Le concurrent a un tableau de bord ; ccusage des rapports.
+
+**Ce que ça change.** Une icône à côté de l'engrenage — et le pied de la barre lui-même — ouvrent
+une vue Statistiques dans le panneau de lecture. Qui a écrit : **2 791 messages tapés par vous,
+23 451 réponses, 16 225 sorties d'outils, 627 avis** ; les 6 546 enregistrements restants ne
+contiennent rien à afficher. Puis les jetons, envoyés, reçus et relus depuis le cache, avec la
+couverture écrite en toutes lettres — mesurés dans 162 conversations sur 363, et le nom des
+assistants qui n'en enregistrent pas. Puis une colonne par mois, une mesure à la fois ; et des
+tableaux par assistant, par modèle et par dossier. Les assistants masqués et la période de la barre
+de recherche s'y appliquent, comme partout ailleurs.
+
+**Qui a parlé est décidé par les règles de l'écran.** Le calcul (`src/core/statistics.js`) reçoit
+`speakerOf` et `hasContent` de format.js au lieu de les réécrire en SQL : deux implémentations de
+« qui a dit ça » dériveraient, et c'est celle qui ne doit jamais mettre de mots dans la bouche de
+la personne. La prose ne quitte pas SQLite, seulement le fait qu'il y en a ; les parts ne sortent
+que quand il n'y en a pas. Environ 0,3 s sur 49 000 messages, au clic.
+
+**Ce que la vue refuse de montrer : un coût en dollars.** C'est une estimation ; les fichiers
+indiquent un abonnement (`plan_type: plus`), pas une facture au jeton ; et une grille de prix
+vieillit — le journal du concurrent note *« Fixed claude-opus-4-7 3× overcharge »*.
+
+**Les formes avant la couleur**, selon la méthode de visualisation suivie : des chiffres pour les
+quelques grandeurs clés, des colonnes pour le temps, des tableaux à barre intégrée pour les
+catégories, tous d'une seule teinte. Cette teinte a été passée au validateur de palette dans les
+deux thèmes : l'accent passe en clair, et échoue d'un cheveu en sombre (L 0,672 pour 0,67) — les
+colonnes y prennent un cran plus sombre.
+
+**Trouvé en chemin.** Mon premier comptage oubliait la colonne `thinking` : 560 réponses faites de
+raisonnement seul passaient pour vides. Un test le garde. Et un test de rendu vérifiait la période
+à la fin du parcours, après qu'un autre clic l'avait déjà réappliquée : il ne pouvait pas échouer.
+Il relève maintenant les appels au bon moment, et la mutation qui le prouvait inutile le fait
+échouer.
+
 ### L'indexation redevient aussi rapide qu'avant les jetons de Codex
 
 **Signalé à l'usage.** Un premier lancement, avec la reconstruction de l'index, semblait lent.

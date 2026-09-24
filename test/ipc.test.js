@@ -123,7 +123,7 @@ test('registers exactly the documented channels', (t) => {
      'sessions:favorites', 'sessions:list',
      'settings:browse', 'settings:check', 'settings:get', 'settings:openFile', 'settings:save',
      'shell:openFolder', 'splash:close', 'splash:keep', 'splash:words',
-     'update:check', 'update:open']
+     'stats:get', 'update:check', 'update:open']
   );
 });
 
@@ -272,6 +272,22 @@ test('search refuses a period it does not know', async (t) => {
   }
 });
 
+// The statistics take the same period, and must refuse the same nonsense.
+test('the statistics refuse a period they do not know', async (t) => {
+  const ctx = setupIpc();
+  t.after(ctx.teardown);
+  ctx.start();
+
+  for (const period of ['forever', '__proto__', {}, 7]) {
+    assert.equal((await invoke('stats:get', { period })).ok, false, JSON.stringify(period));
+  }
+  for (const period of [undefined, 'all', '7d', '30d', 'year']) {
+    const reply = await invoke('stats:get', { period });
+    assert.equal(reply.ok, true, String(period));
+    assert.equal(typeof reply.data.records, 'number');
+  }
+});
+
 // ── Hiding an assistant ───────────────────────────────────────────────────
 //
 // The filter is applied in SQL, so that the sidebar, the footer and the search
@@ -335,6 +351,21 @@ test.describe('showing and hiding assistants', () => {
       ['claude', 'codex'],
       'un assistant masqué reste listé, sinon on ne pourrait jamais le rappeler'
     );
+  });
+
+  test('the statistics follow too: they describe what the sidebar shows', async (t) => {
+    const ctx = setupIpc();
+    t.after(ctx.teardown);
+    await twoAgents(ctx);
+
+    const before = (await invoke('stats:get', {})).data;
+    assert.equal(before.sessions, 2);
+    assert.equal(before.speakers.you, 2, 'une question tapée dans chaque assistant');
+
+    await invoke('agents:hide', { ids: ['codex'] });
+    const after = (await invoke('stats:get', {})).data;
+    assert.equal(after.sessions, 1);
+    assert.deepEqual(after.agents.map((a) => a.agentId), ['claude'], 'l’assistant masqué ne compte plus');
   });
 
   test('the sidebar, the footer and the search all follow', async (t) => {

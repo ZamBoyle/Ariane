@@ -138,6 +138,9 @@ export function createLocalizer({ language, sources, pseudo = false, onProblem =
   const relative = new Intl.RelativeTimeFormat(language, { numeric: 'always' });
   const numbers = new Intl.NumberFormat(language);
   const tenths = new Intl.NumberFormat(language, { maximumFractionDigits: 1 });
+  const percents = new Intl.NumberFormat(language, { style: 'percent', maximumFractionDigits: 0 });
+  const months = new Intl.DateTimeFormat(language, { month: 'short', year: '2-digit' });
+  const longMonths = new Intl.DateTimeFormat(language, { month: 'long', year: 'numeric' });
   const lists = new Intl.ListFormat(language, { style: 'long', type: 'conjunction' });
 
   return {
@@ -216,6 +219,24 @@ export function createLocalizer({ language, sources, pseudo = false, onProblem =
       if (typeof value !== 'number' || !Number.isFinite(value)) return '';
       const [number, unit] = compactParts(value);
       return wrap(`${tenths.format(number)}${unit}`);
+    },
+
+    /** "6 %", "6%": a share, whole percent. Below one percent reads "<1 %" as the language writes it. */
+    percent(value) {
+      if (typeof value !== 'number' || !Number.isFinite(value)) return '';
+      if (value > 0 && value < 0.005) return wrap(`<${percents.format(0.01)}`);
+      return wrap(percents.format(value));
+    },
+
+    /**
+     * A month from its "2026-09" key: "sept. 26" for an axis, "septembre 2026"
+     * in full. Built on the 15th, so no time zone can move it into a neighbour.
+     */
+    month(key, { long = false } = {}) {
+      const found = /^(\d{4})-(\d{2})$/.exec(String(key));
+      if (!found) return '';
+      const date = new Date(Number(found[1]), Number(found[2]) - 1, 15);
+      return wrap((long ? longMonths : months).format(date));
     },
 
     /** "12 KB", "12 Ko", "12 kB": the unit as this language writes it. */

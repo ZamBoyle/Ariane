@@ -22,6 +22,8 @@ const { Archive } = require('../core/archive');
 const { Marks, NOTE_MAX } = require('../core/marks');
 const { resumeCommand } = require('../core/resume');
 const { periodStart } = require('../core/period');
+const { summarize } = require('../core/statistics');
+const { pathToFileURL } = require('url');
 const { openInTerminal, findExecutable, checkCommand } = require('./terminal');
 const { Settings, CLI_AGENTS, THEMES, UPDATE_CHECKS } = require('./settings');
 const { checkForUpdate } = require('./update-check');
@@ -65,6 +67,7 @@ const CHANNELS = [
   'session:mark',
   'session:markMessage',
   'search:run',
+  'stats:get',
   'shell:openFolder',
   'session:resumeInfo',
   'session:resume',
@@ -402,6 +405,16 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
       limit: clamp(asInt(payload.limit) ?? 100, 1, 500),
       hidden: state.hidden,
     });
+  });
+
+  /**
+   * The statistics view: every figure, for the assistants shown and a period.
+   * Who spoke is decided by the screen's own rules (statistics.js).
+   */
+  handle('stats:get', async (_event, payload) => {
+    const since = periodStart(payload && payload.period != null ? payload.period : 'all');
+    const rows = state.index.statisticsRows({ hidden: state.hidden, since });
+    return summarize(rows, await screenRules());
   });
 
   /** What, if anything, this session can be reopened with. No side effect. */
@@ -797,6 +810,21 @@ function asId(value) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+let formatModule = null;
+
+/**
+ * `speakerOf`, `hasContent` and `modelName` from the renderer's format.js — an
+ * ES module shared with the main process, as exports share it: one set of
+ * rules for who spoke, never two.
+ */
+async function screenRules() {
+  if (!formatModule) {
+    const file = path.join(__dirname, '..', 'renderer', 'format.js');
+    formatModule = await import(pathToFileURL(file).href);
+  }
+  return formatModule;
 }
 
 module.exports = { registerIpc, disposeIpc, splashEnabled, CHANNELS, asInt, asId, clamp };

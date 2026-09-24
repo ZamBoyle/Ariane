@@ -28,6 +28,7 @@ import {
 import { TranscriptView } from './transcript-view.js';
 import { icon, setButton, setIconButton } from './icons.js';
 import { SettingsDialog } from './settings-dialog.js';
+import { statisticsPane, statisticsLoading } from './stats-view.js';
 import { createLocalizer } from './l10n.js';
 import { localize, localizeElement } from './l10n-dom.js';
 
@@ -87,6 +88,8 @@ const state = {
   agentsInIndex: [],
   /** @type {Set<string>} Assistants the person chose not to see. */
   hidden: new Set(),
+  /** Is the reading pane showing the statistics? */
+  statsOpen: false,
   folders: [],
   /** @type {Map<number, object[]>} folderId -> sessions */
   sessionsByFolder: new Map(),
@@ -170,6 +173,7 @@ const el = {
   tree: document.getElementById('tree'),
   filter: document.getElementById('filter'),
   refresh: document.getElementById('refresh'),
+  statsButton: document.getElementById('stats-open'),
   settings: document.getElementById('settings'),
   update: document.getElementById('update'),
   settingsDialog: document.getElementById('settings-dialog'),
@@ -371,6 +375,9 @@ function wireEvents() {
   decorate();
   el.refresh.addEventListener('click', () => refresh());
   el.settings.addEventListener('click', () => settingsDialog.open());
+  // Two ways in: the chart button, and the footer that states the totals.
+  el.statsButton.addEventListener('click', () => openStatistics());
+  el.stats.addEventListener('click', () => openStatistics());
   // The page, in the browser. Ariane downloads nothing and runs nothing: the
   // packages are unsigned, and an app that installed its own binary would be
   // asking to be trusted for something it cannot prove.
@@ -455,6 +462,8 @@ async function refresh() {
     await loadFolders();
     await refreshOpenConversation();
     setStats(report.stats);
+    // Asked for, so the figures follow; the quiet passes leave them be.
+    if (state.statsOpen) await openStatistics();
 
     const parts = [];
     if (report.indexed) parts.push(t('refresh-read', { n: report.indexed }));
@@ -532,6 +541,7 @@ function setStats(stats) {
     sessions: stats.sessions,
     messages: stats.messages,
   });
+  el.stats.title = t('stats-footer-title');
 }
 
 /**
@@ -541,9 +551,23 @@ function setStats(stats) {
  * "cette conversation" for something no longer on screen.
  */
 function showWelcome() {
-  // Also cancels a conversation still loading, which would otherwise paint
-  // itself over the welcome pane a moment after the reader asked for it.
-  state.openToken++;
+  leaveConversation();
+  el.transcript.replaceChildren(welcomePane());
+  el.transcript.scrollTop = 0;
+  renderTree();
+  renderScopeOptions();
+}
+
+/**
+ * Close whatever conversation the reading pane held, for a pane of another
+ * kind — the welcome, the statistics. Also cancels a conversation still
+ * loading, which would otherwise paint itself over the new pane a moment later.
+ *
+ * @returns {number} The token this pane now owns (state.openToken).
+ */
+function leaveConversation() {
+  const token = ++state.openToken;
+  state.statsOpen = false;
   state.currentSessionId = null;
   state.resumeCommand = null;
   state.openMessages = null;
@@ -558,11 +582,56 @@ function showWelcome() {
   view.detach();
   el.outline.hidden = true;
   el.outline.replaceChildren();
-  el.transcript.replaceChildren(welcomePane());
-  el.transcript.scrollTop = 0;
+  return token;
+}
 
+/**
+ * The statistics, in the reading pane: counted in the main process by the
+ * screen's own rules, for the assistants shown and the period chosen in the
+ * search bar. While it counts (~0.3 s on 49 000 messages), a view already open
+ * stays in place, dimmed, rather than flashing empty.
+ */
+async function openStatistics() {
+  const wasOpen = state.statsOpen;
+  const token = leaveConversation();
+  state.statsOpen = true;
+  const previous = wasOpen && el.transcript.querySelector('.stats-view');
+  if (previous) previous.classList.add('is-loading');
+  else {
+    el.transcript.replaceChildren(statisticsLoading(t));
+    el.transcript.scrollTop = 0;
+  }
   renderTree();
   renderScopeOptions();
+
+  let data;
+  try {
+    data = await api.statistics(state.period === 'all' ? null : state.period);
+  } catch (error) {
+    if (token === state.openToken) toast(error.message, true);
+    return;
+  }
+  // Another pane was asked for while this one was counting.
+  if (token !== state.openToken) return;
+
+  const scroll = el.transcript.scrollTop;
+  el.transcript.replaceChildren(
+    statisticsPane(data, {
+      t,
+      l10n,
+      agentMark: (agentId) => {
+        const theme = agentTheme(agentId, labelOfAgent(agentId));
+        const mark = node('span', 'agent-dot', theme.initial);
+        mark.dataset.agent = agentId;
+        return mark;
+      },
+      agentLabel: (agentId) => agentTheme(agentId, labelOfAgent(agentId)).label,
+      folderLabel,
+      period: t(PERIODS[state.period].label),
+      hiddenCount: state.hidden.size,
+    })
+  );
+  el.transcript.scrollTop = wasOpen ? scroll : 0;
 }
 
 function welcomePane() {
@@ -679,6 +748,7 @@ async function setHiddenAgents(ids) {
   await loadFolders();
   setStats(view.stats);
   if (state.results.length || el.search.value.trim()) await runSearch();
+  if (state.statsOpen) await openStatistics();
 }
 
 // ── Arborescence ─────────────────────────────────────────────────────────
@@ -1137,6 +1207,7 @@ async function toggleFolder(folderId) {
 
 async function openSession(sessionId, highlightMessageId = null, { starred = null, terms = [] } = {}) {
   const token = ++state.openToken;
+  state.statsOpen = false;
   /** Has another conversation been asked for while this one was loading? */
   const superseded = () => token !== state.openToken;
 
@@ -2037,6 +2108,8 @@ function renderPeriodOptions() {
 function onPeriodChange() {
   state.period = Object.hasOwn(PERIODS, el.period.value) ? el.period.value : 'all';
   runSearch();
+  // The statistics describe the same period the search does.
+  if (state.statsOpen) openStatistics();
   el.search.focus();
 }
 

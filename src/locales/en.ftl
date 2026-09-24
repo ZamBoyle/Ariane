@@ -405,3 +405,76 @@ export-messages = { $count }, { $order }
 export-saved = Saved by Ariane: the original file is gone.
 export-footer = Exported from Ariane.
 export-footer-at = Exported from Ariane on { $date }.
+
+## Statistics
+
+# The statistics view. Numbers arrive already written out ("2,789", "16.3M");
+# { $agents } is a list ("Gemini, Copilot and VS Code").
+
+stats-button =
+    .title = Statistics
+    .aria-label = Show the statistics
+stats-footer-title = Show the statistics
+stats-title = Statistics
+stats-loading = Counting…
+stats-period = { $period } · { $sessions ->
+        [one] { $sessions } conversation
+       *[other] { $sessions } conversations
+    } · { $folders ->
+        [one] { $folders } folder
+       *[other] { $folders } folders
+    }
+stats-hidden = { $count ->
+        [one] { $count } assistant hidden in the sidebar is not counted.
+       *[other] { $count } assistants hidden in the sidebar are not counted.
+    }
+stats-empty = Nothing was written in this period.
+stats-who = Who wrote
+stats-you = Typed by you
+stats-replies = Replies from the assistants
+stats-tools = Tool output
+stats-notices = System notices
+stats-share = { $share } of what is shown
+stats-records = The sidebar counts { $records } records: { $empty } of them hold nothing to show, such as an empty envelope.
+stats-tokens = Tokens
+stats-sent = ↑ Sent
+    .title = New in the prompts: fresh input, and what was written to the cache
+stats-received = ↓ Received
+    .title = What the assistants wrote, reasoning included
+stats-cache = Read back from the cache
+    .title = The context sent again at every turn — kept apart, never added to the rest
+stats-exact = { $value } tokens
+stats-coverage = Measured in { $measured } of { $total } conversations.
+stats-uncovered = { $agents } { $count ->
+        [one] does
+       *[other] do
+    } not record token counts that Ariane reads.
+stats-months = Month by month
+stats-measure-you = Your messages
+stats-measure-replies = Replies
+stats-measure-received = Tokens received
+stats-months-table = Show as a table
+stats-col-month = Month
+stats-undated = { $count ->
+        [one] { $count } message has no date and is not in the chart.
+       *[other] { $count } messages have no date and are not in the chart.
+    }
+stats-chart = { $measure }, month by month
+stats-bar = { $month }: { $value }
+stats-by-agent = By assistant
+stats-by-model = By model
+stats-by-folder = Most active folders
+stats-col-assistant = Assistant
+stats-col-conversations = Conversations
+stats-col-you = You
+stats-col-replies = Replies
+stats-col-received = ↓ Received
+stats-col-model = Model
+stats-col-folder = Folder
+stats-col-messages = Messages
+stats-others = { $count ->
+        [one] { $count } other model
+       *[other] { $count } other models
+    }
+stats-not-measured = not recorded
+stats-folder-note = Your messages and the replies; tool output does not count.

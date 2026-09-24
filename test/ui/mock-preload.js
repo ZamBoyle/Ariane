@@ -122,6 +122,47 @@ const exportCalls = [];
 const copyCalls = [];
 /** The filters each search was sent with. */
 const searchCalls = [];
+/** Each period the statistics were asked for, in order. */
+const statisticsCalls = [];
+
+/**
+ * What stats:get answers, shaped like src/core/statistics.js returns it, with
+ * figures from a real index. Codex measured nothing here, so the view must say
+ * so; ten models, so the tail folds into one row.
+ */
+const STATISTICS = {
+  records: 49411,
+  sessions: 363,
+  folders: 52,
+  speakers: { you: 2789, assistant: 23339, tools: 16156, notices: 626, empty: 6501 },
+  tokens: { sent: 116105691, received: 16329338, cacheRead: 4777562277, measuredSessions: 37 },
+  agents: [
+    { agentId: 'claude', sessions: 73, you: 1647, replies: 14388, measuredSessions: 37,
+      sent: 116105691, received: 16329338, cacheRead: 4777562277 },
+    { agentId: 'codex', sessions: 290, you: 1142, replies: 8951, measuredSessions: 0,
+      sent: null, received: null, cacheRead: null },
+  ],
+  models: [
+    { model: 'claude-opus-5', replies: 3530 }, { model: 'gpt-6-astra', replies: 756 },
+    { model: 'claude-opus-4-7', replies: 338 }, { model: 'gpt-5.6-sol', replies: 260 },
+    { model: 'gpt-5.5', replies: 241 }, { model: 'claude-opus-4-8', replies: 230 },
+    { model: 'gpt-5.3-codex', replies: 140 }, { model: 'claude-opus-5-5', replies: 112 },
+    { model: 'kimi-k3', replies: 64 }, { model: 'grok-4.6', replies: 1 },
+  ],
+  months: [
+    { month: '2026-05', you: 120, replies: 1233, received: 530663 },
+    { month: '2026-06', you: 150, replies: 1799, received: 497030 },
+    { month: '2026-07', you: 0, replies: 0, received: 0 },
+    { month: '2026-08', you: 556, replies: 5237, received: 3495583 },
+    { month: '2026-09', you: 1128, replies: 12769, received: 9838119 },
+  ],
+  undated: 3,
+  activeFolders: [
+    { path: '/home/zam/repos/claudechatbrowser', messages: 5672 },
+    { path: '/home/zam/Documents/santé-debate', messages: 5556 },
+    { path: '/home/zam/Programmation/c64/Arena64', messages: 4769 },
+  ],
+};
 /** What "Reprendre" answers, when made to fail. */
 let resumeReply = null;
 
@@ -466,6 +507,10 @@ contextBridge.exposeInMainWorld('api', {
       favoriteMessages: resolveStarred(id, messages),
     };
   },
+  statistics: async (period) => {
+    statisticsCalls.push(period ?? null);
+    return JSON.parse(JSON.stringify(STATISTICS));
+  },
   search: async (query, options = {}) => {
     searchCalls.push({ query, period: options.period ?? null, agentId: options.agentId ?? null });
     if (!query || !query.trim()) return [];
@@ -605,6 +650,7 @@ contextBridge.exposeInMainWorld('mock', {
   forgotten: () => forgotten.slice(),
   exportCalls: () => exportCalls.slice(),
   searchCalls: () => searchCalls.slice(),
+  statisticsCalls: () => statisticsCalls.slice(),
   settingsSaves: () => copyOf(settingsSaves),
   settingsFileOpened: () => settingsFileOpened,
   languageSaves: () => languageSaves.slice(),

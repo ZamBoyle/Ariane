@@ -24,6 +24,8 @@
 
   --accent: #c2603c;
   --accent-soft: rgba(217, 119, 87, 0.16);
+  /* Les colonnes des statistiques : l'accent, validé contre la surface claire. */
+  --chart: #c2603c;
   --user: #4a6fa5;
   --mark: #ffe08a;
   /* Native widgets only: MUST stay fully opaque. A translucent value here is
@@ -69,6 +71,8 @@
 
     --accent: #d97757;
     --accent-soft: rgba(217, 119, 87, 0.2);
+    /* Un cran sous l'accent : celui-ci dépasse la bande de luminosité du validateur. */
+    --chart: #d6744f;
     --user: #8aa9d6;
     --mark: #7a5c15;
     --scrollbar: rgba(255, 255, 255, 0.26);
@@ -95,6 +99,7 @@
   --border-soft: rgba(255, 255, 255, 0.06);
   --accent: #d97757;
   --accent-soft: rgba(217, 119, 87, 0.2);
+  --chart: #d6744f;
   --user: #8aa9d6;
   --mark: #7a5c15;
   --scrollbar: rgba(255, 255, 255, 0.26);
@@ -469,6 +474,23 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Le pied de la barre ouvre les statistiques : un bouton qui garde l'air d'un texte. */
+button.stats {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.stats:hover,
+button.stats:focus-visible {
+  color: var(--text-soft);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* ── Colonne droite ──────────────────────────────────────────────────── */
 
 .main {
@@ -635,6 +657,268 @@ body {
 
 .welcome p {
   margin: 0 0 10px;
+}
+
+/* ── Statistiques ─────────────────────────────────────────────────────── */
+
+.stats-view {
+  max-width: 860px;
+  margin: 0 auto;
+  padding-bottom: 28px;
+  transition: opacity 0.15s;
+}
+
+/* Pendant le recalcul, l'ancien rendu reste en place, atténué : ni flash, ni saut. */
+.stats-view.is-loading {
+  opacity: 0.5;
+}
+
+.stats-title {
+  margin: 4px 0 4px;
+  font-size: 19px;
+}
+
+.stats-period,
+.stats-note,
+.stats-empty {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.stats-block {
+  margin-top: 24px;
+}
+
+.stats-block h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.stat-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+}
+
+.stat-label {
+  font-size: 11.5px;
+  color: var(--text-soft);
+}
+
+/* Un grand nombre seul garde ses chiffres proportionnels. */
+.stat-value {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.stat-note {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.stats-toggle {
+  display: inline-flex;
+  gap: 2px;
+  margin-bottom: 8px;
+  padding: 2px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+}
+
+.stats-seg {
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+.stats-seg[aria-pressed='true'] {
+  background: var(--bg-active);
+  color: var(--text);
+}
+
+/* Le cadre grandit avec son contenu, axe compris : jamais de défilement imbriqué. */
+.stats-figure {
+  position: relative;
+  margin: 0;
+}
+
+.stats-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.stats-grid-line {
+  stroke: var(--border);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.stats-tick {
+  font-size: 10.5px;
+  fill: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-direct {
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--text-soft);
+}
+
+.stats-bar-mark {
+  fill: var(--chart);
+  transition: opacity 0.1s;
+}
+
+.stats-bar-mark.is-hot {
+  opacity: 0.75;
+}
+
+/* La cible du survol est toute la colonne, pas seulement les pixels peints. */
+.stats-hit {
+  fill: transparent;
+  cursor: default;
+  outline: none;
+}
+
+.stats-hit:focus-visible {
+  stroke: var(--accent);
+  stroke-width: 1;
+}
+
+.stats-tip {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  font-size: 11.5px;
+  color: var(--text-soft);
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 8px));
+}
+
+.stats-tip strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.stats-table-view summary {
+  margin: 6px 0;
+  font-size: 12px;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 0 28px;
+}
+
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.stats-table th {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 500;
+  font-size: 11.5px;
+  color: var(--text-soft);
+  text-align: left;
+}
+
+.stats-table td {
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: middle;
+}
+
+.stats-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.stats-name {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* La pastille de l'assistant, à côté de son nom et non au-dessus : elle est un bloc ailleurs. */
+.stats-name .agent-dot {
+  display: inline-grid;
+  margin-right: 2px;
+  vertical-align: -3px;
+}
+
+.stats-model {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.stats-folder {
+  margin-right: 6px;
+  color: var(--text);
+}
+
+.stats-parent {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.stats-rest td {
+  color: var(--text-soft);
+}
+
+.stats-bar-cell {
+  width: 30%;
+  min-width: 60px;
+}
+
+/* Une barre fine dans la même teinte partout : l'identité passe par le nom. */
+.stats-inline-bar {
+  display: block;
+  height: 6px;
+  border-radius: 0 3px 3px 0;
+}
+
+.stats-inline-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 0 3px 3px 0;
+  background: var(--chart);
 }
 
 .kbd-hints {

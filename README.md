@@ -60,6 +60,10 @@ three busiest:
   and a view that shows only what you marked. They live in a file of yours, outside the index: an
   update of Ariane cannot erase them.
 - **Resume a conversation** in its own terminal, with the right assistant, in the right folder.
+- **Statistics**: who wrote what — the messages you typed, the replies, the tool output — then the
+  tokens sent, received and read back from the cache, month by month, by assistant, by model and
+  by folder. It says how many conversations were actually measured, and estimates nothing: no
+  dollar figure made up from a price list.
 - **Export** to Markdown or PDF, crediting each speaker exactly as the screen does.
 - **Nine languages**, chosen or following the system, and a light, dark or system theme.
 - **Nothing is lost**: when an assistant deletes a transcript, Ariane keeps the only copy left.

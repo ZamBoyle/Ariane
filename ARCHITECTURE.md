@@ -354,6 +354,7 @@ One file leads, `src/renderer/app.js`, helped by specialised modules:
 | `format.js` | escape then decorate; who is speaking; group bursts of tool calls |
 | `transcript-view.js` | paint a conversation **in slices** (120 rows at once, the rest in idle time) |
 | `settings-dialog.js` | the settings window |
+| `stats-view.js` | the statistics view — figures counted by `src/core/statistics.js` with the screen's own rules |
 | `icons.js` | a family of icons built in the DOM — nothing to load, nothing to allow in the CSP |
 | `export-document.js` | the layout of an export (shared with the main process) |
 
@@ -518,5 +519,6 @@ the output of `git status` — passed every unit test of `speakerOf()` while the
 | touch search | `src/core/query.js` (the expression), `db.search` (the filters), `app.js` (the display) |
 | touch export | `src/renderer/export-document.js` (layout), `src/main/export.js` (file, PDF) |
 | change how a CLI is found | `src/main/terminal.js`, remembering that the settings win |
+| change the statistics | `src/core/statistics.js` (counting — it takes `speakerOf` from format.js, never its own), `db.statisticsRows` (the rows), `stats-view.js` (the layout) |
 | change how Markdown renders | `renderMarkdown` in `src/renderer/format.js`, its style in `styles.css` **and** in `export-document.js` (paper); compare old and new on the whole corpus |
 | touch the update check | `src/core/update.js` (comparing), `src/main/update-check.js` (asking), `app.js` (the button) |

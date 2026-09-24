@@ -380,3 +380,73 @@ export-messages = { $count }, { $order }
 export-saved = Salvata da Ariane: il file originale non c'è più.
 export-footer = Esportato da Ariane.
 export-footer-at = Esportato da Ariane il { $date }.
+
+## Statistics
+
+stats-button =
+    .title = Statistiche
+    .aria-label = Mostra le statistiche
+stats-footer-title = Mostra le statistiche
+stats-title = Statistiche
+stats-loading = Conteggio in corso…
+stats-period = { $period } · { $sessions ->
+        [one] { $sessions } conversazione
+       *[other] { $sessions } conversazioni
+    } · { $folders ->
+        [one] { $folders } cartella
+       *[other] { $folders } cartelle
+    }
+stats-hidden = { $count ->
+        [one] { $count } assistente nascosto nella barra laterale non è conteggiato.
+       *[other] { $count } assistenti nascosti nella barra laterale non sono conteggiati.
+    }
+stats-empty = Nulla è stato scritto in questo periodo.
+stats-who = Chi ha scritto
+stats-you = Scritti da te
+stats-replies = Risposte degli assistenti
+stats-tools = Output degli strumenti
+stats-notices = Avvisi di sistema
+stats-share = { $share } di ciò che è mostrato
+stats-records = La barra laterale conta { $records } voci: { $empty } non contengono nulla da mostrare, come una busta vuota.
+stats-tokens = Token
+stats-sent = ↑ Inviati
+    .title = Nuovi nei prompt: l’input fresco e ciò che è stato scritto nella cache
+stats-received = ↓ Ricevuti
+    .title = Ciò che gli assistenti hanno scritto, ragionamento compreso
+stats-cache = Riletti dalla cache
+    .title = Il contesto rinviato a ogni turno — tenuto a parte, mai sommato al resto
+stats-exact = { $value } token
+stats-coverage = Misurati in { $measured } conversazioni su { $total }.
+stats-uncovered = { $agents } non { $count ->
+        [one] registra
+       *[other] registrano
+    } token che Ariane sappia leggere.
+stats-months = Mese per mese
+stats-measure-you = I tuoi messaggi
+stats-measure-replies = Risposte
+stats-measure-received = Token ricevuti
+stats-months-table = Mostra come tabella
+stats-col-month = Mese
+stats-undated = { $count ->
+        [one] { $count } messaggio non ha data e non compare nel grafico.
+       *[other] { $count } messaggi non hanno data e non compaiono nel grafico.
+    }
+stats-chart = { $measure }, mese per mese
+stats-bar = { $month }: { $value }
+stats-by-agent = Per assistente
+stats-by-model = Per modello
+stats-by-folder = Cartelle più attive
+stats-col-assistant = Assistente
+stats-col-conversations = Conversazioni
+stats-col-you = Tu
+stats-col-replies = Risposte
+stats-col-received = ↓ Ricevuti
+stats-col-model = Modello
+stats-col-folder = Cartella
+stats-col-messages = Messaggi
+stats-others = { $count ->
+        [one] { $count } altro modello
+       *[other] { $count } altri modelli
+    }
+stats-not-measured = non registrato
+stats-folder-note = I tuoi messaggi e le risposte; l’output degli strumenti non conta.

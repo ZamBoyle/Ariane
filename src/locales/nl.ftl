@@ -380,3 +380,73 @@ export-messages = { $count }, { $order }
 export-saved = Bewaard door Ariane: het originele bestand is weg.
 export-footer = Geëxporteerd uit Ariane.
 export-footer-at = Geëxporteerd uit Ariane op { $date }.
+
+## Statistics
+
+stats-button =
+    .title = Statistieken
+    .aria-label = Statistieken tonen
+stats-footer-title = Statistieken tonen
+stats-title = Statistieken
+stats-loading = Bezig met tellen…
+stats-period = { $period } · { $sessions ->
+        [one] { $sessions } gesprek
+       *[other] { $sessions } gesprekken
+    } · { $folders ->
+        [one] { $folders } map
+       *[other] { $folders } mappen
+    }
+stats-hidden = { $count ->
+        [one] { $count } in de zijbalk verborgen assistent wordt niet meegeteld.
+       *[other] { $count } in de zijbalk verborgen assistenten worden niet meegeteld.
+    }
+stats-empty = In deze periode is niets geschreven.
+stats-who = Wie schreef
+stats-you = Door jou getypt
+stats-replies = Antwoorden van de assistenten
+stats-tools = Uitvoer van tools
+stats-notices = Systeemmeldingen
+stats-share = { $share } van wat getoond wordt
+stats-records = De zijbalk telt { $records } records: { $empty } daarvan bevatten niets om te tonen, zoals een lege envelop.
+stats-tokens = Tokens
+stats-sent = ↑ Verzonden
+    .title = Nieuw in de prompts: verse invoer en wat naar de cache is geschreven
+stats-received = ↓ Ontvangen
+    .title = Wat de assistenten schreven, redenering inbegrepen
+stats-cache = Uit de cache herlezen
+    .title = De context die elke beurt opnieuw wordt verzonden — apart gehouden, nooit bij de rest opgeteld
+stats-exact = { $value } tokens
+stats-coverage = Gemeten in { $measured } van de { $total } gesprekken.
+stats-uncovered = { $agents } { $count ->
+        [one] registreert
+       *[other] registreren
+    } geen tokens die Ariane kan lezen.
+stats-months = Per maand
+stats-measure-you = Jouw berichten
+stats-measure-replies = Antwoorden
+stats-measure-received = Ontvangen tokens
+stats-months-table = Als tabel tonen
+stats-col-month = Maand
+stats-undated = { $count ->
+        [one] { $count } bericht heeft geen datum en staat niet in de grafiek.
+       *[other] { $count } berichten hebben geen datum en staan niet in de grafiek.
+    }
+stats-chart = { $measure }, per maand
+stats-bar = { $month }: { $value }
+stats-by-agent = Per assistent
+stats-by-model = Per model
+stats-by-folder = Meest actieve mappen
+stats-col-assistant = Assistent
+stats-col-conversations = Gesprekken
+stats-col-you = Jij
+stats-col-replies = Antwoorden
+stats-col-received = ↓ Ontvangen
+stats-col-model = Model
+stats-col-folder = Map
+stats-col-messages = Berichten
+stats-others = { $count ->
+        [one] { $count } ander model
+       *[other] { $count } andere modellen
+    }
+stats-not-measured = niet geregistreerd
+stats-folder-note = Jouw berichten en de antwoorden; uitvoer van tools telt niet mee.

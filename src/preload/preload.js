@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('api', {
   /** Star one message of a conversation, or take its star off. */
   markMessage: (id, messageId, favorite) => call('session:markMessage', { id, messageId, favorite }),
   search: (query, options = {}) => call('search:run', { query, ...options }),
+  statistics: (period) => call('stats:get', { period }),
   openFolder: (path) => call('shell:openFolder', { path }),
   resumeInfo: (id) => call('session:resumeInfo', { id }),
   resume: (id) => call('session:resume', { id }),

@@ -367,6 +367,7 @@ Un seul fichier mène la danse, `src/renderer/app.js`, aidé de modules spécial
 | `format.js` | échapper puis décorer ; qui parle ; regrouper les rafales d'outils |
 | `transcript-view.js` | peindre une conversation **par tranches** (120 lignes tout de suite, le reste pendant les temps morts) |
 | `settings-dialog.js` | la fenêtre Réglages |
+| `stats-view.js` | la vue Statistiques — chiffres comptés par `src/core/statistics.js` avec les règles de l'écran |
 | `icons.js` | une famille d'icônes construites en DOM — rien à charger, rien à autoriser dans la CSP |
 | `export-document.js` | la mise en page d'un export (partagée avec le processus principal) |
 
@@ -535,5 +536,6 @@ de `git status` — passait tous les tests unitaires de `speakerOf()` pendant qu
 | toucher à la recherche | `src/core/query.js` (expression), `db.search` (filtres), `app.js` (affichage) |
 | toucher à l'export | `src/renderer/export-document.js` (mise en page), `src/main/export.js` (fichier, PDF) |
 | changer la façon dont une CLI est trouvée | `src/main/terminal.js`, et se souvenir que les réglages priment |
+| changer les statistiques | `src/core/statistics.js` (le compte — il prend `speakerOf` à format.js, jamais le sien), `db.statisticsRows` (les lignes), `stats-view.js` (la mise en page) |
 | changer le rendu du Markdown | `renderMarkdown` dans `src/renderer/format.js`, son style dans `styles.css` **et** dans `export-document.js` (papier) ; comparer l'ancien et le nouveau sur tout le corpus |
 | toucher à la vérification de version | `src/core/update.js` (comparer), `src/main/update-check.js` (demander), `app.js` (le bouton) |

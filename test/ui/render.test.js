@@ -1032,6 +1032,7 @@ const SCREENS_SCRIPT = `(async () => {
     '.msg-body', '.folder-name', '.folder-parent', '.session-title', '.result-snippet',
     '.result-title strong', '.results-group', '#convo-title', '.agent-chip', '.agent-dot',
     '.fold pre', '.fold-tag', 'code', 'pre', '.outline-tick', 'title', '.msg-model', '.session-model',
+    '.stats-model', '.stats-folder', '.stats-parent',
   ].join(', ');
   // Names, not sentences: the app's, the assistants', the languages' own.
   const NAMES = new Set(['Ariane', 'Claude Code', 'Codex', 'Copilot CLI', 'Qwen Code', 'Gemini CLI',
@@ -1089,6 +1090,13 @@ const SCREENS_SCRIPT = `(async () => {
   await sleep(150);
   scan('message');
 
+  document.getElementById('stats-open').click();
+  for (let i = 0; i < 60 && !document.querySelector('.stats-view:not(.is-loading) .stats-block'); i++) await sleep(50);
+  document.querySelector('.stats-table-view').open = true;
+  document.querySelector('.stats-hit').dispatchEvent(new Event('focus'));
+  await sleep(100);
+  scan('statistiques');
+
   document.getElementById('settings').click();
   const dialog = document.getElementById('settings-dialog');
   for (let i = 0; i < 40 && !dialog.open; i++) await sleep(25);
@@ -1101,6 +1109,80 @@ const SCREENS_SCRIPT = `(async () => {
     bare: [...seen.entries()].map(([text, where]) => where + ' : ' + text),
     lang: document.documentElement.lang,
     settingsTitle: dialog.querySelector('#settings-title').textContent,
+  };
+})()`;
+
+/** The statistics view, driven the way a person would: button, toggle, hover, period, footer. */
+const STATS_SCRIPT = `(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const tree = document.getElementById('tree');
+  const transcript = document.getElementById('transcript');
+  const ready = async () => {
+    for (let i = 0; i < 60 && !transcript.querySelector('.stats-view:not(.is-loading) .stats-block'); i++) await sleep(50);
+  };
+  for (let i = 0; i < 60 && !tree.querySelector('.folder-btn'); i++) await sleep(50);
+
+  document.getElementById('stats-open').click();
+  await ready();
+  const view = transcript.querySelector('.stats-view');
+  const tiles = [...view.querySelectorAll('.stat-tile')].map((t) => ({
+    label: t.querySelector('.stat-label').textContent,
+    value: t.querySelector('.stat-value').textContent,
+    title: t.querySelector('.stat-value').title,
+    labelTitle: t.querySelector('.stat-label').title,
+  }));
+  const notes = [...view.querySelectorAll('.stats-note')].map((n) => n.textContent);
+  const hits = [...view.querySelectorAll('.stats-hit')];
+  const bars = [...view.querySelectorAll('.stats-bar-mark')].map((b) => b.getAttribute('d'));
+  const direct = [...view.querySelectorAll('.stats-direct')].map((d) => d.textContent);
+  const pressed = [...view.querySelectorAll('.stats-seg')].map((b) => b.getAttribute('aria-pressed'));
+
+  hits[4].dispatchEvent(new Event('pointerenter'));
+  const tip = view.querySelector('.stats-tip');
+  const tipShown = { hidden: tip.hidden, text: tip.textContent, hot: view.querySelectorAll('.stats-bar-mark.is-hot').length };
+  hits[4].dispatchEvent(new Event('pointerleave'));
+  const tipAfter = tip.hidden;
+
+  view.querySelectorAll('.stats-seg')[2].click();
+  await sleep(50);
+  const afterToggle = {
+    labels: [...view.querySelectorAll('.stats-hit')].map((h) => h.getAttribute('aria-label')),
+    direct: [...view.querySelectorAll('.stats-direct')].map((d) => d.textContent),
+    tableRows: view.querySelectorAll('.stats-table-view tbody tr').length,
+  };
+
+  const agentRows = [...view.querySelectorAll('.stats-grid .stats-table')[0].querySelectorAll('tbody tr')]
+    .map((r) => [...r.cells].map((c) => c.textContent.trim()));
+  const modelRows = [...view.querySelectorAll('.stats-grid .stats-table')[1].querySelectorAll('tbody tr')]
+    .map((r) => r.cells[0].textContent);
+  const restTitle = (view.querySelector('.stats-rest td') || {}).title || '';
+  const overflow = { scroll: transcript.scrollWidth, client: transcript.clientWidth };
+
+  // The period of the search bar scopes the statistics too.
+  document.getElementById('period').value = '30d';
+  document.getElementById('period').dispatchEvent(new Event('change', { bubbles: true }));
+  await sleep(100);
+  await ready();
+  // Read now: the footer, further down, reopens the view with the same period.
+  const callsAfterPeriod = window.mock.statisticsCalls();
+
+  // Opening a conversation leaves the statistics; the footer brings them back.
+  tree.querySelector('.folder-btn').click();
+  for (let i = 0; i < 60 && !tree.querySelector('.session-btn'); i++) await sleep(50);
+  tree.querySelector('.session-btn').click();
+  for (let i = 0; i < 60 && transcript.querySelector('.stats-view'); i++) await sleep(50);
+  const leftForConversation = !transcript.querySelector('.stats-view') && !document.getElementById('convo-head').hidden;
+  const footer = document.getElementById('stats');
+  const footerTitle = footer.title;
+  footer.click();
+  await ready();
+  const backFromFooter = Boolean(transcript.querySelector('.stats-view'));
+
+  return {
+    tiles, notes, hitCount: hits.length, bars, direct, pressed, tipShown, tipAfter, afterToggle,
+    agentRows, modelRows, restTitle, overflow, leftForConversation, footerTitle, backFromFooter,
+    calls: callsAfterPeriod,
+    title: view.querySelector('.stats-title').textContent,
   };
 })()`;
 
@@ -1299,6 +1381,48 @@ async function run() {
   check('every sentence on every screen comes from a language file',
     pseudo.bare.length === 0 && pseudo.settingsTitle === '⟦Settings⟧',
     pseudo.bare.length ? pseudo.bare.slice(0, 12).join(' ‖ ') : `${pseudo.settingsTitle}`);
+  // -- les statistiques ---------------------------------------------------
+  const sv = await languageWindow('fr', STATS_SCRIPT);
+  const tile = (label) => sv.tiles.find((x) => x.label === label) || {};
+  check('le bouton ouvre les statistiques dans le panneau de lecture', sv.title === 'Statistiques', sv.title);
+  check('qui a écrit : vos messages et les réponses, avec leur part',
+    tile('Tapés par vous').value === '2\u202f789' && tile('Réponses des assistants').value === '23\u202f339',
+    JSON.stringify(sv.tiles.slice(0, 2)));
+  check('les jetons en K, M et G, le nombre exact au survol, le sens au survol du libellé',
+    tile('↓ Reçus').value === '16,3M' && tile('↓ Reçus').title === '16\u202f329\u202f338\u00a0jetons'
+      && tile('Relus depuis le cache').value === '4,8G' && tile('↑ Envoyés').labelTitle.startsWith('Nouveaux dans les invites'),
+    JSON.stringify(sv.tiles.slice(4)));
+  check('la couverture est dite, et qui ne mesure rien est nommé',
+    sv.notes.some((n) => n === 'Mesurés dans 37 conversations sur 363.')
+      && sv.notes.some((n) => n.startsWith('Codex n’enregistre pas')),
+    sv.notes.join(' | '));
+  check('une colonne par mois, le mois vide compris, sans barre pour lui',
+    sv.hitCount === 5 && sv.bars[2] === '' && sv.bars.filter(Boolean).length === 4,
+    `${sv.hitCount} colonnes, barres : ${sv.bars.map((b) => (b ? 'x' : '·')).join('')}`);
+  check('une seule mesure à la fois, et seul le maximum porte son nombre',
+    JSON.stringify(sv.pressed) === '["true","false","false"]' && JSON.stringify(sv.direct) === '["1\u202f128"]',
+    `${sv.pressed} / ${sv.direct}`);
+  check('au survol, la valeur exacte et le mois en toutes lettres ; elle repart ensuite',
+    !sv.tipShown.hidden && sv.tipShown.text.includes('1\u202f128') && sv.tipShown.text.includes('septembre 2026')
+      && sv.tipShown.hot === 1 && sv.tipAfter === true,
+    JSON.stringify(sv.tipShown));
+  check('changer de mesure redessine le graphique et son tableau',
+    sv.afterToggle.labels[4] === 'septembre 2026 : 9,8M' && JSON.stringify(sv.afterToggle.direct) === '["9,8M"]'
+      && sv.afterToggle.tableRows === 5,
+    JSON.stringify(sv.afterToggle));
+  check('par assistant : ce qui n’est pas mesuré s’écrit « — », pas « 0 »',
+    sv.agentRows.length === 2 && sv.agentRows[1][sv.agentRows[1].length - 1] === '—',
+    JSON.stringify(sv.agentRows));
+  check('au-delà de huit modèles, le reste tient en une ligne, nommé au survol',
+    sv.modelRows.length === 9 && sv.modelRows[8] === '2 autres modèles' && sv.restTitle === 'kimi-k3 et grok-4.6',
+    `${sv.modelRows.join(', ')} / ${sv.restTitle}`);
+  check('la vue ne déborde pas de côté', sv.overflow.scroll <= sv.overflow.client, JSON.stringify(sv.overflow));
+  check('la période de la barre de recherche s’applique aussi aux statistiques',
+    JSON.stringify(sv.calls) === '[null,"30d"]', JSON.stringify(sv.calls));
+  check('ouvrir une conversation quitte les statistiques ; le pied de la barre les rouvre',
+    sv.leftForConversation && sv.backFromFooter && sv.footerTitle === 'Afficher les statistiques',
+    JSON.stringify({ left: sv.leftForConversation, back: sv.backFromFooter, title: sv.footerTitle }));
+
   const english = await languageWindow('en', ENGLISH_SCRIPT);
   check('the app speaks English when asked, down to its numbers',
     english.lang === 'en' && english.welcome === 'Your past conversations'
