@@ -366,7 +366,14 @@ test('archive v1 : lue, elle est migrée — pour Claude seulement', (t) => {
 
 test('la reconstruction de l’index ne sauve pas dans l’archive un compte gonflé', (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ccb-rebuild-'));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  // La base d'abord, le dossier ensuite, dans un seul crochet : les `after`
+  // s'exécutent dans l'ordre où ils sont enregistrés, et Windows refuse de
+  // supprimer un dossier dont la base est encore ouverte.
+  let index = null;
+  t.after(() => {
+    if (index) index.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
   const archive = new Archive(path.join(dir, 'archive'));
   const file = path.join(dir, 'index.sqlite3');
 
@@ -386,8 +393,7 @@ test('la reconstruction de l’index ne sauve pas dans l’archive un compte gon
   old.db.pragma('user_version = 10'); // un index écrit par la 0.3.3
   old.close();
 
-  const index = new Index(file, { archive });
-  t.after(() => index.close());
+  index = new Index(file, { archive });
   const saved = archive.read(archive.fileFor('claude:disparue')).messages;
   assert.deepEqual(
     saved.map((m) => m.tok_output),
