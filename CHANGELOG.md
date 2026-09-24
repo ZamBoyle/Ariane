@@ -18,6 +18,7 @@ Voici à quelle version chacune appartient.
 
 | Version | Date | Ce qu'elle apporte |
 |---|---|---|
+| [0.3.6](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.6) | 24 sept. 2026 | le modèle dans la barre latérale ; une conversation sans titre nommée par ses premiers mots |
 | [0.3.5](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.5) | 24 sept. 2026 | quel modèle a répondu ; les titres de Copilot réparés |
 | [0.3.4](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.4) | 24 sept. 2026 | les jetons de Claude comptés une fois, ceux de Codex ; une conversation Codex retrouvée |
 | [0.3.3](https://github.com/ZamBoyle/Ariane/releases/tag/v0.3.3) | 24 sept. 2026 | ce que chaque conversation a coûté en jetons, sous son nom — comptés jusqu'à 2,5 fois pour Claude |
