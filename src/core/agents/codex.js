@@ -111,6 +111,9 @@ const adapter = {
     // The last running total seen, carried in the cursor so that a pass which
     // resumes can still recognise a repeat of the turn it stopped after.
     let total = resumed.total;
+    // The model of the turn in progress: Codex names it in turn_context only,
+    // never on the reply itself, so every reply gets the one in force.
+    let model = resumed.model;
     let last = cursor;
 
     for await (const record of readRecords(descriptor.filePath, { start })) {
@@ -123,7 +126,7 @@ const adapter = {
         if (!complete) continue;
         const repeat = total !== null && sameCounts(item.total, total);
         total = item.total;
-        last = makeCursor(record.endOffset, total);
+        last = makeCursor(record.endOffset, total, model);
         yield repeat
           ? {
               item: { kind: 'ignored', reason: 'known-noise', detail: 'repeated token_count' },
@@ -133,7 +136,8 @@ const adapter = {
         continue;
       }
 
-      const next = complete ? makeCursor(record.endOffset, total) : last;
+      if (item.kind === 'meta' && item.model && complete) model = item.model;
+      const next = complete ? makeCursor(record.endOffset, total, model) : last;
       last = next;
 
       if (item.kind === 'meta') continue; // cwd was resolved during discovery
@@ -142,14 +146,17 @@ const adapter = {
       // message, so it is promoted to a message carrying only that part.
       if (item.kind === 'ignored' && item.part) {
         yield {
-          item: toolMessage(item.part, str(record.value && record.value.timestamp)),
+          item: withModel(
+            toolMessage(item.part, str(record.value && record.value.timestamp)),
+            model
+          ),
           cursor: next,
         };
         continue;
       }
 
       yield {
-        item: item.kind === 'message' ? withFallbackTime(item, descriptor) : item,
+        item: item.kind === 'message' ? withModel(withFallbackTime(item, descriptor), model) : item,
         cursor: next,
       };
     }
@@ -208,23 +215,34 @@ function usageOfCodex(counts) {
 }
 
 /**
- * "offset" or "offset;in,cached,write,out,reasoning". The second half is the
- * last running total seen; a cursor written before it existed is a bare offset.
+ * "offset", "offset;in,cached,write,out,reasoning" or
+ * "offset;in,cached,write,out,reasoning;model" — the last running total seen,
+ * then the model in force. Either half may be empty; a cursor written before
+ * they existed is a bare offset.
  */
-function makeCursor(offset, total) {
-  if (!total) return String(offset);
-  return `${offset};${COUNTED.map((k) => Number(total[k]) || 0).join(',')}`;
+function makeCursor(offset, total, model = '') {
+  const counts = total ? COUNTED.map((k) => Number(total[k]) || 0).join(',') : '';
+  if (!counts && !model) return String(offset);
+  return model ? `${offset};${counts};${model}` : `${offset};${counts}`;
 }
 
 function parseCursor(cursor) {
-  if (cursor == null) return { offset: 0, total: null };
-  const [offset, counts] = String(cursor).split(';');
-  if (!counts) return { offset: Number(offset), total: null };
+  if (cursor == null) return { offset: 0, total: null, model: '' };
+  const [offset, counts = '', ...rest] = String(cursor).split(';');
+  const model = rest.join(';');
+  if (!counts) return { offset: Number(offset), total: null, model };
   const values = counts.split(',').map(Number);
   return {
     offset: Number(offset),
     total: Object.fromEntries(COUNTED.map((k, i) => [k, values[i] || 0])),
+    model,
   };
+}
+
+/** A reply gets the model in force; Codex never writes it on the reply itself. */
+function withModel(item, model) {
+  if (item.kind !== 'message' || item.role !== 'assistant' || item.model || !model) return item;
+  return { ...item, model };
 }
 
 // ── legacy .json ────────────────────────────────────────────────────────────

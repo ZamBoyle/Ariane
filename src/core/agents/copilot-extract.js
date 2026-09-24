@@ -31,7 +31,6 @@ const IGNORED_TYPES = new Map([
   ['permission.requested', 'lifecycle'],
   ['permission.completed', 'lifecycle'],
   ['session.shutdown', 'lifecycle'],
-  ['session.model_change', 'lifecycle'],
   ['session.usage_checkpoint', 'accounting'],
   ['system.message', 'static system prompt'],
   ['skill.invoked', 'skill body, not conversation'],
@@ -72,6 +71,12 @@ function extractCopilotRecord(raw) {
       model: str(data.selectedModel),
       timestamp: str(data.startTime) || timestamp,
     };
+  }
+
+  // The model picked mid-conversation. Most replies name their own model, but
+  // not all: two conversations run on gpt-5.4 carry it here and nowhere else.
+  if (type === 'session.model_change') {
+    return { kind: 'meta', model: str(data.newModel) };
   }
 
   if (IGNORED_TYPES.has(type)) {

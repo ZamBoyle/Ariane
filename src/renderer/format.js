@@ -412,6 +412,46 @@ function splitTrailing(found) {
 // -- display helpers ---------------------------------------------------------
 
 /**
+ * A model's name as the screen shows it: the last segment of a routed id
+ * ("copilot/claude-sonnet-4.5" → "claude-sonnet-4.5"), and nothing for the
+ * placeholders an agent writes on turns no model produced ("<synthetic>").
+ */
+export function modelName(raw) {
+  const id = typeof raw === 'string' ? raw.trim() : '';
+  if (!id || /^<.*>$/.test(id)) return '';
+  return id.split('/').pop();
+}
+
+/**
+ * The models that answered in a conversation, in the order they first did,
+ * and the replies where one takes over from another.
+ *
+ * A reply is marked only when its model differs from the previous reply's:
+ * the same name on two hundred replies in a row says nothing. When one model
+ * answered all along, no reply is marked at all — the header names it. When
+ * several did, the first reply is marked too, so every stretch is labelled.
+ * Only replies with prose count; a tool call alone is not shown as a reply.
+ *
+ * @param {Array<{id: number, role: string, model?: string, text?: string}>} messages In order.
+ * @returns {{models: string[], changes: Map<number, string>}}
+ */
+export function modelMarks(messages) {
+  const models = [];
+  const changes = new Map();
+  let previous = null;
+  for (const message of Array.isArray(messages) ? messages : []) {
+    if (!message || message.role !== 'assistant' || !(message.text || '').trim()) continue;
+    const name = modelName(message.model);
+    if (!name) continue;
+    if (!models.includes(name)) models.push(name);
+    if (name !== previous) changes.set(message.id, name);
+    previous = name;
+  }
+  if (models.length < 2) changes.clear();
+  return { models, changes };
+}
+
+/**
  * What a conversation cost, as three figures that each mean one thing — or
  * null when its assistant recorded nothing at all.
  *

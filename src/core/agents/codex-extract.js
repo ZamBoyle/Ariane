@@ -90,9 +90,13 @@ function extractCodexRecord(raw) {
   }
 
   // turn_context also carries cwd, and tracks changes mid-session.
+  // …and it is the ONLY place Codex names the model: 1 963 turn_context records
+  // in 145 files, and the model changes 23 times inside a conversation.
   if (raw.type === 'turn_context') {
-    const cwd = str((raw.payload || {}).cwd);
-    return cwd ? { kind: 'meta', cwd } : { kind: 'ignored', reason: 'known-noise' };
+    const payload = raw.payload || {};
+    const cwd = str(payload.cwd);
+    const model = str(payload.model);
+    return cwd || model ? { kind: 'meta', cwd, model } : { kind: 'ignored', reason: 'known-noise' };
   }
 
   // Filler lines are shaped {"record_type":"state"} — they carry no `type` key

@@ -234,7 +234,7 @@ const MESSAGES = [
   },
   // 2. The assistant calls a tool.
   {
-    id: 2, seq: 1, role: 'assistant', ts: '2026-09-17T23:01:00.000Z',
+    id: 2, seq: 1, role: 'assistant', ts: '2026-09-17T23:01:00.000Z', model: 'claude-opus-5',
     text: 'Je regarde.', thinking: 'raisonnement interne',
     parts: [
       { type: 'text', text: 'Je regarde.' },
@@ -441,8 +441,12 @@ contextBridge.exposeInMainWorld('api', {
       { id: 90, seq: 0, role: 'user', ts: '2026-09-17T21:00:00.000Z',
         text: 'prompt codex', thinking: '', parts: [],
         isMeta: false, isNotice: false, isSidechain: false, command: null },
+      // Two models in one conversation: each takes over with a label.
+      { id: 92, seq: 1, role: 'assistant', ts: '2026-09-17T21:00:10.000Z', model: 'gpt-5.2-codex',
+        text: 'premier jet codex', thinking: '', parts: [],
+        isMeta: false, isNotice: false, isSidechain: false, command: null },
       // The answer whose label must read "Codex", not "Claude".
-      { id: 91, seq: 1, role: 'assistant', ts: '2026-09-17T21:00:30.000Z',
+      { id: 91, seq: 2, role: 'assistant', ts: '2026-09-17T21:00:30.000Z', model: 'gpt-6-astra',
         text: 'reponse codex', thinking: '', parts: [],
         isMeta: false, isNotice: false, isSidechain: false, command: null },
     ];

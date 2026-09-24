@@ -272,3 +272,131 @@ test('a tool call and its result do not collide on one uuid', async (t) => {
   const kinds = items.flatMap((i) => i.parts || []).map((p) => p.type);
   assert.ok(kinds.includes('tool_use') && kinds.includes('tool_result'));
 });
+
+// ── which model answered, and what the conversation is called ─────────────
+//
+// Measured on 18 real conversations (24 September 2026): 269 replies of 283
+// name their own model, the other 14 — two conversations on gpt-5.4 — only in
+// session.model_change; and 7 titles read "|-", workspace.yaml's block marker.
+
+const modelChange = (newModel) => ({
+  type: 'session.model_change',
+  id: 'e-change',
+  timestamp: '2026-06-21T18:00:00.000Z',
+  data: { previousModel: 'kimi-k3', newModel },
+});
+
+test.describe('model', () => {
+  test('a reply naming its own model keeps it', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+    fx.copilot().session('m1', [
+      cop.start('/p'),
+      cop.user('q'),
+      cop.assistant('r', { model: 'kimi-k3' }),
+    ]);
+    const [d] = await collect(adapter.discover(ctx));
+    assert.deepEqual(
+      prose(await collect(adapter.read(d, { cursor: null })))
+        .filter((m) => m.role === 'assistant')
+        .map((m) => m.model),
+      ['kimi-k3']
+    );
+  });
+
+  test('a reply without one gets the model in use: selected at start, then changed', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+    fx.copilot().session('m2', [
+      cop.start('/p'), // selectedModel: gpt-5
+      cop.user('q1'),
+      cop.assistant('r1', { model: '' }),
+      modelChange('gpt-5.4'),
+      cop.user('q2'),
+      cop.assistant('r2', { model: '' }),
+    ]);
+    const [d] = await collect(adapter.discover(ctx));
+    const replies = prose(await collect(adapter.read(d, { cursor: null }))).filter(
+      (m) => m.role === 'assistant'
+    );
+    assert.deepEqual(
+      replies.map((m) => m.model),
+      ['gpt-5', 'gpt-5.4']
+    );
+  });
+
+  test('a resumed pass still knows the model in use', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+    const tree = fx.copilot();
+    tree.session('m3', [
+      cop.start('/p'),
+      modelChange('gpt-5.4'),
+      cop.assistant('r1', { model: '' }),
+    ]);
+    const [first] = await collect(adapter.discover(ctx));
+    const cursor = (await collect(adapter.read(first, { cursor: null }))).at(-1).cursor;
+
+    tree.append('m3', [cop.assistant('r2', { model: '' })]);
+    const [second] = await collect(adapter.discover(ctx));
+    assert.equal(
+      adapter.canResume(second, cursor),
+      true,
+      'a cursor carrying a model is still an offset'
+    );
+    const resumed = prose(await collect(adapter.read(second, { cursor })));
+    assert.deepEqual(
+      resumed.map((m) => m.model),
+      ['gpt-5.4']
+    );
+  });
+
+  test('what the person typed carries no model', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+    fx.copilot().session('m4', [cop.start('/p'), cop.user('q')]);
+    const [d] = await collect(adapter.discover(ctx));
+    const [question] = prose(await collect(adapter.read(d, { cursor: null })));
+    assert.equal(question.model, '');
+  });
+});
+
+test.describe('title from workspace.yaml', () => {
+  const titleOf = async (t, name) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+    fx.copilot().session('w1', [cop.start('/p'), cop.user('q')], { name });
+    const [d] = await collect(adapter.discover(ctx));
+    return d.title;
+  };
+
+  test('a block value is the text under it, not its "|-" marker', async (t) => {
+    const title = await titleOf(
+      t,
+      '|-\n  Lis le brief puis réponds.\n\n  Deuxième paragraphe.\nuser_named: false'
+    );
+    assert.equal(title, 'Lis le brief puis réponds.');
+  });
+
+  test('a folded block, ">", is read the same way', async (t) => {
+    assert.equal(await titleOf(t, '>-\n  Une seule idée\nsummary_count: 0'), 'Une seule idée');
+  });
+
+  test('an apostrophe doubled inside single quotes is one apostrophe', async (t) => {
+    assert.equal(await titleOf(t, "'réalise l''audit d''import'"), "réalise l'audit d'import");
+  });
+
+  test('a prompt opening on a Markdown heading loses its hashes', async (t) => {
+    assert.equal(
+      await titleOf(t, '|-\n  # ANALYSE APPROFONDIE — dossier\n  suite'),
+      'ANALYSE APPROFONDIE — dossier'
+    );
+  });
+
+  test('a plain value is untouched', async (t) => {
+    assert.equal(
+      await titleOf(t, "Que penses-tu de ce code ? L'idée ?"),
+      "Que penses-tu de ce code ? L'idée ?"
+    );
+  });
+});

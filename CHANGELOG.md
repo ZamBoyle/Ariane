@@ -29,6 +29,35 @@ Voici à quelle version chacune appartient.
 
 ## 24 septembre 2026
 
+### Quel modèle a répondu
+
+**Signalé à l'usage.** Des débats menés avec Kimi-K3 à travers Copilot : Ariane les rangeait sous
+Copilot, comme une conversation menée avec GPT, sans rien pour les distinguer. Le modèle était
+enregistré depuis toujours et **ne s'affichait nulle part**.
+
+**Ce que ça change.** L'en-tête d'une conversation nomme les modèles qui y ont répondu, dans
+l'ordre où ils l'ont fait. Une réponse porte le nom de son modèle **quand il prend la main** — pas
+sur chacune : deux cents fois le même nom ne dit rien, et quand un seul modèle a répondu du début à
+la fin, l'en-tête suffit. Le concurrent l'affiche sur chaque message ; l'idée de le montrer vient de
+là, pas la manière.
+
+**Vérifié avant d'écrire, et le plan en a changé.** Copilot écrit le modèle sur chaque réponse
+(269 sur 283), sauf dans deux conversations sur gpt-5.4 où il n'est que dans l'événement de
+changement : le modèle en cours sert désormais de secours. Codex, lui, ne l'écrit **que** dans ses
+`turn_context` — 1 963 dans 145 fichiers — et en change 23 fois au milieu d'une conversation :
+chaque réponse reçoit le modèle de son tour, et le modèle voyage dans le curseur pour qu'une lecture
+reprise le sache encore. Vérifié par le vrai indexeur sur les vrais fichiers : **136 conversations
+Codex sur 136** portent sur chaque réponse le modèle de son tour. Les autres n'en nomment aucun,
+nulle part — l'ancienne génération de fichiers.
+
+**Et des titres que Copilot abîmait.** Ariane lit `workspace.yaml` à plat, sans parseur : quand le
+nom est long, Copilot l'écrit en bloc (`name: |-`, puis le texte en dessous), et le titre devenait
+« |- » — 7 conversations sur 18. Une apostrophe doublée entre apostrophes, comme YAML l'écrit,
+restait doublée : « l''audit ». Et une invite commençant par un titre Markdown donnait « # ANALYSE… ».
+Les 18 titres sont maintenant lisibles ; les 10 qui l'étaient n'ont pas bougé.
+
+**L'index est reconstruit une fois** (`SCHEMA_VERSION` 12), pour relire ce qui l'avait été sans.
+
 ### Les jetons de Claude comptés deux fois
 
 **Trouvé en expliquant un calcul, pas par un test.** Claude Code écrit une réponse en plusieurs

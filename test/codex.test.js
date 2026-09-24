@@ -502,3 +502,89 @@ test('through the indexer, a conversation carries the exact sum of its replies',
   assert.equal(session.tokCacheRead, 160, 'the running total, exactly');
   assert.ok(!report.unknownKinds['usage-without-reply'], 'the early count found its reply');
 });
+
+// ── which model answered ──────────────────────────────────────────────────
+//
+// Codex names the model in turn_context and nowhere else — 1 963 of them in
+// 145 real files — and it changes 23 times inside a conversation.
+
+const turn = (model) => ({ timestamp: 't', type: 'turn_context', payload: { cwd: '/p', model } });
+
+test.describe('model', () => {
+  test('turn_context carries the model as well as the folder', () => {
+    const item = extractCodexRecord(turn('gpt-6-astra'));
+    assert.equal(item.kind, 'meta');
+    assert.equal(item.model, 'gpt-6-astra');
+  });
+
+  test('each reply gets the model of its own turn, the person none', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+    fx.codex().session('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', [
+      cdx.meta('/p'),
+      turn('gpt-5.2-codex'),
+      cdx.message('user', 'q1'),
+      cdx.message('assistant', 'r1'),
+      cdx.toolCall('shell', { command: ['ls'] }),
+      turn('gpt-6-astra'),
+      cdx.message('user', 'q2'),
+      cdx.message('assistant', 'r2'),
+    ]);
+    const [d] = await collect(adapter.discover(ctx));
+    const items = messagesOf(await collect(adapter.read(d, { cursor: null })));
+    assert.deepEqual(
+      items.map((m) => [m.role, m.text || m.parts[0].type, m.model]),
+      [
+        ['user', 'q1', ''],
+        ['assistant', 'r1', 'gpt-5.2-codex'],
+        ['assistant', 'tool_use', 'gpt-5.2-codex'],
+        ['user', 'q2', ''],
+        ['assistant', 'r2', 'gpt-6-astra'],
+      ]
+    );
+  });
+
+  test('a resumed pass still knows the model of the turn in progress', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+    const id = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+    const tree = fx.codex();
+    tree.session(id, [cdx.meta('/p'), turn('gpt-6-astra'), cdx.message('assistant', 'r1')]);
+    const [first] = await collect(adapter.discover(ctx));
+    const cursor = (await collect(adapter.read(first, { cursor: null }))).at(-1).cursor;
+
+    tree.append(id, [cdx.message('assistant', 'r2')]);
+    const [second] = await collect(adapter.discover(ctx));
+    assert.equal(adapter.canResume(second, cursor), true);
+    const resumed = messagesOf(await collect(adapter.read(second, { cursor })));
+    assert.deepEqual(
+      resumed.map((m) => m.model),
+      ['gpt-6-astra']
+    );
+  });
+
+  test('a cursor carrying both a running total and a model resumes the count too', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+    const id = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+    const tree = fx.codex();
+    tree.session(id, [
+      cdx.meta('/p'),
+      turn('gpt-6-astra'),
+      cdx.message('assistant', 'r1'),
+      cdx.tokenCount(counts(100, 60, 10)),
+    ]);
+    const [first] = await collect(adapter.discover(ctx));
+    const cursor = (await collect(adapter.read(first, { cursor: null }))).at(-1).cursor;
+    assert.match(cursor, /^\d+;[\d,]+;gpt-6-astra$/);
+
+    tree.append(id, [cdx.tokenCount(counts(100, 60, 10)), cdx.message('assistant', 'r2')]);
+    const [second] = await collect(adapter.discover(ctx));
+    const chunks = await collect(adapter.read(second, { cursor }));
+    assert.equal(usagesOf(chunks).length, 0, 'the repeat is still recognised');
+    assert.deepEqual(
+      messagesOf(chunks).map((m) => m.model),
+      ['gpt-6-astra']
+    );
+  });
+});

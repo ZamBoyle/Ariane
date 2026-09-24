@@ -12,6 +12,7 @@
 import {
   renderMarkdown,
   sessionTokens,
+  modelMarks,
   renderSnippet,
   folderLabel,
   preview,
@@ -79,6 +80,8 @@ function forgetLegacyOrder() {
 
 const state = {
   agents: [],
+  /** The open conversation's models, and the replies where one takes over (modelMarks). */
+  models: { models: [], changes: new Map() },
   /** Assistants with conversations, as the sidebar filter lists them. */
   agentsInIndex: [],
   /** @type {Set<string>} Assistants the person chose not to see. */
@@ -1140,6 +1143,7 @@ async function openSession(sessionId, highlightMessageId = null, { starred = nul
   else renderTree();
   if (superseded()) return;
 
+  state.models = modelMarks(messages);
   paintHeader(session);
   el.openFolder.hidden = false;
   el.openFolder.dataset.path = session.folderPath;
@@ -1212,6 +1216,9 @@ function renderMessage(message) {
   const speaker = speakerOf(message);
   if (speaker) head.append(node('span', 'who', speaker === 'you' ? t('speaker-you') : state.currentAgentLabel));
   else wrapper.classList.add('msg-unattributed');
+  // The model, where it takes over from another (format.js, modelMarks).
+  const model = state.models.changes.get(message.id);
+  if (model) head.append(node('span', 'msg-model', model));
   if (message.ts) {
     const when = node('span', 'when', l10n.dateTime(message.ts));
     when.title = message.ts;
@@ -1280,7 +1287,10 @@ function paintHeader(session) {
 
   const theme = agentTheme(session.agentId, labelOfAgent(session.agentId));
   state.currentAgentLabel = theme.label;
-  const bits = [theme.label, session.folderPath];
+  const bits = [theme.label];
+  // Which models answered: a tool like Copilot runs Kimi, GPT or Claude alike.
+  if (state.models.models.length) bits.push(l10n.list(state.models.models));
+  bits.push(session.folderPath);
   if (session.gitBranch) bits.push(session.gitBranch);
   if (session.lastAt) bits.push(l10n.dateTime(session.lastAt));
   bits.push(t('convo-message-count', { n: session.messageCount }));
@@ -1337,6 +1347,7 @@ async function refreshOpenConversation() {
   state.starred = new Set(payload.favoriteMessages || []);
   // Saved since it was opened: the header says so, and offers to forget it.
   state.chain = payload.chain || [];
+  state.models = modelMarks(payload.messages);
   paintHeader(payload.session);
   if (payload.messages.length === state.openMessageCount) return;
 

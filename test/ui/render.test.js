@@ -105,6 +105,7 @@ const SCRIPT = `(async () => {
   const claudeChrome = {
     title: document.getElementById('convo-title').textContent,
     meta: document.getElementById('convo-meta').textContent,
+    modelLabels: transcript.querySelectorAll('.msg-model').length,
   };
 
   // Open a session belonging to ANOTHER agent and read back who it credits.
@@ -121,6 +122,7 @@ const SCRIPT = `(async () => {
           speaker: who.textContent,
           meta: document.getElementById('convo-meta').textContent,
           title: document.getElementById('convo-title').textContent,
+          modelLabels: [...transcript.querySelectorAll('.msg-model')].map((m) => m.textContent),
         };
         break;
       }
@@ -977,6 +979,7 @@ const SCRIPT = `(async () => {
     toolRuns,
     title: claudeChrome.title,
     meta: claudeChrome.meta,
+    claudeModelLabels: claudeChrome.modelLabels,
     stats: document.getElementById('stats').textContent,
     searchVisible,
     searchMarks,
@@ -1005,7 +1008,7 @@ const SCREENS_SCRIPT = `(async () => {
   const DATA = [
     '.msg-body', '.folder-name', '.folder-parent', '.session-title', '.result-snippet',
     '.result-title strong', '.results-group', '#convo-title', '.agent-chip', '.agent-dot',
-    '.fold pre', '.fold-tag', 'code', 'pre', '.outline-tick', 'title',
+    '.fold pre', '.fold-tag', 'code', 'pre', '.outline-tick', 'title', '.msg-model',
   ].join(', ');
   // Names, not sentences: the app's, the assistants', the languages' own.
   const NAMES = new Set(['Ariane', 'Claude Code', 'Codex', 'Copilot CLI', 'Qwen Code', 'Gemini CLI',
@@ -1342,6 +1345,16 @@ async function run() {
   // -- chrome --------------------------------------------------------------
   check('the conversation header names the session', r.title === 'Session de test', r.title);
   check('the header shows the real folder path', r.meta.includes('/home/zam/projet'), r.meta);
+
+  // -- quel modèle a répondu ---------------------------------------------
+  check('l’en-tête nomme le modèle qui a répondu', r.meta.includes('claude-opus-5'), r.meta);
+  check('un seul modèle du début à la fin : aucune réponse n’a d’étiquette', r.claudeModelLabels === 0,
+    `${r.claudeModelLabels} étiquette(s)`);
+  check('deux modèles : l’en-tête les nomme tous deux, dans l’ordre où ils ont répondu',
+    r.otherAgent.meta && r.otherAgent.meta.includes('gpt-5.2-codex et gpt-6-astra'), r.otherAgent.meta);
+  check('et chaque réponse où un modèle prend la main porte son nom',
+    JSON.stringify([...(r.otherAgent.modelLabels || [])].sort()) === JSON.stringify(['gpt-5.2-codex', 'gpt-6-astra']),
+    JSON.stringify(r.otherAgent.modelLabels));
   check('the footer reports the index size', r.stats.includes('conversation'), r.stats);
 
   // -- search --------------------------------------------------------------

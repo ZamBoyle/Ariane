@@ -450,6 +450,51 @@ test.describe('links', () => {
   });
 });
 
+test.describe('which model answered', () => {
+  const reply = (id, model, text = 'réponse') => ({ id, role: 'assistant', model, text });
+
+  test('a model is shown by its own name, not its route', () => {
+    assert.equal(F.modelName('copilot/claude-sonnet-4.5'), 'claude-sonnet-4.5');
+    assert.equal(F.modelName('openai/OpenAI/gpt-5.6-sol'), 'gpt-5.6-sol');
+    assert.equal(F.modelName('kimi-k3'), 'kimi-k3');
+  });
+
+  test('a placeholder is not a model', () => {
+    assert.equal(F.modelName('<synthetic>'), '');
+    assert.equal(F.modelName(''), '');
+    assert.equal(F.modelName(null), '');
+  });
+
+  test('one model all along: named once, and no reply is marked', () => {
+    const marks = F.modelMarks([reply(1, 'kimi-k3'), { id: 2, role: 'user', text: 'q' }, reply(3, 'kimi-k3')]);
+    assert.deepEqual(marks.models, ['kimi-k3']);
+    assert.equal(marks.changes.size, 0);
+  });
+
+  test('several: in the order they first answered, marked where each takes over', () => {
+    const marks = F.modelMarks([reply(1, 'kimi-k3'), reply(2, 'kimi-k3'), reply(3, 'gpt-5.4'), reply(4, 'kimi-k3')]);
+    assert.deepEqual(marks.models, ['kimi-k3', 'gpt-5.4']);
+    assert.deepEqual([...marks.changes], [[1, 'kimi-k3'], [3, 'gpt-5.4'], [4, 'kimi-k3']]);
+  });
+
+  test('a tool call alone, a reply with no model, and a placeholder are passed over', () => {
+    const marks = F.modelMarks([
+      reply(1, 'gpt-5.2-codex'),
+      reply(2, 'gpt-6-astra', ''), // a tool call: no prose
+      reply(3, '', 'sans modèle'),
+      reply(4, '<synthetic>'),
+      reply(5, 'gpt-5.2-codex'),
+    ]);
+    assert.deepEqual(marks.models, ['gpt-5.2-codex']);
+    assert.equal(marks.changes.size, 0, 'the same model on both sides of what was skipped');
+  });
+
+  test('nothing, or garbage, marks nothing', () => {
+    assert.deepEqual(F.modelMarks(null).models, []);
+    assert.deepEqual(F.modelMarks([null, 42]).models, []);
+  });
+});
+
 test.describe('what a conversation cost', () => {
   test('three figures, each meaning one thing', () => {
     // The medians of a real corpus: fresh input is almost nothing, the new
