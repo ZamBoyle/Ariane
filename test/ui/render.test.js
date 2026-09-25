@@ -123,6 +123,12 @@ const SCRIPT = `(async () => {
     byRow: [...document.querySelectorAll('#convo-meta .meta-row')]
       .map((row) => [...row.querySelectorAll('.meta-group')].map((g) => g.className.replace('meta-group ', ''))),
     costRow: (document.querySelector('#convo-meta .meta-cost-row') || {}).textContent || null,
+    when: (document.querySelector('#convo-meta .meta-when') || {}).textContent || null,
+    whenTitle: (document.querySelector('#convo-meta .meta-when') || {}).title || null,
+    lasted: (document.querySelector('#convo-meta .meta-duration') || {}).textContent || null,
+    lastedTitle: (document.querySelector('#convo-meta .meta-duration') || {}).title || null,
+    whenIcons: [...document.querySelectorAll('#convo-meta .meta-when svg, #convo-meta .meta-duration svg')]
+      .map((svg) => svg.dataset.icon),
     // Icons alone since choice C: each shown action still has a name, spoken and on hover.
     unnamed: [...document.querySelectorAll('.convo-actions button')].filter((b) => b.checkVisibility())
       .filter((b) => !(b.getAttribute('aria-label') || '').trim() || !(b.title || '').trim()).map((b) => b.id),
@@ -375,6 +381,8 @@ const SCRIPT = `(async () => {
   const onSaved = {
     badge: (savedButton().querySelector('.badge-saved') || {}).textContent || '',
     meta: document.getElementById('convo-meta').textContent,
+    groups: [...document.querySelectorAll('#convo-meta .meta-group')].map((g) => g.className.replace('meta-group ', '')),
+    whenTitle: (document.querySelector('#convo-meta .meta-when') || {}).title || null,
     forgetHidden: forget.hidden,
   };
 
@@ -1686,9 +1694,22 @@ async function run() {
   check('the header names the folder, its whole path on hover',
     r.claudeChrome.folder === 'projet' && r.claudeChrome.folderTitle === '/home/zam/projet', JSON.stringify(r.claudeChrome));
   check('l’en-tête range ses faits par question, deux par ligne — qui et où, quand et combien — et le coût à part',
-    JSON.stringify(r.claudeChrome.groups) === '["meta-who","meta-where","meta-when","meta-size"]' && r.claudeChrome.rows === 3
-      && JSON.stringify(r.claudeChrome.byRow) === '[["meta-who","meta-where"],["meta-when","meta-size"],[]]',
+    JSON.stringify(r.claudeChrome.groups) === '["meta-who","meta-where","meta-when","meta-duration","meta-size"]'
+      && r.claudeChrome.rows === 3
+      && JSON.stringify(r.claudeChrome.byRow) === '[["meta-who","meta-where"],["meta-when","meta-duration","meta-size"],[]]',
     JSON.stringify(r.claudeChrome));
+  // 23:00 → 23:06 UTC : quel que soit le fuseau de la machine, le même jour, six minutes.
+  check('l’en-tête dit quand la conversation a commencé et fini, comme un agenda : la date une fois, deux heures',
+    /\d{4},\s\d{2}:\d{2}\s–\s\d{2}:\d{2}$/.test(r.claudeChrome.when || ''), JSON.stringify(r.claudeChrome.when));
+  check('chaque bout en entier au survol : le premier message, le dernier',
+    /^Premier message : \S+ \d+ septembre 2026 à \d{2}:\d{2}:00\nDernier message : \S+ \d+ septembre 2026 à \d{2}:\d{2}:00$/
+      .test(r.claudeChrome.whenTitle || ''), JSON.stringify(r.claudeChrome.whenTitle));
+  check('puis combien de temps, et ce que ce temps mesure',
+    (r.claudeChrome.lasted || '').replace(/\s/g, ' ') === '6 min'
+      && r.claudeChrome.lastedTitle === 'Temps écoulé du premier message au dernier',
+    JSON.stringify([r.claudeChrome.lasted, r.claudeChrome.lastedTitle]));
+  check('un calendrier pour les dates, un chronomètre pour la durée — l’horloge reste à « il y a » de la barre latérale',
+    JSON.stringify(r.claudeChrome.whenIcons) === '["calendar","stopwatch"]', JSON.stringify(r.claudeChrome.whenIcons));
   check('chaque action de l’en-tête, en icône seule, a un nom : dit à un lecteur d’écran, et au survol',
     Array.isArray(r.claudeChrome.unnamed) && r.claudeChrome.unnamed.length === 0, JSON.stringify(r.claudeChrome.unnamed));
   check('la branche est une étiquette, nommée au survol',
@@ -2201,6 +2222,10 @@ async function run() {
   // -- a saved conversation, and forgetting it -----------------------------
   const f = r.forgetCheck;
   check('a saved conversation says so in the list', f.onSaved.badge === 'sauvée', f.onSaved.badge);
+  check('une conversation d’un seul instant a une date, et pas de durée',
+    JSON.stringify(f.onSaved.groups) === '["meta-who","meta-where","meta-when","meta-size"]'
+      && /^\S+ \d+ septembre 2026 à \d{2}:\d{2}:00$/.test(f.onSaved.whenTitle || ''),
+    JSON.stringify([f.onSaved.groups, f.onSaved.whenTitle]));
   check('and in its header, which alone offers to forget it',
     f.onSaved.meta.includes('sauvée par Ariane') && f.onSaved.forgetHidden === false
       && f.onLive.forgetHidden === true,

@@ -160,6 +160,12 @@ convo-tokens-cached = ↑ { $sent } sent · ↓ { $received } received · { $cac
         Read back from the cache: { $cachedExact } tokens, the context resent at every turn
 convo-branch =
     .title = Git branch
+convo-span =
+    .title =
+        First message: { $start }
+        Last message: { $end }
+convo-duration =
+    .title = Time from the first message to the last
 convo-message-count = { $n ->
         [one] { $n } message
        *[other] { $n } messages

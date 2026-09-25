@@ -45,10 +45,14 @@ const PATHS = {
   star: ['m12 3.5 2.6 5.3 5.9.9-4.25 4.15 1 5.85L12 16.9l-5.25 2.8 1-5.85L3.5 9.7l5.9-.9z'],
   note: ['M4 5h16', 'M4 10h16', 'M4 15h10', 'M4 20h6'],
   chart: ['M4 20h16', 'M7 16v-4', 'M12 16V6', 'M17 16v-7'],
-  // The conversation header's facts: where it happened, on which branch, when,
-  // and how long it ran.
+  // The conversation header's facts: where it happened, on which branch, on
+  // which dates (a calendar), how long it ran (a stopwatch: its button on top
+  // tells it from the clock), how many messages. The sidebar's clock says how
+  // long ago.
   folder: ['M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'],
   branch: ['M7 4v11', 'M7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z', 'M17 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4z', 'M17 9c0 4-4 5-10 6'],
+  calendar: ['M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z', 'M8 3v4', 'M16 3v4', 'M3 10h18'],
+  stopwatch: ['M12 22a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15z', 'M10 2.5h4', 'M12 2.5V7', 'M12 14.5l3-3'],
   clock: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M12 7v5l3 2'],
   bubble: ['M4 5h16v11H9l-5 4z'],
   settings: [

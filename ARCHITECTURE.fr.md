@@ -490,14 +490,28 @@ de la reprise en terminal, appliquée dans `session:get` —, sélectionnable, s
 **Sous le titre, les faits sont groupés par la question qu'ils règlent** (`headerFacts` dans
 `app.js`, choisi sur captures le 25 septembre 2026 — l'option A, après que C, en icônes seules, eut
 mis trop de choses sur une ligne) : qui et où sur une ligne (la marque de l'assistant, son nom, les
-modèles ; le dossier par son nom, le chemin entier au survol, la branche git en étiquette), quand
-et combien de messages sur la suivante — chaque groupe annoncé par une icône, jamais une chaîne de
+modèles ; le dossier par son nom, le chemin entier au survol, la branche git en étiquette), quand,
+combien de temps et combien de messages sur la suivante — chaque groupe annoncé par une icône, jamais une chaîne de
 points —, et sur une ligne à elle ce qu'a coûté la conversation, ses chiffres nommés
 (`headerCost`, les sous-agents à part ; `session:get` ajoute `Index.sessionTokens`, la définition
 de la barre latérale). Un groupe passe entier à la ligne, et celui qui reste trop large seul sur la
 sienne finit par « … ». Les actions gardent leurs libellés, icônes seules quand c'est étroit ;
 « Oublier » montre sa question pendant qu'il attend le second clic. La suite de mise en page mesure
 le passage à la ligne, celle de rendu les lignes et que chaque action affichée a un nom.
+
+**Quand, c'est une plage, comme un agenda écrit un rendez-vous** : le premier et le dernier des
+messages PROPRES à la conversation (`Index.sessionSpan`, versé dans `session` par `session:get`),
+passés au `formatRange` d'Intl (`l10n.span`) — « 23 sept. 2026, 16:19 – 18:29 », la date dite une
+fois sur une même journée, les deux sinon —, derrière un calendrier ; chaque instant en entier au
+survol ; puis combien de temps (`l10n.duration`, deux unités au plus) derrière un chronomètre, que
+son bouton distingue de l'horloge de la barre latérale. Une conversation d'un seul instant a sa date
+et pas de durée. Pas le `first_at` de la session : il compte les copies, et une reprise commence par
+l'historique qu'elle a recopié, dates comprises — mesuré, une conversation sur 356 aurait commencé
+41 minutes trop tôt. **Les faits passent aussi sous les boutons**, sur toute la largeur de
+l'en-tête : dans la colonne du titre, une conversation de plusieurs jours prenait cinq lignes à côté
+d'un vide. `.convo-titles` est en `display: contents` et les faits en `order: 1` : le DOM lit
+toujours le titre, les faits, puis les boutons ; la suite de mise en page échoue s'ils retournent
+dans la colonne.
 
 **Rien ne compte le message de la personne seul.** Les fichiers comptent par appel au modèle,
 jamais par message : mesuré sur 627 prompts, le `↑` de l'appel qui suit l'un d'eux ne suit pas sa

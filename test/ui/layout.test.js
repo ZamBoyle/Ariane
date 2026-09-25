@@ -191,7 +191,7 @@ async function run() {
       overflow: head.scrollWidth > head.clientWidth + 1,
       labelsShown: labels.filter((l) => getComputedStyle(l).display !== 'none').length,
       labels: labels.length,
-      title: Math.round(document.querySelector('.convo-titles').getBoundingClientRect().width),
+      title: Math.round(document.getElementById('convo-title').getBoundingClientRect().width),
       window: innerWidth,
       head: Math.round(head.getBoundingClientRect().width),
       idWhole: convoId.scrollWidth <= convoId.clientWidth + 1,
@@ -232,6 +232,15 @@ async function run() {
       othersWhole: others.every((g) => g.scrollWidth <= g.clientWidth + 1),
       wrapped: new Set(groups.map((g) => Math.round(box(g).top))).size > 1,
       costWhole: cost.scrollWidth <= cost.clientWidth + 1,
+      // Toute la largeur de l'en-tête, sous les boutons aussi : serrés dans la
+      // colonne du titre, les faits d'une conversation de plusieurs jours
+      // prenaient cinq lignes à côté d'un vide.
+      across: (() => {
+        const head = document.getElementById('convo-head');
+        const style = getComputedStyle(head);
+        const inner = head.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        return Math.abs(box(meta).width - inner) < 2 && box(meta).top >= box(document.querySelector('.convo-actions')).bottom;
+      })(),
     };
   })()`;
   // The search bar with both lists at their widest real labels.
@@ -380,6 +389,8 @@ async function run() {
   check('the facts under the title wrap by whole groups and never run out of the header',
     narrowMeta.inside && narrowMeta.othersWhole && narrowMeta.wrapped && narrowMeta.costWhole,
     JSON.stringify(narrowMeta));
+  check('les faits prennent toute la largeur de l’en-tête, sous le titre et sous les boutons',
+    narrowMeta.across, JSON.stringify(narrowMeta));
 
   check('a narrow header keeps its actions on one line, icons alone',
     !narrow.overflow && narrow.labels > 0 && narrow.labelsShown === 0 && narrow.title > 100,

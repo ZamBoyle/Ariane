@@ -636,6 +636,10 @@ class Index {
                SUM(tok_cache_read) AS tokCacheRead, SUM(tok_cache_write) AS tokCacheWrite
         FROM messages WHERE session_id = ? AND is_copy = 0
       `),
+      ownSpan: db.prepare(`
+        SELECT MIN(NULLIF(ts, '')) AS startedAt, MAX(NULLIF(ts, '')) AS endedAt
+        FROM messages WHERE session_id = ? AND is_copy = 0
+      `),
       subagentSums: db.prepare(`
         SELECT COUNT(DISTINCT sp.id) AS subagents,
                SUM(m.tok_input) AS subInput, SUM(m.tok_output) AS subOutput,
@@ -1088,6 +1092,16 @@ class Index {
    */
   sessionTokens(sessionId) {
     return { ...this.s.tokenSums.get(sessionId), ...this.s.subagentSums.get(sessionId) };
+  }
+
+  /**
+   * When its own first and last messages were written — the header's span. Not
+   * the session's first_at, which counts copies: a resume begins with the
+   * history it copied, dates included, and its own start would read as the
+   * original's (measured: 922 copies, 41 minutes too early).
+   */
+  sessionSpan(sessionId) {
+    return this.s.ownSpan.get(sessionId);
   }
 
   messages(sessionId) {

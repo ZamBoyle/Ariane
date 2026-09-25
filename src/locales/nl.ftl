@@ -139,6 +139,12 @@ convo-tokens-cached = ↑ { $sent } verzonden · ↓ { $received } ontvangen · 
         Uit de cache herlezen: { $cachedExact } tokens, de context die elke beurt opnieuw wordt verzonden
 convo-branch =
     .title = Git-branch
+convo-span =
+    .title =
+        Eerste bericht: { $start }
+        Laatste bericht: { $end }
+convo-duration =
+    .title = Tijd van het eerste tot het laatste bericht
 convo-message-count = { $n ->
         [one] { $n } bericht
        *[other] { $n } berichten

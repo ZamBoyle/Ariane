@@ -189,6 +189,40 @@ test.describe('the words, in French and in English', () => {
     assert.equal(en.month('not a month'), '');
   });
 
+  // Heures locales, sans fuseau : le test dit la même chose à Bruxelles et sur la CI.
+  test('une plage comme l’écrit un agenda, et combien de temps elle a duré', async () => {
+    const fr = await localizer('fr');
+    const en = await localizer('en');
+    const spaced = (text) => text.replace(/\s/g, ' ');
+    assert.equal(
+      spaced(fr.span('2026-09-25T09:12:04', '2026-09-25T11:47:30')),
+      '25 sept. 2026, 09:12 – 11:47',
+      'le même jour : la date une seule fois'
+    );
+    assert.equal(spaced(en.span('2026-09-25T09:12:04', '2026-09-25T11:47:30')), 'Sep 25, 2026, 9:12 – 11:47 AM');
+    assert.equal(
+      spaced(fr.span('2026-09-23T09:12:04', '2026-09-25T11:47:30')),
+      '23 sept. 2026, 09:12 – 25 sept. 2026, 11:47',
+      'sur plusieurs jours : les deux dates'
+    );
+    const instant = '2026-09-25T09:12:04';
+    assert.equal(fr.span(instant, instant), fr.dateTime(instant), 'un seul instant, une seule date');
+    assert.equal(fr.span(null, instant), fr.dateTime(instant), 'un bout manquant : l’autre seul');
+    assert.equal(fr.span(null, 'pas une date'), '');
+
+    assert.equal(fr.fullDateTime(instant), 'vendredi 25 septembre 2026 à 09:12:04');
+    assert.equal(fr.fullDateTime(null), '');
+
+    assert.equal(spaced(fr.duration((2 * 60 + 35) * 60000)), '2 h et 35 min');
+    assert.equal(spaced(en.duration((50 * 60 + 5) * 60000)), '2 days, 2 hr', 'deux unités, les plus grandes');
+    assert.equal(spaced(fr.duration(3600000)), '1 h', 'une unité nulle ne se dit pas');
+    assert.equal(spaced(fr.duration(3.76 * 60000)), '4 min', 'sous l’heure, les minutes seules');
+    assert.equal(spaced(fr.duration(40000)), '40 s');
+    assert.equal(spaced(en.duration(59700)), '1 min', 'jamais « 60 s »');
+    assert.equal(en.duration(null), '', 'rien n’est pas une durée');
+    assert.equal(en.duration(-5), '');
+  });
+
   test('a value that rounds up takes the next prefix', async () => {
     const en = await localizer('en');
     assert.equal(en.compact(999.6), '1K', 'never "1000"');

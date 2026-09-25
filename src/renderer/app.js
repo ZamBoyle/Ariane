@@ -1150,8 +1150,27 @@ function headerFacts(session, theme) {
   const context = node('span', 'meta-row');
   context.append(who, ' ', where);
 
+  // When: its first and last messages as one span, the way a calendar writes
+  // an event, each moment in full on hover; then how long that was — never
+  // for a conversation that is a single instant.
   const measure = node('span', 'meta-row');
-  if (session.lastAt) measure.append(group('meta-when', 'clock', l10n.dateTime(session.lastAt)), ' ');
+  const { startedAt, endedAt } = session;
+  if (startedAt || endedAt) {
+    const when = group('meta-when', 'calendar', text('meta-span', l10n.span(startedAt, endedAt)));
+    const elapsed = Date.parse(endedAt) - Date.parse(startedAt);
+    if (elapsed > 0) {
+      when.title = l10n.message('convo-span', {
+        start: l10n.fullDateTime(startedAt),
+        end: l10n.fullDateTime(endedAt),
+      }).attributes.title;
+      const lasted = group('meta-duration', 'stopwatch', text('meta-lasted', l10n.duration(elapsed)));
+      lasted.title = l10n.message('convo-duration').attributes.title;
+      measure.append(when, ' ', lasted, ' ');
+    } else {
+      when.title = l10n.fullDateTime(startedAt || endedAt);
+      measure.append(when, ' ');
+    }
+  }
   const count = t('convo-message-count', { n: session.messageCount });
   measure.append(group('meta-size', 'bubble', count));
   if (session.source === 'history') measure.append(' ', text('meta-badge', t('convo-purged')));

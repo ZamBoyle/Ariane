@@ -49,6 +49,12 @@ const marked = (session) => ({
 });
 
 /**
+ * Comme db.sessionSpan dans session:get : quand ses propres messages ont
+ * commencé et fini. Ici, rien n'est recopié : ce sont les dates de la session.
+ */
+const spanOf = (session) => ({ startedAt: session.firstAt, endedAt: session.lastAt });
+
+/**
  * The two Codex sessions stand for one conversation a compaction cut in two:
  * the app must say so rather than show two strangers.
  */
@@ -542,7 +548,7 @@ contextBridge.exposeInMainWorld('api', {
           usage: { input: 5, output: 60, cacheRead: 900, cacheWrite: 0, reasoning: null } },
       ];
       return {
-        session: marked({ ...SUBAGENT, folderPath: '/home/zam/projet', folderId: 1 }),
+        session: marked({ ...SUBAGENT, ...spanOf(SUBAGENT), folderPath: '/home/zam/projet', folderId: 1 }),
         chain: [],
         copied: null,
         parent: { id: 'codex:c1', title: 'Session Codex A', firstPrompt: '' },
@@ -555,7 +561,7 @@ contextBridge.exposeInMainWorld('api', {
     if (id === BIG_ID) {
       return {
         usageByReply: true,
-        session: marked({ ...BIG_SESSIONS[0], folderPath: '/home/zam/grosse', folderId: 3 }),
+        session: marked({ ...BIG_SESSIONS[0], ...spanOf(BIG_SESSIONS[0]), folderPath: '/home/zam/grosse', folderId: 3 }),
         messages: BIG.slice(),
         favoriteMessages: resolveStarred(id, BIG),
       };
@@ -583,7 +589,7 @@ contextBridge.exposeInMainWorld('api', {
         usage: { input: 700, output: 90, cacheRead: 2000, cacheWrite: null, reasoning: null } },
     ];
     return {
-      session: marked({ ...found, folderPath: '/home/zam/projet', folderId: 1 }),
+      session: marked({ ...found, ...spanOf(found), folderPath: '/home/zam/projet', folderId: 1 }),
       chain: chainOf(id),
       // La partie B a commencé par recopier douze messages de la partie A :
       // l'en-tête doit le dire, et y mener.

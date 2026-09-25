@@ -594,9 +594,18 @@ button.stats:focus-visible {
   border-bottom: 1px solid var(--border-soft);
 }
 
+/* Le titre et ses boutons sur une ligne, puis les faits en dessous, sur toute
+   la largeur : serrés dans la colonne du titre, une conversation de plusieurs
+   jours prenait cinq lignes à côté d'un vide sous les boutons. La colonne
+   s'efface (display: contents) sans quitter le DOM : un lecteur d'écran lit
+   toujours le titre, puis ses faits, puis les boutons. */
 .convo-titles {
-  flex: 1;
-  min-width: 0;
+  display: contents;
+}
+
+.convo-meta,
+.convo-actions ~ * {
+  order: 1;
 }
 
 /* L'identifiant de la conversation, tout en haut : une ligne à lui sur toute
@@ -617,6 +626,9 @@ button.stats:focus-visible {
 }
 
 .convo-title {
+  flex: 1;
+  min-width: 0;
+  align-self: center;
   margin: 0;
   font-size: 15px;
   font-weight: 600;
@@ -628,8 +640,10 @@ button.stats:focus-visible {
 .convo-meta {
   display: flex;
   flex-direction: column;
+  flex-basis: 100%;
+  min-width: 0;
   gap: 3px;
-  margin: 4px 0 0;
+  margin: -6px 0 0;
   font-size: 12px;
   color: var(--text-soft);
 }

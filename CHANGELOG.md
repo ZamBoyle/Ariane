@@ -39,6 +39,37 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### Quand une conversation a commencé, et quand elle a fini
+
+**Demandé** : dans l'en-tête, la date et l'heure du début et de la fin, « attention de bien trouver
+les bonnes icônes ou la bonne présentation ». L'en-tête ne donnait que la date du dernier message.
+
+**La présentation d'un agenda** : un rendez-vous s'écrit « 23 sept. 2026, 16:19 – 18:29 », la date
+une fois quand tout tient dans la journée, les deux dates sinon — « 21 sept. 2026, 08:11 – 25 sept.
+2026, 22:19 ». C'est `formatRange` d'Intl qui l'écrit, donc chaque langue a sa forme (« 2026/9/25
+9時12分～11時47分 »). Derrière un **calendrier** ; au survol, chaque bout en entier (« Premier
+message : mercredi 23 septembre 2026 à 16:19:24 »). Puis **combien de temps**, derrière un
+**chronomètre** — son bouton le distingue de l'horloge qui dit « il y a » dans la barre latérale :
+« 2 h et 10 min », « 4 j et 14 h », deux unités au plus. Une conversation d'un seul instant a sa
+date, et pas de durée.
+
+**Mesuré sur le corpus** : 356 conversations, dont 113 d'un seul instant, 215 dans une même journée
+et 28 sur plusieurs jours (jusqu'à 142). **Le piège** : la date de début de la session compte les
+copies, et une reprise recopie l'historique qu'elle reprend avec ses heures d'origine. Une
+conversation sur 356 — celle qui recopie 922 messages — aurait commencé 41 minutes trop tôt. Le
+début et la fin sont donc ceux de ses propres messages.
+
+**Et les faits passent sous les boutons.** Dans la colonne du titre, la plage d'une conversation de
+plusieurs jours repoussait tout : cinq lignes à côté d'un grand vide sous les boutons. Ils prennent
+maintenant toute la largeur de l'en-tête, et l'option A retrouve ses trois lignes. L'ordre de
+lecture ne change pas pour un lecteur d'écran : le titre, les faits, puis les boutons.
+
+**Vérifié** : l'index (le début d'une reprise est son premier message à elle), le formatage en
+français et en anglais, l'en-tête rendu (la plage, les deux bouts au survol, la durée, les deux
+icônes, et pas de durée pour un seul instant), et la mise en page (les faits sur toute la largeur,
+sous les boutons). Chacun de ces tests a échoué sur le code volontairement cassé : sans le filtre
+des copies, avec une durée pour un seul instant, avec l'ancienne colonne.
+
 ### La barre latérale, dans le même esprit
 
 **Demandé** : le même soin que pour l'en-tête. Sous le nom de chaque conversation, deux lignes

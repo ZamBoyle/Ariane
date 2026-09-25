@@ -136,6 +136,14 @@ export function createLocalizer({ language, sources, pseudo = false, onProblem =
     hour: '2-digit',
     minute: '2-digit',
   });
+  const fullDateTimes = new Intl.DateTimeFormat(language, { dateStyle: 'full', timeStyle: 'medium' });
+  const units = Object.fromEntries(
+    ['day', 'hour', 'minute', 'second'].map((unit) => [
+      unit,
+      new Intl.NumberFormat(language, { style: 'unit', unit, unitDisplay: 'short' }),
+    ])
+  );
+  const unitLists = new Intl.ListFormat(language, { style: 'short', type: 'unit' });
   const relative = new Intl.RelativeTimeFormat(language, { numeric: 'always' });
   const numbers = new Intl.NumberFormat(language);
   const tenths = new Intl.NumberFormat(language, { maximumFractionDigits: 1 });
@@ -195,6 +203,50 @@ export function createLocalizer({ language, sources, pseudo = false, onProblem =
     dateTime(iso) {
       const value = toDate(iso);
       return value ? wrap(dateTimes.format(value)) : '';
+    },
+
+    /**
+     * "25 sept. 2026, 09:12 – 11:47": two moments as one, what they share said
+     * once — the way a calendar writes an event, in each language's own form
+     * ("2026/9/25 9時12分～11時47分"). One moment when both are the same.
+     */
+    span(startIso, endIso) {
+      const start = toDate(startIso);
+      const end = toDate(endIso);
+      if (!start || !end) return start || end ? wrap(dateTimes.format(start || end)) : '';
+      if (end <= start) return wrap(dateTimes.format(start));
+      return wrap(dateTimes.formatRange(start, end));
+    },
+
+    /** "vendredi 25 septembre 2026 à 09:12:04": a moment in full, for a tooltip. */
+    fullDateTime(iso) {
+      const value = toDate(iso);
+      return value ? wrap(fullDateTimes.format(value)) : '';
+    },
+
+    /**
+     * "2 h et 35 min", "2 days, 2 hr", "40 s": how long, in its two largest
+     * units — minutes alone under an hour, seconds alone under a minute.
+     * Empty for anything that is not a length of time.
+     */
+    duration(ms) {
+      if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) return '';
+      if (ms < 59500) return wrap(units.second.format(Math.round(ms / 1000)));
+      const minutes = Math.round(ms / 60000);
+      const parts =
+        minutes < 60
+          ? [['minute', minutes]]
+          : minutes < 1440
+            ? [
+                ['hour', Math.floor(minutes / 60)],
+                ['minute', minutes % 60],
+              ]
+            : [
+                ['day', Math.floor(minutes / 1440)],
+                ['hour', Math.floor((minutes % 1440) / 60)],
+              ];
+      const said = parts.filter(([, n]) => n > 0).map(([unit, n]) => units[unit].format(n));
+      return wrap(unitLists.format(said));
     },
 
     /** "3 days ago", "il y a 3 jours": within a month, then the date itself. */

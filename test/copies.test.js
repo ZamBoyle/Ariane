@@ -267,6 +267,54 @@ test('le premier prompt d’une reprise est le sien, pas celui qu’elle a recop
   assert.equal(index.session('claude:B').firstPrompt, 'la question de la reprise');
 });
 
+test('une reprise commence à son premier message, pas à celui qu’elle a recopié', (t) => {
+  const index = new Index(':memory:');
+  t.after(() => index.close());
+  index.upsertAgent('claude', 'Claude Code', '/root');
+  const folder = index.folderId('/home/ada/projets/tardis');
+  const add = (id, messages) => {
+    index.upsertSession({ id, agent_id: 'claude', folder_id: folder });
+    index.addMessages(
+      id,
+      messages.map(([uuid, timestamp]) => ({
+        role: 'user',
+        uuid,
+        text: uuid,
+        parts: [],
+        timestamp,
+      }))
+    );
+    index.finalizeSession(id);
+  };
+  add('claude:A', [['q1', '2026-09-19T18:57:59.502Z']]);
+  // La reprise recopie q1 avec son heure, puis écrit les siens 41 minutes plus tard.
+  add('claude:B', [
+    ['q1', '2026-09-19T18:57:59.502Z'],
+    ['q2', '2026-09-19T19:39:48.767Z'],
+    ['q3', '2026-09-19T20:05:00.000Z'],
+  ]);
+  index.addMessages('claude:B', [
+    { role: 'assistant', uuid: 'sans-heure', text: 'x', parts: [], timestamp: '' },
+  ]);
+  index.markCopies();
+
+  assert.equal(
+    index.session('claude:B').firstAt,
+    '2026-09-19T18:57:59.502Z',
+    'la session, elle, compte ses copies'
+  );
+  assert.deepEqual(
+    index.sessionSpan('claude:B'),
+    { startedAt: '2026-09-19T19:39:48.767Z', endedAt: '2026-09-19T20:05:00.000Z' },
+    'l’en-tête dit quand ses propres messages ont été écrits'
+  );
+  assert.deepEqual(
+    index.sessionSpan('claude:A'),
+    { startedAt: '2026-09-19T18:57:59.502Z', endedAt: '2026-09-19T18:57:59.502Z' },
+    'un seul message : un seul instant'
+  );
+});
+
 test('la chaîne d’une conversation compactée ne passe jamais par une copie', (t) => {
   const index = twoSessions(t, 'claude');
   // A a été compactée sur place : sa frontière nomme un de SES messages, que B a recopié.

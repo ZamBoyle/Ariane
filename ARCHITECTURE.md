@@ -463,13 +463,25 @@ resume uses, applied in `session:get` — selectable, its meaning on hover.
 **Under the title, the facts are grouped by the question they answer** (`headerFacts` in
 `app.js`, chosen on screenshots on 25 September 2026 — option A, after C, icons alone, put too
 much on one line): who and where on a line (the assistant's mark, its name, the models; the folder
-by its name, the whole path on hover, the git branch as a tag), when and how many messages on the
-next — each group led by an icon, never a string of dots — and on a line of its own what the
+by its name, the whole path on hover, the git branch as a tag), when, how long and how many
+messages on the next — each group led by an icon, never a string of dots — and on a line of its own what the
 conversation cost, its figures named (`headerCost`, subagents apart; `session:get` adds
 `Index.sessionTokens`, the sidebar's definition). A group wraps whole, and one still too wide on a
 line of its own ends in "…". The actions keep their labels, icons alone when narrow; « Oublier »
 shows its question while it waits for the second click. The layout suite measures the wrapping,
 the render suite the rows and that every shown action has a name.
+
+**When is a span, as a calendar writes an event**: the first and the last of the conversation's
+OWN messages (`Index.sessionSpan`, spread into `session` by `session:get`), through Intl's
+`formatRange` (`l10n.span`) — « 23 sept. 2026, 16:19 – 18:29 », the date said once on a single
+day, both dates otherwise — behind a calendar; each moment in full on hover; then how long it ran
+(`l10n.duration`, two units at most) behind a stopwatch, whose button tells it from the sidebar's
+clock. A conversation that is a single instant gets its date and no duration. Not the session's
+`first_at`: it counts copies, and a resume begins with the history it copied, dates included —
+measured, one conversation of 356 would have started 41 minutes early. **The facts run under the
+buttons too**, across the header: in the title's column, a conversation of several days took five
+lines beside an empty space. `.convo-titles` is `display: contents` and the facts `order: 1`, so
+the DOM still reads title, facts, buttons; the layout suite fails if they return to the column.
 
 **Nothing counts the person's own message.** The files count per call to the model, never per
 message: measured on 627 prompts, the `↑` of the call that follows one does not follow its length

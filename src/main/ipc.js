@@ -270,8 +270,14 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
     const chain = state.index.chain(id);
     return {
       // What it cost, as the sidebar sums it: the header shows the same line.
-      // And its id as its assistant knows it — the one to resume it by.
-      session: { ...withMark(session), ...state.index.sessionTokens(id), localId: bareId(id) },
+      // When its own messages began and ended. And its id as its assistant
+      // knows it — the one to resume it by.
+      session: {
+        ...withMark(session),
+        ...state.index.sessionTokens(id),
+        ...state.index.sessionSpan(id),
+        localId: bareId(id),
+      },
       chain: chain.length > 1 ? chain.map(({ id: part, title }) => ({ id: part, title })) : [],
       // A resumed or forked session began by copying another's history: how
       // much, and from where, so the reader can be sent there (core/db.js).
