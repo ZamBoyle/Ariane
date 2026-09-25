@@ -131,7 +131,7 @@ convo-message-count = { $n ->
        *[other] { $n } berichten
     }
 convo-part = Deel { $n } van { $total }
-    .title = Deze conversatie is gecomprimeerd: ze gaat verder in een ander transcript
+    .title = Deze conversatie gaat verder in een ander transcript: gecomprimeerd, hervat of gedupliceerd
 convo-part-previous =
     .title = Vorig deel
     .aria-label = Ga naar het vorige deel

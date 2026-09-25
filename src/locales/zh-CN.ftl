@@ -117,7 +117,7 @@ convo-message-count = { $n ->
        *[other] { $n } 条消息
     }
 convo-part = 第 { $n } 部分，共 { $total } 部分
-    .title = 此对话已压缩：后续内容在另一份对话记录中
+    .title = 此对话的后续内容在另一份对话记录中：已压缩、继续或复制
 convo-part-previous =
     .title = 上一部分
     .aria-label = 跳到上一部分

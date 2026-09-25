@@ -131,7 +131,7 @@ convo-message-count = { $n ->
        *[other] { $n } mensagens
     }
 convo-part = Parte { $n } de { $total }
-    .title = Esta conversa foi compactada: ela continua em outra transcrição
+    .title = Esta conversa continua em outra transcrição: compactada, retomada ou duplicada
 convo-part-previous =
     .title = Parte anterior
     .aria-label = Ir para a parte anterior

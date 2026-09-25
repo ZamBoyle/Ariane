@@ -259,6 +259,10 @@ class Indexer {
       title: descriptor.title || null,
       // A subagent's conversation hangs off the one that launched it.
       parent_id: descriptor.parentId ? globalSessionId(adapter.id, descriptor.parentId) : null,
+      // A fork names the conversation it continues (Index.chain).
+      continues_from: descriptor.continuesFrom
+        ? globalSessionId(adapter.id, descriptor.continuesFrom)
+        : null,
     });
 
     let buffer = [];
@@ -327,6 +331,12 @@ class Indexer {
           break;
         case 'summary':
           if (item.slug) this.index.setSlug(id, item.slug);
+          break;
+        case 'continuation':
+          // Resumed elsewhere: the old file names the new one (Index.chain).
+          if (item.continuedIn) {
+            this.index.setContinuedIn(id, globalSessionId(adapter.id, item.continuedIn));
+          }
           break;
         case 'usage':
           // To the last reply: in memory while it is still buffered, in the

@@ -89,6 +89,9 @@ test.describe('Claude Code', () => {
       attachment: { id: 'a1' },
       // 907 records of exactly {permissionMode, sessionId} on a real corpus.
       'permission-mode': { permissionMode: 'auto' },
+      // 308 records repeating the generated title, and the agent's name.
+      'agent-name': { agentName: 'Historique des conversations' },
+      'agent-setting': { agentSetting: 'claude' },
     };
 
     for (const type of IGNORED_TYPES) {
@@ -224,6 +227,8 @@ test.describe('Copilot CLI', () => {
       'session.shutdown': {},
       'session.model_change': { model: 'gpt-4o' },
       'session.usage_checkpoint': { tokens: 1 },
+      // Three of them, each with an empty `data`: a click in the interface.
+      'subagent.deselected': {},
       'system.message': { role: 'system', content: SENTENCE },
       'skill.invoked': { name: 'une-competence' },
       'hook.start': { hookType: 'userPromptSubmitted', input: { prompt: SENTENCE } },

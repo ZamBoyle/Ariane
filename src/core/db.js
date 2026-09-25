@@ -24,6 +24,7 @@ const { withoutRepeatedUsage } = require('./archive');
  * already stored. Raising this version drops the index and rebuilds it, which
  * takes about ten seconds.
  *
+ * 17: a resumed or forked conversation linked to the one it continues
  * 16: subagents read, each attached to the conversation that launched it
  * 15: messages copied from another conversation flagged; a Claude line counts what it adds
  * 14: Gemini's and Copilot's tokens
@@ -41,7 +42,7 @@ const { withoutRepeatedUsage } = require('./archive');
  * 2: multi-agent schema
  * 1: initial
  */
-const SCHEMA_VERSION = 16;
+const SCHEMA_VERSION = 17;
 /** The five token columns of one message, from the contract's shape. */
 function usageColumns(usage) {
   const u = usage || {};
@@ -79,7 +80,7 @@ const SCHEMA_SQL = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
  */
 const ARCHIVE_SESSION_COLUMNS = [
   'id', 'agent_id', 'title', 'slug', 'git_branch', 'first_prompt',
-  'first_at', 'last_at', 'source', 'file_path', 'parent_id',
+  'first_at', 'last_at', 'source', 'file_path', 'parent_id', 'continued_in', 'continues_from',
 ];
 const ARCHIVE_SESSION_SQL = archiveSessionSelect(ARCHIVE_SESSION_COLUMNS);
 
@@ -312,9 +313,11 @@ class Index {
       ),
       upsertSession: db.prepare(`
         INSERT INTO sessions (id, agent_id, folder_id, title, slug, git_branch, first_prompt,
-                              message_count, first_at, last_at, source, file_path, parent_id)
+                              message_count, first_at, last_at, source, file_path, parent_id,
+                              continues_from)
         VALUES (@id, @agent_id, @folder_id, @title, @slug, @git_branch, @first_prompt,
-                @message_count, @first_at, @last_at, @source, @file_path, @parent_id)
+                @message_count, @first_at, @last_at, @source, @file_path, @parent_id,
+                @continues_from)
         ON CONFLICT(id) DO UPDATE SET
           agent_id      = excluded.agent_id,
           folder_id     = excluded.folder_id,
@@ -325,7 +328,8 @@ class Index {
           message_count = excluded.message_count,
           source        = excluded.source,
           file_path     = COALESCE(excluded.file_path, sessions.file_path),
-          parent_id     = COALESCE(excluded.parent_id, sessions.parent_id)
+          parent_id     = COALESCE(excluded.parent_id, sessions.parent_id),
+          continues_from = COALESCE(excluded.continues_from, sessions.continues_from)
       `),
       insertMessage: db.prepare(`
         INSERT INTO messages (session_id, seq, uuid, parent_uuid, role, ts, model,
@@ -394,19 +398,36 @@ class Index {
       setTitle: db.prepare('UPDATE sessions SET title = ? WHERE id = ?'),
       setSlug: db.prepare('UPDATE sessions SET slug = ? WHERE id = ?'),
       setContinues: db.prepare('UPDATE sessions SET continues_uuid = ? WHERE id = ?'),
+      setContinuedIn: db.prepare('UPDATE sessions SET continued_in = ? WHERE id = ?'),
       // The transcript this one continues: the session holding that message.
-      // Never through a copy: a resumed session that copied the message would
-      // otherwise pass for the transcript it came from, and turn the chain round.
+      // Three threads lead back: a compaction boundary naming a message of the
+      // earlier transcript — never through a copy, or a resumed session that
+      // copied it would pass for the transcript it came from and turn the
+      // chain round —, a fork naming its origin, and a resume named by it.
       parentOf: db.prepare(`
-        SELECT m.session_id AS id FROM sessions s
-        JOIN messages m ON m.uuid = s.continues_uuid AND m.is_copy = 0
-        WHERE s.id = ? AND m.session_id <> s.id LIMIT 1
+        SELECT id FROM (
+          SELECT m.session_id AS id FROM sessions s
+          JOIN messages m ON m.uuid = s.continues_uuid AND m.is_copy = 0
+          WHERE s.id = @id AND m.session_id <> s.id
+          UNION ALL
+          SELECT p.id FROM sessions me JOIN sessions p ON p.id = me.continues_from
+          WHERE me.id = @id
+          UNION ALL
+          SELECT p.id FROM sessions p WHERE p.continued_in = @id AND p.id <> @id
+        ) LIMIT 1
       `),
-      // And the one continuing it: whoever points at a message of this session.
+      // And the same three, forward.
       childOf: db.prepare(`
-        SELECT s.id FROM sessions s
-        JOIN messages m ON m.uuid = s.continues_uuid AND m.is_copy = 0
-        WHERE m.session_id = ? AND s.id <> ? LIMIT 1
+        SELECT id FROM (
+          SELECT s.id FROM sessions s
+          JOIN messages m ON m.uuid = s.continues_uuid AND m.is_copy = 0
+          WHERE m.session_id = @id AND s.id <> @id
+          UNION ALL
+          SELECT c.id FROM sessions me JOIN sessions c ON c.id = me.continued_in
+          WHERE me.id = @id
+          UNION ALL
+          SELECT c.id FROM sessions c WHERE c.continues_from = @id AND c.id <> @id
+        ) LIMIT 1
       `),
       // Every row whose flag can change: a uuid held twice, or a flag already
       // set. IS_COPY_NOW says what a copy is. 72 ms on the real corpus.
@@ -466,9 +487,11 @@ class Index {
       countCopies: db.prepare(
         'SELECT COUNT(*) AS n FROM messages WHERE session_id = ? AND is_copy = 1'
       ),
+      // A part made of copies alone — a fork nobody went on with — has nothing
+      // to read that the part before it does not show.
       chainPart: db.prepare(`
         SELECT id, title, first_at AS firstAt, last_at AS lastAt, message_count AS messageCount
-        FROM sessions WHERE id = ?
+        FROM sessions s WHERE id = ? AND ${OWN_MESSAGES}
       `),
 
       getSource: db.prepare('SELECT * FROM sources WHERE key = ?'),
@@ -572,6 +595,7 @@ class Index {
       source: 'transcript',
       file_path: null,
       parent_id: null,
+      continues_from: null,
       ...row,
     });
   }
@@ -676,6 +700,11 @@ class Index {
     this.s.setContinues.run(messageUuid, sessionId);
   }
 
+  /** This conversation goes on in another: a resume, named in the old file. */
+  setContinuedIn(sessionId, nextSessionId) {
+    this.s.setContinuedIn.run(nextSessionId, sessionId);
+  }
+
   /**
    * Every part of one conversation, in order, when a compaction split it.
    *
@@ -690,7 +719,7 @@ class Index {
     const seen = new Set([sessionId]);
     const before = [];
     for (let id = sessionId; ; ) {
-      const parent = this.s.parentOf.get(id);
+      const parent = this.s.parentOf.get({ id });
       if (!parent || seen.has(parent.id)) break;
       seen.add(parent.id);
       before.unshift(parent.id);
@@ -698,7 +727,7 @@ class Index {
     }
     const after = [];
     for (let id = sessionId; ; ) {
-      const child = this.s.childOf.get(id, id);
+      const child = this.s.childOf.get({ id });
       if (!child || seen.has(child.id)) break;
       seen.add(child.id);
       after.push(child.id);
@@ -729,6 +758,9 @@ class Index {
     // first_prompt is derived with COALESCE, so leaving it would keep labelling
     // a replaced conversation with a prompt it no longer contains.
     this.s.clearFirstPrompt.run(sessionId);
+    // The file declared it; read again from the start, it will say it again —
+    // or no longer, and then the link must not outlive it.
+    this.s.setContinuedIn.run(null, sessionId);
     if (key) this.s.clearSource.run(key);
   }
 
@@ -993,7 +1025,9 @@ class Index {
         file_path: session.file_path,
         // Absent from archives written before subagents were read.
         parent_id: session.parent_id || null,
+        continues_from: session.continues_from || null,
       });
+      if (session.continued_in) this.s.setContinuedIn.run(session.continued_in, sessionId);
       for (const row of messages) {
         this.s.insertMessage.run({ ...ARCHIVED_MESSAGE_DEFAULTS, ...row, session_id: sessionId });
       }

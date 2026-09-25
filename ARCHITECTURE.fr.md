@@ -185,7 +185,7 @@ sous-agents chez Claude (122 Mo, 24 000 messages) et 7 chez Codex.
 |---|---|---|
 | `folders` | un dossier réel, **partagé entre agents** | c'est le cœur du produit : une ligne par chemin, quelles que soient les conversations qui s'y rattachent. `path_exact` ne monte jamais vers l'approximation |
 | `agents` | un assistant connu | — |
-| `sessions` | une conversation | identifiant `agent:session` ; `source` vaut `transcript`, `history` ou `archive` ; `continues_uuid` chaîne une conversation compactée à celle qu'elle poursuit ; `parent_id` rattache la conversation d'un sous-agent à celle qui l'a lancé |
+| `sessions` | une conversation | identifiant `agent:session` ; `source` vaut `transcript`, `history` ou `archive` ; `continues_uuid` chaîne une conversation compactée à celle qu'elle poursuit ; `parent_id` rattache la conversation d'un sous-agent à celle qui l'a lancé ; `continued_in` / `continues_from` relient une conversation reprise ou dupliquée à celle qu'elle continue |
 | `messages` | un message | `parts` en JSON ; `is_notice` marque ce que personne n'a dit ; `is_copy` ce qu'une autre conversation contient déjà |
 | `messages_fts` | index plein texte | FTS5 en _external content_ : seul `text` y entre, les lignes restent dans `messages` |
 | `sources` | l'état d'incrémentalité | `fingerprint` et `cursor`, opaques |
@@ -204,6 +204,12 @@ remonte puis redescend la chaîne. Mesuré le 25 septembre 2026, Claude Code com
 **dans le même fichier** — les six frontières de cette machine nomment un message de leur propre
 fichier —, la chaîne ne relie donc plus rien aujourd'hui et reste là pour les anciens fichiers. Les
 autres assistants compactent aussi dans le même fichier.
+
+**Reprises et duplications sont reliées aussi**, telles que les fichiers le disent et du côté
+qui l'écrit : Claude Code nomme la NOUVELLE transcription dans l'ancienne (`continued-in` →
+`continued_in`), Codex nomme l'ANCIENNE dans l'en-tête de la nouvelle (`forked_from_id` →
+`continues_from`, sauf pour un sous-agent, dont c'est le parent). `chain()` suit les deux, et
+écarte une partie faite uniquement de copies.
 
 **Les copies.** Ce qui ouvre désormais un nouveau fichier, c'est une **reprise** : la nouvelle
 session commence par recopier la conversation depuis sa dernière compaction, mêmes uuid, mêmes

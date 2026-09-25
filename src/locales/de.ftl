@@ -132,7 +132,7 @@ convo-message-count = { $n ->
        *[other] { $n } Nachrichten
     }
 convo-part = Teil { $n } von { $total }
-    .title = Diese Unterhaltung wurde komprimiert: Sie wird in einem weiteren Transkript fortgesetzt
+    .title = Diese Unterhaltung wird in einem weiteren Transkript fortgesetzt: komprimiert, fortgeführt oder dupliziert
 convo-part-previous =
     .title = Vorheriger Teil
     .aria-label = Zum vorherigen Teil springen

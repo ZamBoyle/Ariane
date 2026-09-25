@@ -56,6 +56,9 @@
  * @property {boolean} [folderOnDisk]  False when the folder has no real transcript
  *                                 (e.g. rebuilt from a prompt log after a purge).
  * @property {string} [title]      Human-readable title, when known upfront.
+ * @property {string} [continuesFrom]  The agent-local id of the conversation this
+ *                                 one continues — a fork, a resume — when the
+ *                                 file names it (Codex's forked_from_id).
  * @property {string} [parentId]   For a subagent's conversation: the agent-local
  *                                 id of the conversation that launched it. It is
  *                                 not listed by itself but opened from there, and
@@ -67,13 +70,16 @@
  *   'message'  a conversation turn, shaped like extract.js output
  *   'title'    {title} — a human-readable session title
  *   'summary'  {slug}  — a short session slug
+ *   'continuation' {continuedIn} — this conversation goes on in another,
+ *              named by its agent-local id (Claude's `continued-in`, written
+ *              into the old transcript when it is resumed).
  *   'usage'    {usage} — what the reply just stored cost, for an agent that
  *              writes it in a record of its own (Codex). The indexer adds it to
  *              the session's last assistant message, which may have been stored
  *              in an earlier pass. Yielding the same usage twice counts it
  *              twice: telling a new reply from a repeat is the adapter's job.
  *   'ignored'  {reason} — counted, so format drift is visible rather than silent
- * @property {'message'|'title'|'summary'|'usage'|'ignored'} kind
+ * @property {'message'|'title'|'summary'|'continuation'|'usage'|'ignored'} kind
  *
  * @typedef {object} Chunk
  * @property {Item} item

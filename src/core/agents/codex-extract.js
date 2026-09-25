@@ -91,6 +91,10 @@ function extractCodexRecord(raw) {
       parentId: str(payload.parent_thread_id),
       // What the parent called it: "Huygens", "Laplace".
       nickname: str(payload.agent_nickname),
+      // The conversation this one was forked from. A subagent carries it too
+      // (its parent), so it only means "continues" without parent_thread_id:
+      // 1 such rollout of 8 carrying it, 25 September 2026.
+      forkedFrom: str(payload.forked_from_id),
     };
   }
 

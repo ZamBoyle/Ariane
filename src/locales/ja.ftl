@@ -117,7 +117,7 @@ convo-message-count = { $n ->
        *[other] メッセージ { $n } 件
     }
 convo-part = パート { $n } / { $total }
-    .title = この会話は圧縮されました。続きは別の会話ログにあります
+    .title = この会話の続きは別の会話ログにあります（圧縮・再開・複製）
 convo-part-previous =
     .title = 前のパート
     .aria-label = 前のパートへ移動

@@ -37,6 +37,30 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### Une conversation reprise sait d'où elle vient, et l'originale où elle continue
+
+**Ce que ça change.** Quand on reprend une conversation, l'ancienne et la nouvelle sont désormais
+deux parties d'une même chaîne, comme une conversation compactée : « Partie 1 sur 2 », et les
+flèches pour passer de l'une à l'autre. Jusqu'ici, la reprise disait bien d'où venaient ses
+copies, mais l'originale ne disait pas qu'elle continuait ailleurs.
+
+**Trouvé en lisant le compteur de formats inconnus**, que chaque passe remplit et que personne
+n'avait regardé depuis des jours. Cinq types s'y signalaient ; mesurés un par un :
+
+- **`continued-in`** : Claude Code l'écrit dans l'**ancienne** transcription au moment de la
+  reprise, avec le nom de la nouvelle. Un cas sur la machine, `64ffbe9a` → `d4c518b6`.
+- **`forked_from_id`**, dans l'en-tête Codex : le même lien, écrit cette fois dans la
+  **nouvelle**. Huit en-têtes le portent, dont sept sont des sous-agents — il y nomme le parent, et
+  ceux-là restent des sous-agents. Le huitième est une duplication faite à la main, et comme elle
+  n'a rien ajouté, elle n'apparaît pas comme une partie.
+- **`agent-name`** (308 fois, le titre répété mot pour mot), **`agent-setting`** (`claude`) et le
+  **`subagent.deselected`** de Copilot (trois clics d'interface, sans contenu) : rien à montrer,
+  désormais nommés, pour que le compteur ne signale plus que du neuf. Le test qui audite le bruit
+  exige la forme de chacun.
+
+Il n'y reste que le fichier VS Code de 166 Mo, écarté exprès. L'index est reconstruit une fois
+(`SCHEMA_VERSION` 17) ; il le fait désormais en 13 s.
+
 ### Une indexation complète deux fois plus rapide
 
 **Signalé à l'usage** : « ça reste quand même fort lent à indexer par rapport au début du

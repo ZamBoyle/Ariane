@@ -96,6 +96,10 @@ const adapter = {
         ...(header.parentId && header.parentId !== header.sessionId
           ? { parentId: header.parentId, title: header.nickname || undefined }
           : {}),
+        // A fork the person made: it continues the conversation it came from.
+        ...(!header.parentId && header.forkedFrom && header.forkedFrom !== header.sessionId
+          ? { continuesFrom: header.forkedFrom }
+          : {}),
       };
     }
   },
@@ -283,7 +287,7 @@ async function* readLegacy(descriptor) {
  * order the reconnaissance found them reliable.
  */
 async function readHeader(file) {
-  const out = { cwd: '', sessionId: '', timestamp: '', parentId: '', nickname: '' };
+  const out = { cwd: '', sessionId: '', timestamp: '', parentId: '', nickname: '', forkedFrom: '' };
   let seen = 0;
 
   try {
@@ -298,6 +302,7 @@ async function readHeader(file) {
         if (!out.timestamp && item.timestamp) out.timestamp = item.timestamp;
         if (!out.parentId && item.parentId) out.parentId = item.parentId;
         if (!out.nickname && item.nickname) out.nickname = item.nickname;
+        if (!out.forkedFrom && item.forkedFrom) out.forkedFrom = item.forkedFrom;
         if (out.cwd && out.sessionId) break;
         continue;
       }

@@ -132,22 +132,14 @@ qui gêne chaque jour et coûte peu, puis ce que les fichiers disent déjà et q
 lecture, puis la confiance qu'on peut faire à un paquet, et en dernier les chantiers qui demandent
 d'abord une décision. Chaque étape ne suppose que celles d'avant.
 
-### 1. Ce que les fichiers disent et qu'Ariane ne lit pas — petit
+### 1. Ce que les fichiers disent et qu'Ariane ne lit pas — fait le 25 septembre 2026
 
-C'est la raison d'être d'Ariane : ne rien laisser de côté sans le savoir. Le compteur de formats
-inconnus signale, à chaque passe, cinq types d'enregistrements ; mesurés un par un :
-
-- **`continued-in`** : quand on reprend une conversation, Claude Code écrit dans l'**ancienne** le
-  nom de la nouvelle (`continuedInSessionId` ; un cas, `64ffbe9a` → `d4c518b6`). Aujourd'hui la
-  reprise dit « a commencé par recopier 922 messages de … », mais l'original ne dit pas qu'il se
-  poursuit ailleurs. Le lire relie les deux dans les deux sens — là où la chaîne par
-  `continues_uuid` ne relie plus rien, Claude Code compactant désormais dans le même fichier.
-- **`agent-name` (308) et `agent-setting` (2)** : le premier répète le titre généré, le second vaut
-  `claude`. Rien à montrer ; à ranger comme bruit connu, pour que le compteur ne signale que du neuf.
-- **Les sous-agents de Copilot** (`subagent.deselected` ×3) : rien n'a été lu de leur forme ; à
-  mesurer avant tout.
-- Le cinquième, un fichier VS Code de 166 Mo ignoré, est voulu : 2,5 Ko de conversation dans
-  166 Mo de sorties d'outils, qu'on ne sait pas lire en flux.
+Les cinq types que le compteur de formats inconnus signalait sont lus ou nommés : `continued-in`
+(Claude) et `forked_from_id` (Codex) relient une conversation reprise ou dupliquée à celle qu'elle
+continue ; `agent-name`, `agent-setting` et le `subagent.deselected` de Copilot, mesurés vides de
+tout contenu, sont rangés comme bruit connu. Il ne reste que le fichier VS Code de 166 Mo, voulu :
+2,5 Ko de conversation dans 166 Mo de sorties d'outils, qu'on ne sait pas lire en flux. Voir le
+journal.
 
 ### 2. Le confort de tous les jours, à petit prix — petit
 

@@ -31,6 +31,9 @@ const IGNORED_TYPES = new Map([
   ['permission.requested', 'lifecycle'],
   ['permission.completed', 'lifecycle'],
   ['session.usage_checkpoint', 'accounting'],
+  // Three of them, in one session, each with an empty `data`: a click in the
+  // interface, not a subagent's transcript (25 September 2026).
+  ['subagent.deselected', 'interface event'],
   ['system.message', 'static system prompt'],
   ['skill.invoked', 'skill body, not conversation'],
   // Named rather than left unrecognised: every one was read on a real corpus

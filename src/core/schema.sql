@@ -60,13 +60,22 @@ CREATE TABLE IF NOT EXISTS sessions (
   -- The conversation that launched this one, when it is a subagent's: Claude
   -- Code writes each in a file of its own, Codex in a rollout of its own. A
   -- subagent is not listed by itself; it is opened from its parent.
-  parent_id     TEXT
+  parent_id     TEXT,
+  -- A resume or a fork, as the files state it, each on the side that writes
+  -- it: Claude names the NEW conversation in the old one (`continued-in`),
+  -- Codex names the OLD one in the new (`forked_from_id`). Index.chain reads both.
+  continued_in   TEXT,
+  continues_from TEXT
 );
 
 CREATE INDEX IF NOT EXISTS sessions_folder ON sessions(folder_id, last_at DESC);
 CREATE INDEX IF NOT EXISTS sessions_last   ON sessions(last_at DESC);
 CREATE INDEX IF NOT EXISTS sessions_agent  ON sessions(agent_id, last_at DESC);
 CREATE INDEX IF NOT EXISTS sessions_parent ON sessions(parent_id) WHERE parent_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS sessions_continued_in ON sessions(continued_in)
+  WHERE continued_in IS NOT NULL;
+CREATE INDEX IF NOT EXISTS sessions_continues_from ON sessions(continues_from)
+  WHERE continues_from IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS messages (
   -- AUTOINCREMENT: an id is never handed out twice, so "written by this pass"

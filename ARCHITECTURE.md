@@ -180,7 +180,7 @@ briefing, never the person's. A subagent is not listed; it is opened from its pa
 |---|---|---|
 | `folders` | one real folder, **shared between agents** | this is the heart of the product: one row per path, whatever conversations attach to it. `path_exact` never rises back to an approximation |
 | `agents` | one known assistant | — |
-| `sessions` | one conversation | id `agent:session`; `source` is `transcript`, `history` or `archive`; `continues_uuid` chains a compacted conversation to the one it continues; `parent_id` hangs a subagent's conversation off the one that launched it |
+| `sessions` | one conversation | id `agent:session`; `source` is `transcript`, `history` or `archive`; `continues_uuid` chains a compacted conversation to the one it continues; `parent_id` hangs a subagent's conversation off the one that launched it; `continued_in` / `continues_from` link a resumed or forked conversation to the one it continues |
 | `messages` | one message | `parts` as JSON; `is_notice` marks what nobody said; `is_copy` what another conversation already holds |
 | `messages_fts` | full-text index | FTS5 as _external content_: only `text` goes in, the rows stay in `messages` |
 | `sources` | the incrementality state | `fingerprint` and `cursor`, both opaque |
@@ -198,6 +198,11 @@ previous file (`logicalParentUuid`); the index keeps it, and `db.chain()` walks 
 forward. Measured on 25 September 2026, Claude Code now compacts **in place** — all six boundaries
 on this machine name a message of their own file — so the chain links nothing today, and is kept
 for the older files. The other assistants compact in place too.
+
+**Resumes and forks are linked too**, as the files state it and on the side that writes it:
+Claude Code names the NEW transcript in the old one (`continued-in` → `continued_in`), Codex names
+the OLD one in the new header (`forked_from_id` → `continues_from`, but not for a subagent, whose
+`forked_from_id` is its parent). `chain()` follows both, and leaves out a part made of copies alone.
 
 **Copies.** What does open a new file now is a **resume**: the new session begins by copying the
 conversation since its last compaction, same uuids, same times. Codex does the same on a fork, with

@@ -37,6 +37,11 @@ const IGNORED_TYPES = new Set([
   // they were 99% of the drift report, which is how a real new type would have
   // gone unnoticed in it.
   'permission-mode',
+  // Measured on 25 September 2026: 308 `agent-name` records repeating the
+  // generated title word for word, and `agent-setting` naming the agent
+  // ("claude"). Nothing to show; named so the drift report lists only news.
+  'agent-name',
+  'agent-setting',
 ]);
 
 /**
@@ -154,6 +159,15 @@ function extractRecord(raw) {
     return title
       ? { kind: 'title', sessionId: raw.sessionId, title }
       : { kind: 'ignored', reason: 'empty-title' };
+  }
+  // Written into the OLD transcript when the conversation is resumed in a new
+  // one, naming it — the one thread between the two (Index.chain).
+  if (type === 'continued-in') {
+    const next =
+      typeof raw.continuedInSessionId === 'string' ? raw.continuedInSessionId.trim() : '';
+    return next
+      ? { kind: 'continuation', continuedIn: next }
+      : { kind: 'ignored', reason: 'known-noise', detail: 'continued-in:empty' };
   }
   if (type === 'system') return extractSystem(raw);
   if (type !== 'user' && type !== 'assistant') {
