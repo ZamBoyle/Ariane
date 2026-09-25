@@ -41,6 +41,9 @@ const adapter = {
   id: ID,
   label: 'Copilot CLI',
   envKeys: ['COPILOT_HOME'],
+  // Its only count is a running total per session, written at each shutdown:
+  // shown under one reply, it would read as that reply's cost (contract.js).
+  usagePerSession: true,
   root,
 
   detect(ctx = {}) {

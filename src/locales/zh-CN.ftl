@@ -130,6 +130,7 @@ convo-subagent = 从“{ $title }”启动的子代理
 convo-subagent-open = 打开启动它的对话
 convo-subagents = 此对话启动了 { $count } 个子代理
 subagent-received = ↓ 至少 { $received }
+usage-floor = 子代理的记录并不总是保留最终计数：这些数字是最小值。
 convo-purged = 对话记录已清除
 convo-saved = 由 Ariane 保存：原始文件已不存在
 speaker-you = 你

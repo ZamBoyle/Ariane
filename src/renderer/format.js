@@ -727,22 +727,59 @@ export function isToolOnlyTurn(message) {
 export function groupMessages(messages) {
   const out = [];
   let run = null;
+  // What each group cost (`usage`), for a reader who wants to see it. A reply's
+  // count often sits on a line nothing shows: Claude's masked reasoning holds
+  // it in 10 095 of 19 699 counted lines (25 September 2026). It is carried to
+  // the next thing the reply shows — its prose, or its strip of tool calls,
+  // which adds up every call in it — and never lands on the person's words:
+  // a count still carried when they speak again goes back to the reply before.
+  let carried = null;
+  let lastReply = null;
 
   for (const message of Array.isArray(messages) ? messages : []) {
-    if (!hasContent(message)) continue;
+    if (!hasContent(message)) {
+      carried = sumUsage(carried, message.usage);
+      continue;
+    }
 
+    let group;
     if (isToolOnlyTurn(message)) {
       if (!run) {
-        run = { type: 'toolRun', messages: [] };
+        run = { type: 'toolRun', messages: [], usage: null };
         out.push(run);
       }
       run.messages.push(message);
+      group = run;
     } else {
       run = null;
-      out.push({ type: 'message', message });
+      group = { type: 'message', message, usage: null };
+      out.push(group);
+    }
+
+    if (group.type === 'toolRun' || message.role === 'assistant') {
+      group.usage = sumUsage(sumUsage(group.usage, carried), message.usage);
+      carried = null;
+      lastReply = group;
+    } else if (speakerOf(message) === 'you' && carried && lastReply) {
+      lastReply.usage = sumUsage(lastReply.usage, carried);
+      carried = null;
     }
   }
+  if (carried && lastReply) lastReply.usage = sumUsage(lastReply.usage, carried);
   return out;
+}
+
+const USAGE_KEYS = ['input', 'output', 'cacheRead', 'cacheWrite', 'reasoning'];
+
+/** Two counts added field by field; a field neither measured stays null. */
+export function sumUsage(a, b) {
+  if (!a) return b ? { ...b } : null;
+  if (!b) return a;
+  const total = {};
+  for (const key of USAGE_KEYS) {
+    total[key] = a[key] == null && b[key] == null ? null : (a[key] ?? 0) + (b[key] ?? 0);
+  }
+  return total;
 }
 
 /**

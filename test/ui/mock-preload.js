@@ -302,6 +302,8 @@ const MESSAGES = [
       { type: 'tool_use', id: 't1', name: 'Bash', preview: '{"command":"git status"}' },
     ],
     isMeta: false, isNotice: false, isSidechain: false, command: null,
+    // Ce que cette réponse a coûté : 503 envoyés, 120 reçus, 24 000 relus.
+    usage: { input: 3, output: 120, cacheRead: 24000, cacheWrite: 500, reasoning: null },
   },
   // 3. THE BUG: the tool answers, and the format records it under role "user".
   {
@@ -316,11 +318,14 @@ const MESSAGES = [
     text: '[Request interrupted by user]', thinking: '', parts: [],
     isMeta: false, isNotice: true, isSidechain: false, command: null,
   },
-  // 5. An empty shell: a redacted thinking block and nothing else.
+  // 5. An empty shell: a redacted thinking block and nothing else. Like Claude's
+  //    masked reasoning, it carries its reply's count, which must reach the
+  //    strip of tool calls that follows.
   {
     id: 5, seq: 4, role: 'assistant', ts: '2026-09-17T23:04:00.000Z',
     text: '', thinking: '', parts: [],
     isMeta: false, isNotice: false, isSidechain: false, command: null,
+    usage: { input: 2, output: 40, cacheRead: 24500, cacheWrite: 0, reasoning: null },
   },
   // 6a-6d. A run of tool machinery: four turns that must collapse into ONE strip.
   {
@@ -328,6 +333,7 @@ const MESSAGES = [
     text: '', thinking: '',
     parts: [{ type: 'tool_use', id: 't2', name: 'Bash', preview: '{"command":"ls"}' }],
     isMeta: false, isNotice: false, isSidechain: false, command: null,
+    usage: { input: 1, output: 20, cacheRead: 25000, cacheWrite: 100, reasoning: null },
   },
   {
     id: 11, seq: 11, role: 'user', ts: '2026-09-17T23:05:11.000Z',
@@ -340,6 +346,7 @@ const MESSAGES = [
     text: '', thinking: '',
     parts: [{ type: 'tool_use', id: 't3', name: 'Read', preview: '{"file":"a.js"}' }],
     isMeta: false, isNotice: false, isSidechain: false, command: null,
+    usage: { input: 1, output: 30, cacheRead: 25100, cacheWrite: 0, reasoning: null },
   },
   {
     id: 13, seq: 13, role: 'user', ts: '2026-09-17T23:05:13.000Z',
@@ -488,7 +495,8 @@ contextBridge.exposeInMainWorld('api', {
           thinking: '', parts: [], isMeta: false, isNotice: false, isSidechain: true, command: null },
         { id: 96, seq: 1, role: 'assistant', ts: '2026-09-17T21:06:00.000Z', model: 'gpt-5',
           text: 'rapport du sous-agent', thinking: '', parts: [],
-          isMeta: false, isNotice: false, isSidechain: true, command: null },
+          isMeta: false, isNotice: false, isSidechain: true, command: null,
+          usage: { input: 5, output: 60, cacheRead: 900, cacheWrite: 0, reasoning: null } },
       ];
       return {
         session: marked({ ...SUBAGENT, folderPath: '/home/zam/projet', folderId: 1 }),
@@ -496,12 +504,14 @@ contextBridge.exposeInMainWorld('api', {
         copied: null,
         parent: { id: 'codex:c1', title: 'Session Codex A', firstPrompt: '' },
         subagents: [],
+        usageByReply: true,
         messages,
         favoriteMessages: [],
       };
     }
     if (id === BIG_ID) {
       return {
+        usageByReply: true,
         session: marked({ ...BIG_SESSIONS[0], folderPath: '/home/zam/grosse', folderId: 3 }),
         messages: BIG.slice(),
         favoriteMessages: resolveStarred(id, BIG),
@@ -526,7 +536,8 @@ contextBridge.exposeInMainWorld('api', {
       // The answer whose label must read "Codex", not "Claude".
       { id: 91, seq: 2, role: 'assistant', ts: '2026-09-17T21:00:30.000Z', model: 'gpt-6-astra',
         text: 'reponse codex', thinking: '', parts: [],
-        isMeta: false, isNotice: false, isSidechain: false, command: null },
+        isMeta: false, isNotice: false, isSidechain: false, command: null,
+        usage: { input: 700, output: 90, cacheRead: 2000, cacheWrite: null, reasoning: null } },
     ];
     return {
       session: marked({ ...found, folderPath: '/home/zam/projet', folderId: 1 }),
@@ -537,6 +548,8 @@ contextBridge.exposeInMainWorld('api', {
         ? { count: 12, from: { id: 'codex:c1', title: 'Session Codex A', firstPrompt: '' } }
         : null,
       parent: null,
+      // La partie B fait comme Copilot : un total par session, rien par réponse.
+      usageByReply: id !== 'codex:c2',
       subagents: id === 'codex:c1'
         ? [{ id: SUBAGENT.id, title: SUBAGENT.title, firstPrompt: '', messageCount: 2,
           firstAt: SUBAGENT.firstAt, tokOutput: 1234 }]

@@ -150,6 +150,7 @@ convo-subagents = { $count ->
    *[other] { $count } subagents gestart vanuit dit gesprek
 }
 subagent-received = ↓ minstens { $received }
+usage-floor = Het transcript van een subagent bewaart niet altijd zijn laatste telling: deze cijfers zijn een minimum.
 convo-purged = transcript gewist
 convo-saved = bewaard door Ariane: het originele bestand is weg
 speaker-you = Jij

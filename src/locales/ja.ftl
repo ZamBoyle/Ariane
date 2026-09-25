@@ -130,6 +130,7 @@ convo-subagent = 「{ $title }」から起動されたサブエージェント
 convo-subagent-open = 起動元の会話を開く
 convo-subagents = この会話から起動されたサブエージェント { $count } 件
 subagent-received = ↓ 少なくとも { $received }
+usage-floor = サブエージェントの記録には最終的なカウントが残るとは限りません。これらの数値は最小値です。
 convo-purged = 会話ログは削除済み
 convo-saved = Ariane が保存：元のファイルはもうありません
 speaker-you = あなた

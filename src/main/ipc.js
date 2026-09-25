@@ -276,6 +276,9 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
       // lists the subagents it launched. Neither is listed in the sidebar.
       parent: session.parentId ? briefOf(state.index.session(session.parentId)) : null,
       subagents: state.index.subagents(id).map((sub) => ({ ...briefOf(sub), ...counts(sub) })),
+      // Whether a count may be shown beside each reply: not where the agent
+      // only writes what a whole session cost (contract.js, usagePerSession).
+      usageByReply: !(registry.byId(session.agentId) || {}).usagePerSession,
       messages,
       // Row ids change at every rebuild, so a starred message is resolved here,
       // against the conversation as it stands now (core/marks.js).

@@ -150,6 +150,12 @@ passer, estampillée par la taille et la date du fichier. C'est ce qui fait qu'u
 changement coûte un `stat` par fichier. Un nouvel adaptateur qui l'ignore rend le rafraîchissement
 automatique coûteux.
 
+Trois indications facultatives disent ce que SIGNIFIENT les données d'un adaptateur, et chacune a
+été mesurée avant d'être déclarée : `globalIds` (un identifiant de message désigne le même message
+où qu'il apparaisse — Claude, Codex ; § 4, les copies), `usagePerSession` (l'agent n'écrit que ce
+qu'a coûté une session entière — Copilot ; § 10) et, sur un descripteur, `parentId` /
+`continuesFrom` (un sous-agent, une duplication ; § 3.4, § 4).
+
 ### 3.4 Les sept adaptateurs
 
 | Agent | Où | Forme | Particularité |
@@ -411,6 +417,16 @@ Un seul fichier mène la danse, `src/renderer/app.js`, aidé de modules spécial
 | `icons.js` | une famille d'icônes construites en DOM — rien à charger, rien à autoriser dans la CSP |
 | `export-document.js` | la mise en page d'un export (partagée avec le processus principal) |
 
+**Chaque réponse montre ce qu'elle a coûté**, dans sa tête — les trois chiffres de la ligne de
+jetons de la barre latérale, exacts au survol. Le compte est rarement sur une ligne visible : chez
+Claude, 10 095 des 19 699 lignes qui en portent un sont du raisonnement masqué, écarté par
+`hasContent`. `groupMessages` donne donc à chaque groupe qu'il peint un `usage` : le compte d'une
+ligne masquée va à ce que la même réponse montre ensuite — sa prose, ou sa bande d'appels d'outils,
+qui les additionne tous —, jamais au message de la personne ni à un avis, et un compte encore en
+route quand la personne reparle revient à la réponse d'avant. Rien ne s'affiche là où l'adaptateur
+déclare `usagePerSession` (Copilot) : le total d'une session sous une seule réponse passerait pour
+le coût de celle-ci. Les chiffres d'un sous-agent disent, au survol, qu'ils sont un minimum.
+
 **Le mot cherché est surligné dans la conversation**, et pas seulement dans l'extrait : ouvrir un
 résultat emporte les mots de la recherche (`state.searchTerms`), qui sont marqués partout où ils
 apparaissent. Le piège est la peinture par tranches — un surlignage posé à l'ouverture ne toucherait
@@ -584,6 +600,7 @@ de `git status` — passait tous les tests unitaires de `speakerOf()` pendant qu
 | ajouter un assistant | un module sous `src/core/agents/`, puis `agents/index.js` ; lire `contract.js` d'abord |
 | changer ce qui est indexé | `extract.js` ou le `*-extract.js` de l'agent, **et hausser `SCHEMA_VERSION`** |
 | ajouter une colonne à `messages` | `schema.sql`, l'`INSERT` de `db.js`, **et les deux constantes d'archive** — voir § 4 |
+| toucher à ce qu'une réponse montre de son coût | `groupMessages` / `sumUsage` dans `format.js` (le regroupement), `replyCost` dans `app.js` (l'affichage), `usagePerSession` sur l'adaptateur |
 | toucher aux sous-agents | la découverte dans `claude.js` (`discoverSubagents`) et `codex.js` (l'en-tête), `parentId` dans le contrat, `LISTED` et `Index.subagents` dans `db.js`, `paintSubagents` dans `app.js` |
 | toucher à ce qui compte comme copie | `Index.markCopies` dans `db.js` (la règle), `globalIds` sur l'adaptateur (à qui elle s'applique), `OWN_MESSAGES` (ce qui est listé) |
 | toucher aux marques | `src/core/marks.js` ; elles vivent dans `marks.json`, jamais dans l'index |

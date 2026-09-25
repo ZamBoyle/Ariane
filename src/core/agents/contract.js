@@ -117,6 +117,10 @@
  *           silently read nothing and leave deleted messages in the index.
  *           Returning false makes the indexer drop the session and re-read it.
  *           Omitted means "always resumable".
+ * @property {boolean} [usagePerSession]
+ *           True when the agent writes what a SESSION cost, not what each reply
+ *           did (Copilot: a running total at each shutdown). The totals stand;
+ *           a count shown beside a single message would not, so none is.
  * @property {boolean} [globalIds]
  *           True when a message's `uuid` names that message wherever it appears,
  *           across all of this agent's conversations — so the same uuid in two

@@ -151,6 +151,7 @@ convo-subagents = { $count ->
    *[other] { $count } Subagenten, gestartet aus diesem Gespräch
 }
 subagent-received = ↓ mindestens { $received }
+usage-floor = Das Protokoll eines Subagenten enthält nicht immer seinen letzten Zählerstand: Diese Zahlen sind ein Mindestwert.
 convo-purged = Transkript gelöscht
 convo-saved = von Ariane gesichert: Die Originaldatei ist weg
 speaker-you = Sie

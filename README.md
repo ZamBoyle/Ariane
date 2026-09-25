@@ -64,6 +64,9 @@ three busiest:
   and a view that shows only what you marked. They live in a file of yours, outside the index: an
   update of Ariane cannot erase them.
 - **Resume a conversation** in its own terminal, with the right assistant, in the right folder.
+- **What each message cost**: under every reply, the tokens it sent, received and read back from
+  the cache — the same line as under the conversation's name. Handy to show, in a training, that
+  the context read again at each turn outweighs the answer by far.
 - **Statistics**: who wrote what — the messages you typed, the replies, the tool output — then the
   tokens sent, received and read back from the cache, month by month, by assistant, by model and
   by folder. It says how many conversations were actually measured, and estimates nothing: no

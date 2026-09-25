@@ -150,6 +150,7 @@ convo-subagents = { $count ->
    *[other] { $count } subagentes lanzados desde esta conversación
 }
 subagent-received = ↓ al menos { $received }
+usage-floor = La transcripción de un subagente no siempre guarda su último recuento: estas cifras son un mínimo.
 convo-purged = transcripción eliminada
 convo-saved = guardada por Ariane: el archivo original ya no existe
 speaker-you = Tú

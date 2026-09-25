@@ -717,6 +717,83 @@ test.describe('grouping tool machinery', () => {
     assert.deepEqual(F.groupMessages(null), []);
   });
 
+  // What each group cost. Claude's masked reasoning is an empty shell that
+  // carries its reply's count: 10 095 of 19 699 counted lines on a real corpus.
+  const cost = (output, cacheRead = 1000) => ({
+    input: 1,
+    output,
+    cacheRead,
+    cacheWrite: 10,
+    reasoning: null,
+  });
+  const shell = (id, usage) => ({
+    id,
+    role: 'assistant',
+    text: '',
+    thinking: '',
+    parts: [],
+    usage,
+  });
+  const withCost = (message, usage) => ({ ...message, usage });
+
+  test('a hidden line gives its count to the reply that shows', () => {
+    const groups = F.groupMessages([
+      prose(1, 'user', 'une question'),
+      shell(2, cost(40)),
+      withCost(prose(3, 'assistant', 'la réponse'), null),
+    ]);
+    assert.equal(groups[0].usage, null, 'the person’s words carry no cost');
+    assert.deepEqual(groups[1].usage, cost(40));
+  });
+
+  test('a strip of tool calls adds up every call in it, and the hidden line before it', () => {
+    const groups = F.groupMessages([
+      shell(1, cost(5, 100)),
+      withCost(call(2, 'Bash'), cost(20, 200)),
+      result(3),
+      withCost(call(4, 'Read'), cost(30, 300)),
+      result(5),
+    ]);
+    assert.equal(groups.length, 1);
+    assert.deepEqual(groups[0].usage, {
+      input: 3,
+      output: 55,
+      cacheRead: 600,
+      cacheWrite: 30,
+      reasoning: null,
+    });
+  });
+
+  test('a count still carried when the person speaks goes back to the reply before', () => {
+    const groups = F.groupMessages([
+      withCost(prose(1, 'assistant', 'une réponse'), cost(10)),
+      shell(2, cost(7)),
+      prose(3, 'user', 'merci'),
+      prose(4, 'assistant', 'de rien'),
+    ]);
+    assert.equal(groups[0].usage.output, 17);
+    assert.equal(groups[1].usage, null);
+    assert.equal(groups[2].usage, null, 'not the next reply: it did not produce that count');
+  });
+
+  test('a notice never takes a reply’s count', () => {
+    const notice = { ...prose(2, 'user', '[Request interrupted by user]'), isNotice: true };
+    const groups = F.groupMessages([shell(1, cost(9)), notice, prose(3, 'assistant', 'suite')]);
+    assert.equal(groups[0].usage, null);
+    assert.equal(groups[1].usage.output, 9, 'it goes on to the reply that follows');
+  });
+
+  test('sumUsage keeps an unmeasured field null, and a measured zero a zero', () => {
+    assert.equal(F.sumUsage(null, null), null);
+    assert.deepEqual(F.sumUsage({ input: null, output: 0 }, { input: null, output: 3 }), {
+      input: null,
+      output: 3,
+      cacheRead: null,
+      cacheWrite: null,
+      reasoning: null,
+    });
+  });
+
   test('describeToolRun counts calls, results, names and errors', () => {
     const d = F.describeToolRun([call(1, 'Bash'), result(2), call(3, 'Bash'), result(4, true), call(5, 'Read')]);
     assert.equal(d.calls, 3);

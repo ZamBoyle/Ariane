@@ -146,6 +146,11 @@ ignores the `cursor` and yields everything: correctness never depends on it, onl
 it, stamped with the file’s size and mtime. That is what makes a pass with nothing changed cost one
 `stat` per file. A new adapter that ignores it makes the background refresh expensive.
 
+Three optional flags describe what an adapter's data MEANS, and each was measured before being
+declared: `globalIds` (a message id is the same message wherever it appears — Claude, Codex; § 4,
+copies), `usagePerSession` (the agent only writes what a whole session cost — Copilot; § 10) and,
+on a descriptor, `parentId` / `continuesFrom` (a subagent, a fork; § 3.4, § 4).
+
 ### 3.4 The seven adapters
 
 | Agent | Where | Shape | What makes it different |
@@ -395,6 +400,15 @@ One file leads, `src/renderer/app.js`, helped by specialised modules:
 | `icons.js` | a family of icons built in the DOM — nothing to load, nothing to allow in the CSP |
 | `export-document.js` | the layout of an export (shared with the main process) |
 
+**Each reply shows what it cost**, in its head — the three figures of the sidebar's token line,
+exact on hover. The count is rarely on a line that shows: in Claude, 10,095 of 19,699 counted lines
+are masked reasoning, hidden by `hasContent`. So `groupMessages` gives every group it paints a
+`usage`: a hidden line's count goes to the next thing the same reply shows — its prose, or its
+strip of tool calls, which adds up all of them — never to the person's message or a notice, and a
+count still pending when the person speaks again goes back to the reply before. None is shown
+where the adapter declares `usagePerSession` (Copilot): a session's total under one reply would
+read as that reply's cost. A subagent's figures say, on hover, that they are a floor.
+
 **The searched word is highlighted in the conversation**, not only in the snippet: opening a result
 carries the search words along (`state.searchTerms`), and they are marked wherever they appear. The
 trap is the slicing — a highlight applied on opening would only ever touch the first 120 rows. The
@@ -563,6 +577,7 @@ the output of `git status` — passed every unit test of `speakerOf()` while the
 | add an assistant | a module under `src/core/agents/`, then `agents/index.js`; read `contract.js` first |
 | change what gets indexed | `extract.js` or the agent’s `*-extract.js`, **and raise `SCHEMA_VERSION`** |
 | add a column to `messages` | `schema.sql`, the `INSERT` in `db.js`, **and both archive constants** — see § 4 |
+| touch what a reply shows it cost | `groupMessages` / `sumUsage` in `format.js` (the grouping), `replyCost` in `app.js` (the display), `usagePerSession` on the adapter |
 | touch subagents | discovery in `claude.js` (`discoverSubagents`) and `codex.js` (the header), `parentId` in the contract, `LISTED` and `Index.subagents` in `db.js`, `paintSubagents` in `app.js` |
 | touch what counts as a copy | `Index.markCopies` in `db.js` (the rule), `globalIds` on the adapter (who it applies to), `OWN_MESSAGES` (what is listed) |
 | touch marks | `src/core/marks.js`; they live in `marks.json`, never in the index |

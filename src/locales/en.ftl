@@ -173,6 +173,7 @@ convo-subagents = { $count ->
    *[other] { $count } subagents launched from this conversation
 }
 subagent-received = ↓ at least { $received }
+usage-floor = A subagent’s transcript does not always keep its final count: these figures are a floor.
 convo-purged = transcript purged
 convo-saved = saved by Ariane: the original file is gone
 speaker-you = You

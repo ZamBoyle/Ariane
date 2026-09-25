@@ -117,6 +117,10 @@ const state = {
   // subagents it launched (paintOrigin, paintSubagents).
   origin: null,
   subagents: [],
+  // Whether each reply may show what it cost, and whether that is a floor
+  // (a subagent's transcript does not always keep its final count).
+  usageByReply: false,
+  usageIsFloor: false,
   results: [],
   activeResult: -1,
   filter: '',
@@ -230,7 +234,10 @@ const el = {
 /** The open conversation's rows, painted in slices; see transcript-view.js. */
 const view = new TranscriptView(
   el.transcript,
-  (group) => (group.type === 'toolRun' ? renderToolRun(group.messages) : renderMessage(group.message)),
+  (group) =>
+    group.type === 'toolRun'
+      ? renderToolRun(group.messages, group.usage)
+      : renderMessage(group.message, group.usage),
   { emptyText: '', onPaint: markSearchTerms }
 );
 
@@ -1333,6 +1340,8 @@ async function openSession(sessionId, highlightMessageId = null, { starred = nul
   state.chain = payload.chain || [];
   state.origin = originOf(payload);
   state.subagents = payload.subagents || [];
+  state.usageByReply = payload.usageByReply === true;
+  state.usageIsFloor = Boolean(payload.parent);
   state.currentSessionId = session.id;
   state.currentFolderId = session.folderId;
   disarmForget();
@@ -1390,7 +1399,28 @@ async function openSession(sessionId, highlightMessageId = null, { starred = nul
  * One strip standing in for a whole run of tool calls. Collapsed by default:
  * the machinery is available, but it no longer buries the conversation.
  */
-function renderToolRun(messages) {
+/**
+ * What one reply cost — or one strip of tool calls, all its calls added — in
+ * the three figures of the sidebar's line, exact on hover (format.js,
+ * groupMessages). Nothing where the agent counts only per session.
+ */
+function replyCost(usage) {
+  if (!usage || !state.usageByReply) return null;
+  const cost = tokenLine(
+    sessionTokens({
+      tokInput: usage.input,
+      tokOutput: usage.output,
+      tokCacheRead: usage.cacheRead,
+      tokCacheWrite: usage.cacheWrite,
+    })
+  );
+  if (!cost) return null;
+  cost.classList.add('msg-cost');
+  if (state.usageIsFloor) cost.title = [cost.title, t('usage-floor')].filter(Boolean).join('\n');
+  return cost;
+}
+
+function renderToolRun(messages, usage = null) {
   const { errors, kind, count, label } = describeToolRun(messages);
   const heading = t(`tool-run-${kind}`, { n: count });
 
@@ -1405,6 +1435,8 @@ function renderToolRun(messages) {
 
   const when = messages[0] && messages[0].ts ? l10n.dateTime(messages[0].ts) : '';
   if (when) summary.append(node('span', 'when', when));
+  const cost = replyCost(usage);
+  if (cost) summary.append(cost);
 
   const body = node('div', 'tool-run-body');
   for (const message of messages) {
@@ -1418,7 +1450,7 @@ function renderToolRun(messages) {
   return wrapper;
 }
 
-function renderMessage(message) {
+function renderMessage(message, usage = null) {
   const wrapper = node('article', `msg msg-${message.role === 'user' ? 'user' : 'assistant'}`);
   if (message.isNotice) wrapper.classList.add('msg-notice');
   wrapper.dataset.messageId = String(message.id);
@@ -1436,6 +1468,8 @@ function renderMessage(message) {
     when.title = message.ts;
     head.append(when);
   }
+  const cost = replyCost(usage);
+  if (cost) head.append(cost);
   if (message.command) {
     head.append(node('span', 'fold-tag', commandLabel(message.command, l10n)));
   }

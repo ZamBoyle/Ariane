@@ -700,6 +700,31 @@ const SCRIPT = `(async () => {
   await openByName('Session de test');
   subagentCheck.hiddenElsewhere = subBar.hidden;
 
+  // Ce que chaque réponse a coûté, pour une formation : dans la tête du message.
+  const costOf = (article) => {
+    const cost = article && article.querySelector('.msg-cost');
+    return cost ? { text: cost.textContent, title: cost.title } : null;
+  };
+  const byId = (id) => transcript.querySelector('[data-message-id="' + id + '"]');
+  const strip = [...transcript.querySelectorAll('.msg-toolrun')]
+    .find((a) => (a.querySelector('details') || {}).dataset?.messageIds?.includes('10'));
+  const costCheck = {
+    reply: costOf(byId(2)),
+    question: costOf(byId(1)),
+    strip: costOf(strip),
+  };
+  await openByName('Session Codex A');
+  costCheck.codexA = transcript.querySelectorAll('.msg-cost').length;
+  await openByName('Session Codex B');
+  costCheck.codexB = transcript.querySelectorAll('.msg-cost').length;
+  await openByName('Session Codex A');
+  subToggle.click();
+  subList.querySelector('.subagent-btn').click();
+  for (let i = 0; i < 60 && document.getElementById('convo-title').textContent !== 'Huygens'; i++) await sleep(50);
+  await sleep(200);
+  costCheck.subagent = costOf(transcript.querySelector('.msg-cost')?.closest('.msg'));
+  await openByName('Session de test');
+
   // The person's own marks: a star, and a note (marks.js). Neither can be
   // rebuilt from anything, so both are followed all the way to storage.
   const star = document.getElementById('favorite');
@@ -1018,6 +1043,7 @@ const SCRIPT = `(async () => {
     chainCheck,
     copiedCheck,
     subagentCheck,
+    costCheck,
     marksCheck,
     settingsCheck,
     outlineCheck: { smallTicks, onBig, widths, viaTick, nearEnd, viaKeys, outlineOnHome },
@@ -1822,6 +1848,20 @@ async function run() {
     sa.briefing && sa.briefing.unattributed && !sa.briefing.who, JSON.stringify(sa.briefing));
   check('and its button leads back', sa.backTitle === 'Session Codex A', sa.backTitle);
   check('a conversation that launched nothing shows no such list', sa.hiddenElsewhere === true);
+
+  // -- what each reply cost, for a training ------------------------------------
+  const co = r.costCheck;
+  check('a reply shows what it cost, the three figures of the sidebar, exact on hover',
+    co.reply && co.reply.text === '↑ 503 · ↓ 120 · cache 24K'
+      && co.reply.title.includes('503') && /24\s000/.test(co.reply.title),
+    JSON.stringify(co.reply));
+  check('a strip of tool calls adds its calls up, and the hidden line before it',
+    co.strip && co.strip.text === '↑ 104 · ↓ 90 · cache 74,6K', JSON.stringify(co.strip));
+  check('the person\u2019s question carries no cost', co.question === null, JSON.stringify(co.question));
+  check('where the agent counts per reply, each reply shows it', co.codexA === 1, String(co.codexA));
+  check('where it counts only per session, no reply pretends to', co.codexB === 0, String(co.codexB));
+  check('a subagent\u2019s figures say they are a floor',
+    co.subagent && co.subagent.title.includes('minimum'), JSON.stringify(co.subagent));
 
   // -- the person's own marks: a star and a note ------------------------------
   const mk = r.marksCheck;

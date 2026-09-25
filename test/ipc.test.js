@@ -15,7 +15,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { createFixture, records, cdx, resetCounters } = require('./helpers/fixture');
+const { createFixture, records, cdx, cop, resetCounters } = require('./helpers/fixture');
 
 /** Session ids are namespaced by agent; see agents/contract.js. */
 const SID = 'claude:s1';
@@ -880,6 +880,25 @@ test.describe('end to end through the bridge', () => {
     assert.deepEqual(info, { ok: false, reason: 'subagent', note: null });
     const resumed = await invoke('session:resume', { id: 'claude:agent-a1' });
     assert.equal(resumed.ok, false, 'its CLI would refuse it: the parent is what to reopen');
+  });
+
+  test('a reply may show its cost, except where the agent counts only per session', async (t) => {
+    const ctx = setupIpc();
+    t.after(ctx.teardown);
+
+    ctx.fx
+      .project('-p', { originalPath: '/home/zam/projet' })
+      .session('s1', [records.userText('q')]);
+    ctx.fx.copilot().session('cp1', [cop.start('/home/zam/projet'), cop.user('q')]);
+    ctx.start();
+    await invoke('index:refresh', {});
+
+    assert.equal((await invoke('session:get', { id: SID })).data.usageByReply, true);
+    assert.equal(
+      (await invoke('session:get', { id: 'copilot-cli:sess-1' })).data.usageByReply,
+      false,
+      'Copilot writes a running total per session: under one reply it would read as that reply’s cost'
+    );
   });
 
   test('searches within a period, counted from now', async (t) => {

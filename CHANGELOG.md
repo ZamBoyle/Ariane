@@ -37,6 +37,28 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### Ce que coûte chaque message
+
+**Demandé pour une formation** : montrer le poids d'un message en jetons, en plus de celui de la
+conversation. Chaque réponse porte désormais, dans sa tête, la même ligne que sous le nom de la
+conversation — `↑ envoyés · ↓ reçus · cache relus` —, les chiffres exacts au survol. On y voit ce
+qu'on explique d'ordinaire avec les mains : la réponse elle-même pèse quelques centaines de jetons,
+le contexte relu à chaque tour en pèse des dizaines de milliers, et il grossit de tour en tour.
+
+**Le piège, mesuré avant d'écrire** : le compte d'une réponse n'est souvent pas sur ce que l'écran
+montre. Chez Claude, 10 095 des 19 699 lignes qui portent un compte sont masquées — le raisonnement
+chiffré, qui ne laisse qu'une signature —, et 18 413 n'ont pas de texte. Un affichage ligne par
+ligne en aurait perdu la moitié. Les comptes sont donc **regroupés** par ce qui s'affiche : une ligne
+masquée confie le sien au bloc suivant de la même réponse, sa prose ou sa bande d'appels d'outils,
+et une bande additionne tous ses appels. Le message de la personne n'en porte jamais, ni un avis de
+l'outil ; un compte encore en route quand la personne reparle revient à la réponse d'avant.
+
+**Pas pour Copilot**, qui n'écrit qu'un total par session : sous une réponse, il passerait pour le
+coût de cette réponse. Et pour un sous-agent, l'infobulle dit que ses chiffres sont un minimum.
+
+**Vérifié** sur une vraie conversation, dans l'application : une bande de trois appels
+`↑ 40,5K · ↓ 704 · cache 153K`, puis la réponse `↑ 762 · ↓ 2,3K · cache 65,1K`.
+
 ### Une conversation reprise sait d'où elle vient, et l'originale où elle continue
 
 **Ce que ça change.** Quand on reprend une conversation, l'ancienne et la nouvelle sont désormais
