@@ -39,6 +39,25 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### Des textes qu'on lit : le contraste, mesuré
+
+**Signalé** : « les textes sont sombres un peu, non ? » — et ils l'étaient, chiffres à l'appui. Le
+ton « pâle » des textes secondaires — dates, chemins, lignes sous les titres, jetons, notes, 41
+usages — ne passait que **2,7:1 en clair et 3,4:1 en sombre**, là où l'accessibilité en demande 4,5
+pour un petit texte. L'accent orange, quand il écrit (« Codex », « Claude »), n'atteignait que 3,7
+en clair.
+
+**Le thème reste celui de Claude Code** : mêmes teintes, seule la clarté bouge, juste ce qu'il faut.
+En clair, le pâle passe de `#97938b` à `#6f6b63`, le doux de `#6b6862` à `#5a5752` pour rester un
+cran au-dessus, l'accent de `#c2603c` à `#a85334` ; en sombre, le pâle de `#7a766d` à `#959188` et
+le doux de `#a8a49a` à `#b3b0a7`. Tous les tons de texte passent désormais 4,5:1 sur chaque fond —
+la page, la barre latérale, les cartes — dans les deux thèmes, et la hiérarchie tient : 15,8 > 6,8 >
+5,0 en clair, 15,1 > 8,1 > 5,6 en sombre.
+
+**La suite de mise en page le mesure**, sur les couleurs que calcule le vrai moteur, et échoue sur
+les anciennes en nommant chaque paire trop faible. L'accessibilité devient l'étape 5 de la feuille
+de route ; le contraste en est la première pièce.
+
 ### L'identifiant de la conversation, tout en haut
 
 **Demandé** : tout en haut de l'en-tête, sur une ligne à lui, l'identifiant de la conversation tel

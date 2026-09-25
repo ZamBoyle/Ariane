@@ -129,8 +129,9 @@ bouge pas.
 
 Classé par une logique, pas par envie : d'abord ce qu'Ariane laisse de côté sans le savoir, puis ce
 qui gêne chaque jour et coûte peu, puis ce que les fichiers disent déjà et qu'Ariane tait, puis la
-lecture, puis la confiance qu'on peut faire à un paquet, et en dernier les chantiers qui demandent
-d'abord une décision. Chaque étape ne suppose que celles d'avant.
+lecture, puis l'accessibilité — que tout le monde puisse lire —, puis la confiance qu'on peut faire
+à un paquet, et en dernier les chantiers qui demandent d'abord une décision. Chaque étape ne
+suppose que celles d'avant.
 
 ### 1. Ce que les fichiers disent et qu'Ariane ne lit pas — fait le 25 septembre 2026
 
@@ -174,7 +175,27 @@ Claude (`extra_usage`, en euros), qui demanderait d'écrire une somme d'argent �
 - **Le saut à une date** dans une conversation ouverte : les dates sont dans l'infobulle de chaque
   trait du plan, mais rien ne permet d'y aller.
 
-### 5. Un paquet auquel on peut se fier — petit à moyen
+### 5. L'accessibilité — commencée le 25 septembre 2026, moyen
+
+Demandée le 25 septembre 2026. Ce qui se mesure est mesuré par un test ; ce qui s'écoute ne se juge
+qu'avec un vrai lecteur d'écran.
+
+- **Le contraste — fait.** Le ton « pâle » des textes secondaires (dates, chemins, lignes sous les
+  titres) ne passait que 2,7:1 en clair et 3,4:1 en sombre, pour 4,5 exigés ; l'accent, écrit en
+  texte, 3,7 en clair. Même thème, seule la clarté a bougé : tous les tons passent 4,5 sur chaque
+  fond, dans les deux thèmes, et la suite de mise en page le mesure.
+- **Le mode contraste élevé de Windows** (`forced-colors`) : aucune règle. Les marques des
+  assistants, faites d'un fond coloré, risquent d'y disparaître.
+- **Six `outline: none`** : chacun doit avoir un remplaçant visible au clavier (`:focus-visible`
+  en a huit). À vérifier un par un, puis par un test qui navigue au clavier.
+- **Tout au clavier** : la barre latérale, la transcription, les réglages, la recherche, sans
+  souris — jamais parcouru de bout en bout.
+- **Un lecteur d'écran** (Orca sous Linux, NVDA sous Windows) : six zones annoncent leurs
+  changements (`aria-live`), les boutons-icônes ont un nom ; rien n'a jamais été écouté.
+- Déjà là : la taille du texte (étape 2), `prefers-reduced-motion`, un tableau à côté de chaque
+  graphique, des infobulles qui s'ouvrent aussi au clavier.
+
+### 6. Un paquet auquel on peut se fier — petit à moyen
 
 Aucun de ces points ne gêne qui utilise déjà Ariane ; tous comptent pour qui hésite à la télécharger.
 
@@ -186,7 +207,7 @@ Aucun de ces points ne gêne qui utilise déjà Ariane ; tous comptent pour qui 
   7 Mo de langues que l'application n'affiche pas. C'est le genre de filtrage malin qui a déjà
   expédié un binaire faux ici : il ne se fait qu'avec la vérification octet par octet.
 
-### 6. La solidité, entre deux chantiers
+### 7. La solidité, entre deux chantiers
 
 - **La couverture, de 96,9 % vers 98 %** : les chemins de `ipc.js`, `terminal.js` et
   `settings.js` ; `update-check.js` et `export.js` ne s'éprouvent que sous Electron. Puis remonter
@@ -196,7 +217,7 @@ Aucun de ces points ne gêne qui utilise déjà Ariane ; tous comptent pour qui 
   une vraie machine en juge, aucun test n'ayant le droit de toucher un vrai terminal. À faire depuis
   le poste Windows.
 
-### 7. Les chantiers qui demandent d'abord une décision
+### 8. Les chantiers qui demandent d'abord une décision
 
 - **Les fichiers modifiés et leurs différences**, comme chez claude-code-history-viewer. Le piège
   est la sélectivité : l'index fait 1 % de l'entrée parce qu'il coupe les aperçus à 2 000

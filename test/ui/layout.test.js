@@ -337,6 +337,19 @@ async function run() {
     root.dataset.theme = was;
     return { light, dark };
   })()`);
+  // Every tone text is written in, on every surface it sits on, both themes.
+  const tones = await win.webContents.executeJavaScript(`(() => {
+    const root = document.documentElement;
+    const was = root.dataset.theme;
+    const read = () => Object.fromEntries(['--text', '--text-soft', '--text-faint', '--accent', '--user',
+      '--bg', '--bg-sidebar', '--bg-panel'].map((k) => [k, getComputedStyle(root).getPropertyValue(k).trim()]));
+    root.dataset.theme = 'light';
+    const light = read();
+    root.dataset.theme = 'dark';
+    const dark = read();
+    root.dataset.theme = was;
+    return { light, dark };
+  })()`);
   const mainSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'main', 'main.js'), 'utf8');
   const declared = /const BACKGROUND = \{ dark: '(#[0-9a-fA-F]{6})', light: '(#[0-9a-fA-F]{6})' \};/.exec(mainSource);
 
@@ -467,6 +480,31 @@ async function run() {
   // -- the window's own background, which no stylesheet can fix -------------
   check('main.js states its two backgrounds where this test can read them',
     Boolean(declared), 'const BACKGROUND = { dark: ..., light: ... } sur une ligne');
+  // WCAG 2 contrast: small text needs 4.5:1. "Les textes sont sombres" was
+  // measured, not felt — the faint tone read 2.7:1 in light, 3.4:1 in dark.
+  const luminance = (hex) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a, b) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  for (const [theme, t] of Object.entries(tones)) {
+    const weak = [];
+    for (const tone of ['--text', '--text-soft', '--text-faint', '--accent', '--user']) {
+      for (const surface of ['--bg', '--bg-sidebar', '--bg-panel']) {
+        const r = contrast(t[tone], t[surface]);
+        if (!(r >= 4.5)) weak.push(`${tone} sur ${surface} ${r.toFixed(2)}`);
+      }
+    }
+    const [text, soft, faint] = ['--text', '--text-soft', '--text-faint'].map((k) => contrast(t[k], t['--bg']));
+    check(`every text tone reads at 4.5:1 or more on every surface, ${theme}`,
+      weak.length === 0 && text > soft && soft > faint,
+      weak.length ? weak.join(', ') : `texte ${text.toFixed(1)} > doux ${soft.toFixed(1)} > pâle ${faint.toFixed(1)}`);
+  }
+
   check('the window background is the stylesheet\'s, in both themes',
     declared && declared[1].toLowerCase() === palette.dark && declared[2].toLowerCase() === palette.light,
     declared ? `main.js ${declared[2]}/${declared[1]} vs css ${palette.light}/${palette.dark}` : 'non déclaré');

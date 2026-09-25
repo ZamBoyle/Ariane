@@ -7,6 +7,10 @@
    l'attribut data-theme sur <html>.
    ────────────────────────────────────────────────────────────────────── */
 
+/* Les tons de texte passent 4,5:1 (WCAG AA) sur chaque fond, dans les deux
+   thèmes : le « pâle » n'atteignait que 2,7 en clair et 3,4 en sombre (mesuré
+   le 25 septembre 2026, « les textes sont sombres »). Mêmes teintes que le thème
+   Claude Code, seule la clarté a bougé. La suite de mise en page le mesure. */
 :root {
   --bg: #faf9f5;
   --bg-sidebar: #f2f0e9;
@@ -16,17 +20,17 @@
   --bg-code: #f4f2ec;
 
   --text: #1f1e1b;
-  --text-soft: #6b6862;
-  --text-faint: #97938b;
+  --text-soft: #5a5752;
+  --text-faint: #6f6b63;
 
   --border: rgba(0, 0, 0, 0.1);
   --border-soft: rgba(0, 0, 0, 0.06);
 
-  --accent: #c2603c;
+  --accent: #a85334;
   --accent-soft: rgba(217, 119, 87, 0.16);
   /* Les colonnes des statistiques : l'accent, validé contre la surface claire. */
   --chart: #c2603c;
-  --user: #4a6fa5;
+  --user: #496da2;
   --mark: #ffe08a;
   /* Native widgets only: MUST stay fully opaque. A translucent value here is
      composited by the OS against its own highlight and comes out wrong - it is
@@ -63,8 +67,8 @@
     --bg-code: #12110d;
 
     --text: #f0eee6;
-    --text-soft: #a8a49a;
-    --text-faint: #7a766d;
+    --text-soft: #b3b0a7;
+    --text-faint: #959188;
 
     --border: rgba(255, 255, 255, 0.11);
     --border-soft: rgba(255, 255, 255, 0.06);
@@ -93,8 +97,8 @@
   --bg-active: rgba(217, 119, 87, 0.18);
   --bg-code: #12110d;
   --text: #f0eee6;
-  --text-soft: #a8a49a;
-  --text-faint: #7a766d;
+  --text-soft: #b3b0a7;
+  --text-faint: #959188;
   --border: rgba(255, 255, 255, 0.11);
   --border-soft: rgba(255, 255, 255, 0.06);
   --accent: #d97757;
