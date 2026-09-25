@@ -131,3 +131,21 @@ test('le menu : aucun sous Linux et Windows, le strict nécessaire sous macOS', 
     /toggleDevTools/
   );
 });
+
+// Trouvé sous Windows le 25 septembre 2026, par bissection sur une vraie
+// machine : un zoom posé sur la page encore cachée (au did-finish-load)
+// empêchait `ready-to-show` de jamais venir — l'écran d'accueil, puis rien, pas
+// même dans Alt+Tab. C'est le bogue #51972 d'Electron, présent depuis la 40 et
+// corrigé en 44.4.4. Aucun test ne lance la vraie fenêtre sous Windows : ce
+// garde-fou lit donc le code.
+test('main.js n’applique la taille du texte qu’une fois la fenêtre montrée', () => {
+  const source = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '..', 'src', 'main', 'main.js'),
+    'utf8'
+  );
+  assert.doesNotMatch(source, /on\('did-finish-load'[\s\S]{0,600}(setZoomFactor|applyTextSize)/);
+  assert.match(
+    source,
+    /win\.once\('ready-to-show'[\s\S]{0,200}win\.show\(\)[\s\S]{0,1200}applyTextSize\(win\)/
+  );
+});

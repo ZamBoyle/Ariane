@@ -234,6 +234,14 @@ function createWindow() {
     // Maximised is not a size: restoring the bounds of a maximised window
     // would open a window the shape of the screen, but not maximised.
     if (saved.maximized) win.maximize();
+    // Only now, once shown: under Windows a zoom set on the still-hidden page
+    // (it was on did-finish-load) kept this very event from ever firing — the
+    // splash, then nothing, not even in Alt+Tab. Found by bisection on a real
+    // machine, 25 September 2026: it is Electron's own bug #51972, there since
+    // 40 and fixed in 44.4.4 — applied after show, the size avoids it on any
+    // version. Chromium keeps the zoom per page, so a reload (a change of
+    // language) keeps it without being told again.
+    applyTextSize(win);
     // The app has just been mapped above everything, so the splash asks for
     // the front again. `alwaysOnTop` alone is a request to the window manager,
     // and not every one of them honours it against a window shown after.
@@ -245,18 +253,6 @@ function createWindow() {
 
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   if (isDev) win.webContents.openDevTools({ mode: 'detach' });
-
-  // The size of the text, as the person set it (text-size.js). Chromium keeps
-  // a zoom of its own per page; one set through the old hidden menu is taken
-  // up once rather than undone.
-  win.webContents.on('did-finish-load', () => {
-    let size = textSize();
-    if (size === null) {
-      size = nearestSize(win.webContents.getZoomFactor() * 100);
-      if (size !== 100) saveTextSize(size);
-    }
-    win.webContents.setZoomFactor(size / 100);
-  });
 
   // The keys that change it, and the few a menu used to carry.
   win.webContents.on('before-input-event', (event, input) => {
@@ -290,6 +286,20 @@ function createWindow() {
   );
 
   return win;
+}
+
+/**
+ * The size of the text, as the person set it (text-size.js). Chromium keeps a
+ * zoom of its own per page; one set through the old hidden menu is taken up
+ * once rather than undone.
+ */
+function applyTextSize(win) {
+  let size = textSize();
+  if (size === null) {
+    size = nearestSize(win.webContents.getZoomFactor() * 100);
+    if (size !== 100) saveTextSize(size);
+  }
+  win.webContents.setZoomFactor(size / 100);
 }
 
 function safeProtocol(url) {

@@ -346,8 +346,18 @@ zoom set before the setting existed is taken up once, not undone. There is no ap
 Linux and Windows any more (Electron's default one, hidden and in English, carried the zoom — but
 not on Ctrl+= nor the keypad — and the developer tools in every package); Ctrl+Q, Ctrl+W and F11
 are kept by the same key handler. macOS keeps the App, Edit and Window menus it needs for copy and
-paste. The developer tools exist only outside a published package. A file that cannot be read is **never rewritten**, and unknown keys are kept: it is
-someone’s work.
+paste. The developer tools exist only outside a published package.
+
+**The size is applied once the window is shown**, in `ready-to-show` right after `win.show()` —
+never on the hidden page. Set in `did-finish-load`, while the window was still hidden, it kept
+`ready-to-show` from ever firing under Windows: the splash, then nothing, not even in Alt+Tab, with
+the process still running. Linux showed nothing wrong, and no suite launches `main.js`'s real
+window, so it shipped; a bisection on a real Windows machine found it. It is Electron's own bug,
+[#51972](https://github.com/electron/electron/issues/51972) — there since 40, fixed in 44.4.4 —
+and applying after show avoids it whatever the version. A check in
+`test/text-size.test.js` reads `main.js` and refuses a zoom in `did-finish-load`.
+
+A file that cannot be read is **never rewritten**, and unknown keys are kept: it is someone’s work.
 
 The window’s geometry is **not** here: it lives in `<userData>/window.json`
 (`src/main/window-state.js`). A position changes every time a window is dragged, and machine state
@@ -590,7 +600,7 @@ the output of `git status` — passed every unit test of `speakerOf()` while the
 | add an assistant | a module under `src/core/agents/`, then `agents/index.js`; read `contract.js` first |
 | change what gets indexed | `extract.js` or the agent’s `*-extract.js`, **and raise `SCHEMA_VERSION`** |
 | add a column to `messages` | `schema.sql`, the `INSERT` in `db.js`, **and both archive constants** — see § 4 |
-| touch the text size or the keys | `src/main/text-size.js` (the rules), `main.js` (applying them), `textSize` in `settings.js` |
+| touch the text size or the keys | `src/main/text-size.js` (the rules), `main.js` (applying them — once the window is shown, never before), `textSize` in `settings.js` |
 | touch what a reply shows it cost | `groupMessages` / `sumUsage` in `format.js` (the grouping), `replyCost` in `app.js` (the display), `usagePerSession` on the adapter |
 | touch subagents | discovery in `claude.js` (`discoverSubagents`) and `codex.js` (the header), `parentId` in the contract, `LISTED` and `Index.subagents` in `db.js`, `paintSubagents` in `app.js` |
 | touch what counts as a copy | `Index.markCopies` in `db.js` (the rule), `globalIds` on the adapter (who it applies to), `OWN_MESSAGES` (what is listed) |

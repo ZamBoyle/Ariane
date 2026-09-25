@@ -363,8 +363,21 @@ existe est repris une fois, pas défait. Il n'y a plus de menu d'application sou
 (celui d'Electron, caché et en anglais, portait le zoom — mais ni sur Ctrl+= ni sur le pavé — et
 les outils de développement dans chaque paquet) ; Ctrl+Q, Ctrl+W et F11 sont gardés par le même
 gestionnaire de touches. macOS garde les menus Application, Édition et Fenêtre, sans lesquels
-copier-coller n'y marche pas. Les outils de développement n'existent que hors d'un paquet publié. Un fichier illisible n'est **jamais réécrit**, et les
-clés inconnues sont conservées : c'est le travail de quelqu'un.
+copier-coller n'y marche pas. Les outils de développement n'existent que hors d'un paquet publié.
+
+**La taille s'applique une fois la fenêtre montrée**, dans `ready-to-show` juste après
+`win.show()` — jamais sur la page cachée. Posée au `did-finish-load`, quand la fenêtre était
+encore cachée, elle empêchait `ready-to-show` de jamais venir sous Windows : l'écran d'accueil,
+puis rien, pas même dans Alt+Tab, et le processus tournait toujours. Linux ne montrait rien, et
+aucune suite ne lance la vraie fenêtre de `main.js` : c'est parti ainsi, et une bissection sur une
+vraie machine Windows l'a trouvé. C'est un bogue d'Electron lui-même,
+[#51972](https://github.com/electron/electron/issues/51972) — présent depuis la 40, corrigé en
+44.4.4 —, et appliquer après l'affichage l'évite quelle que soit la version. Un contrôle de
+`test/text-size.test.js` lit `main.js` et refuse
+un zoom au `did-finish-load`.
+
+Un fichier illisible n'est **jamais réécrit**, et les clés inconnues sont conservées : c'est le
+travail de quelqu'un.
 
 La géométrie de la fenêtre, elle, n'est **pas** ici : elle vit dans `<données>/window.json`
 (`src/main/window-state.js`). Une position change à chaque déplacement de la fenêtre, et l'état
@@ -615,7 +628,7 @@ de `git status` — passait tous les tests unitaires de `speakerOf()` pendant qu
 | ajouter un assistant | un module sous `src/core/agents/`, puis `agents/index.js` ; lire `contract.js` d'abord |
 | changer ce qui est indexé | `extract.js` ou le `*-extract.js` de l'agent, **et hausser `SCHEMA_VERSION`** |
 | ajouter une colonne à `messages` | `schema.sql`, l'`INSERT` de `db.js`, **et les deux constantes d'archive** — voir § 4 |
-| toucher à la taille du texte ou aux touches | `src/main/text-size.js` (les règles), `main.js` (leur application), `textSize` dans `settings.js` |
+| toucher à la taille du texte ou aux touches | `src/main/text-size.js` (les règles), `main.js` (leur application — une fois la fenêtre montrée, jamais avant), `textSize` dans `settings.js` |
 | toucher à ce qu'une réponse montre de son coût | `groupMessages` / `sumUsage` dans `format.js` (le regroupement), `replyCost` dans `app.js` (l'affichage), `usagePerSession` sur l'adaptateur |
 | toucher aux sous-agents | la découverte dans `claude.js` (`discoverSubagents`) et `codex.js` (l'en-tête), `parentId` dans le contrat, `LISTED` et `Index.subagents` dans `db.js`, `paintSubagents` dans `app.js` |
 | toucher à ce qui compte comme copie | `Index.markCopies` dans `db.js` (la règle), `globalIds` sur l'adaptateur (à qui elle s'applique), `OWN_MESSAGES` (ce qui est listé) |

@@ -37,6 +37,34 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### Sous Windows, la fenêtre d'Ariane ne s'ouvrait plus
+
+**Ce qui s'est passé.** Le travail sur la taille du texte, juste en dessous, l'appliquait au
+`did-finish-load`, sur la page encore cachée. Sous Linux, rien à voir ; sous Windows,
+`ready-to-show` ne venait alors jamais : l'écran d'accueil, puis rien — pas même dans Alt+Tab, et
+le processus tournait toujours. Aucune suite ne pouvait le voir : la CI lance le rendu, la mise en
+page et l'écran d'accueil, jamais la vraie fenêtre de `main.js`.
+
+**Trouvé par bissection, sur la vraie machine.** Quatre variantes de `main.js` lancées sous
+Windows : telle que publiée, l'écran d'accueil seul ; en gardant l'ancien menu, pareil ; sans le
+zoom au chargement, l'écran d'accueil et la fenêtre ; sans les nouvelles touches, l'écran d'accueil
+seul. Le coupable est le zoom posé sur la page cachée — ni le menu, ni les touches.
+
+**C'est un bogue d'Electron, déjà connu** :
+[#51972](https://github.com/electron/electron/issues/51972), ouvert en juin 2026 — « `ready-to-show`
+never emitted when `webContents.setZoomFactor()` is called on a hidden window before first
+paint », Windows, depuis Electron 40. Corrigé dans la 44.4.4 du 22 septembre ; Ariane est en
+44.4.3. La correction ci-dessous l'évite quelle que soit la version.
+
+**La correction** : la taille s'applique une fois la fenêtre montrée, dans `ready-to-show`, juste
+après `win.show()`. Vérifié sous Linux sur l'application lancée : 120 % enregistrés rouvrent à
+120 %, avec ou sans écran d'accueil, stables sur dix secondes ; Ctrl+= mène à 130, Ctrl − à 120
+puis 110, Ctrl+0 à 100, chaque fois enregistré ; un rechargement (changement de langue) garde la
+taille ; un ancien zoom de Chromium est toujours repris une fois. **Et sous Windows, sur la même machine**,
+avec l'écran d'accueil : la fenêtre apparaît à côté de lui, deux Ctrl + du pavé numérique mènent à
+120 % — la barre latérale passe d'environ 277 à 331 px —, et la relance garde 120 %. Un contrôle
+lit `main.js` et refuse un zoom au `did-finish-load` : il échoue sur le code publié.
+
 ### La taille du texte, les bonnes touches, et « Vérifier maintenant »
 
 **Ce que ça change.** La taille du texte se règle de 90 à 130 %, dans les Réglages ou au clavier :
