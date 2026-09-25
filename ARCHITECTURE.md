@@ -472,9 +472,9 @@ them: the corpus grows every day, and three documents have already carried three
 
 | | Unit | Renderer | Layout | Splash | Network |
 |---|---|---|---|---|---|
-| linux | 853 / 853 | 198 | 28 | 7 | 7 |
-| macos | 853 / 853 | 198 | 28 | 7 | 7 |
-| windows | 837 / 838 | 198 | 28 | 7 | 7 |
+| linux | 886 / 886 | 209 | 28 | 7 | 7 |
+| macos | 886 / 886 | 209 | 28 | 7 | 7 |
+| windows | 870 / 871 | 209 | 28 | 7 | 7 |
 
 Windows runs fifteen fewer and counts one without passing it: the `POSIX_ONLY` skips in
 `terminal.test.js`, declared with their reason — execute bits, shebang lines, executables with no
@@ -485,7 +485,7 @@ which is what this section exists to stop.
 
 ### Coverage, 25 September 2026
 
-`npm run test:coverage` — **96.92 % of lines, 88.27 % of branches, 95.27 % of functions.**
+`npm run test:coverage` — **96.89 % of lines, 88.49 % of branches, 94.95 % of functions.**
 
 **It has a floor, and the CI enforces it**: the script itself states `--test-coverage-lines=96`,
 `--test-coverage-branches=87` and `--test-coverage-functions=94`, so it fails below them — locally
