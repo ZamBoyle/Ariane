@@ -128,6 +128,17 @@ convo-empty = Esta conversación no contiene ningún mensaje que se pueda mostra
 convo-not-found = Conversación no encontrada.
 convo-id =
     .title = El identificador de esta conversación: el que usa su asistente para reanudarla
+convo-tokens = ↑ { $sent } enviados · ↓ { $received } recibidos
+    .title =
+        Enviados: { $sentExact } tokens nuevos en los prompts
+        Recibidos: { $receivedExact } tokens
+convo-tokens-cached = ↑ { $sent } enviados · ↓ { $received } recibidos · { $cached } releídos de la caché
+    .title =
+        Enviados: { $sentExact } tokens nuevos en los prompts
+        Recibidos: { $receivedExact } tokens
+        Releídos de la caché: { $cachedExact } tokens, el contexto reenviado en cada turno
+convo-branch =
+    .title = Rama de git
 convo-message-count = { $n ->
         [one] { $n } mensaje
        *[other] { $n } mensajes
@@ -167,6 +178,7 @@ export-pdf = PDF (.pdf)
 copy-command-button = Copiar
     .title = Copiar el comando para reanudar
 open-folder-button = Abrir la carpeta
+    .title = Abrir esta carpeta en el gestor de archivos
 folder-gone = Esta carpeta ya no existe en el disco.
 forget-button = Olvidar
     .title = Borrar definitivamente la copia que Ariane guarda de esta conversación

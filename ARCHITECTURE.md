@@ -460,10 +460,15 @@ read as that reply's cost. A subagent's figures say, on hover, that they are a f
 column the action buttons cut it. As its assistant knows it — `bareId`, the rule the terminal
 resume uses, applied in `session:get` — selectable, its meaning on hover.
 
-**The conversation's own cost ends the line under its title** (`headerCost` in `app.js`), the
-sidebar's line with its subagents apart; `session:get` adds the sums (`Index.sessionTokens`, the
-sidebar's definition). The line is a flex row: its text is cut, never the figures — a layout check
-measures it on a line eight times too long.
+**Under the title, the facts are grouped by the question they answer** (`headerFacts` in
+`app.js`, chosen on screenshots on 25 September 2026): who (the assistant's mark, its name, the
+models), where (the folder by its name, the whole path on hover, the git branch as a tag), when,
+how many messages — each group led by an icon, never a string of dots — and on a line of its own
+what the conversation cost, its figures named (`headerCost`, subagents apart; `session:get` adds
+`Index.sessionTokens`, the sidebar's definition). A group wraps whole; none is cut. For that room
+the header's actions are icons alone, each named on hover and for screen readers; only « Oublier »
+shows its question while it waits for the second click. The layout suite measures the wrapping,
+the render suite that every shown action has a name.
 
 **Nothing counts the person's own message.** The files count per call to the model, never per
 message: measured on 627 prompts, the `↑` of the call that follows one does not follow its length

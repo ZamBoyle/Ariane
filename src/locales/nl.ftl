@@ -128,6 +128,17 @@ convo-empty = Dit gesprek bevat geen enkel bericht dat getoond kan worden.
 convo-not-found = Gesprek niet gevonden.
 convo-id =
     .title = De id van dit gesprek — waarmee de assistent het hervat
+convo-tokens = ↑ { $sent } verzonden · ↓ { $received } ontvangen
+    .title =
+        Verzonden: { $sentExact } nieuwe tokens in de prompts
+        Ontvangen: { $receivedExact } tokens
+convo-tokens-cached = ↑ { $sent } verzonden · ↓ { $received } ontvangen · { $cached } opnieuw uit de cache gelezen
+    .title =
+        Verzonden: { $sentExact } nieuwe tokens in de prompts
+        Ontvangen: { $receivedExact } tokens
+        Uit de cache herlezen: { $cachedExact } tokens, de context die elke beurt opnieuw wordt verzonden
+convo-branch =
+    .title = Git-branch
 convo-message-count = { $n ->
         [one] { $n } bericht
        *[other] { $n } berichten
@@ -167,6 +178,7 @@ export-pdf = PDF (.pdf)
 copy-command-button = Kopiëren
     .title = Het commando om te hervatten kopiëren
 open-folder-button = Map openen
+    .title = Deze map openen in bestandsbeheer
 folder-gone = Deze map bestaat niet meer op de schijf.
 forget-button = Vergeten
     .title = De kopie die Ariane van dit gesprek bewaart definitief wissen

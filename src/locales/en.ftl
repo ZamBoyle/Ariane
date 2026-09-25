@@ -149,6 +149,17 @@ convo-empty = This conversation holds no message that can be shown.
 convo-not-found = Conversation not found.
 convo-id =
     .title = This conversation’s id — the one its assistant resumes it by
+convo-tokens = ↑ { $sent } sent · ↓ { $received } received
+    .title =
+        Sent: { $sentExact } tokens new in the prompts
+        Received: { $receivedExact } tokens
+convo-tokens-cached = ↑ { $sent } sent · ↓ { $received } received · { $cached } read back from the cache
+    .title =
+        Sent: { $sentExact } tokens new in the prompts
+        Received: { $receivedExact } tokens
+        Read back from the cache: { $cachedExact } tokens, the context resent at every turn
+convo-branch =
+    .title = Git branch
 convo-message-count = { $n ->
         [one] { $n } message
        *[other] { $n } messages
@@ -190,6 +201,7 @@ export-pdf = PDF (.pdf)
 copy-command-button = Copy
     .title = Copy the resume command
 open-folder-button = Open the folder
+    .title = Open this folder in the file manager
 folder-gone = This folder no longer exists on disk.
 forget-button = Forget
     .title = Permanently erase the copy Ariane keeps of this conversation

@@ -1067,13 +1067,86 @@ function tokenLine(usage) {
 }
 
 /**
- * The conversation's own cost, for its header: the sidebar's line, exact on
- * hover, with its subagents' cost apart — and, for a subagent, the reminder
- * that its figures are a floor.
+ * What the header says about a conversation, grouped by the question each fact
+ * answers — who, where, when, how long — rather than eight facts in one string
+ * of dots, where the eye had to read them all to find one (asked 25 September
+ * 2026). A group wraps whole to the next line; none is ever cut. What it cost
+ * has a line of its own.
+ */
+function headerFacts(session, theme) {
+  const group = (className, iconName, ...content) => {
+    const g = node('span', `meta-group ${className}`);
+    if (iconName) {
+      const glyph = icon(iconName);
+      glyph.classList.add('meta-icon');
+      g.append(glyph);
+    }
+    g.append(...content);
+    return g;
+  };
+  const text = (className, value) => {
+    const span = node('span', className);
+    span.textContent = value;
+    return span;
+  };
+
+  // Who: the assistant's own mark, as in the sidebar, then the models that answered.
+  const dot = node('span', 'agent-dot', theme.initial);
+  dot.dataset.agent = session.agentId;
+  const who = group('meta-who', null, dot, text('meta-strong', theme.label));
+  if (state.models.models.length) who.append(text('meta-models', l10n.list(state.models.models)));
+
+  // Where: the folder by its name, the whole path on hover; then its branch.
+  const { name } = folderLabel(session.folderPath || '');
+  const folder = text('meta-strong meta-folder', name || session.folderPath);
+  const where = group('meta-where', 'folder', folder);
+  where.title = session.folderPath || '';
+  if (session.gitBranch) {
+    const branch = nodeFrom('span', 'meta-branch', 'convo-branch');
+    branch.textContent = session.gitBranch;
+    const branchIcon = icon('branch');
+    branchIcon.classList.add('meta-icon');
+    where.append(branchIcon, branch);
+  }
+
+  const facts = node('span', 'meta-row');
+  facts.append(who, ' ', where);
+  if (session.lastAt) facts.append(' ', group('meta-when', 'clock', l10n.dateTime(session.lastAt)));
+  const count = t('convo-message-count', { n: session.messageCount });
+  facts.append(' ', group('meta-size', 'bubble', count));
+  if (session.source === 'history') facts.append(' ', text('meta-badge', t('convo-purged')));
+  if (session.source === 'archive') facts.append(' ', text('meta-badge', t('convo-saved')));
+
+  const rows = [facts];
+  const cost = headerCost(session);
+  if (cost) {
+    const costRow = node('span', 'meta-row meta-cost-row');
+    costRow.append(cost);
+    rows.push(costRow);
+  }
+  return rows;
+}
+
+/**
+ * The conversation's own cost, for its header: the sidebar's figures, named —
+ * « envoyés », « reçus » — since the header has the room; exact on hover, with
+ * its subagents' cost apart and, for a subagent, the reminder that its figures
+ * are a floor.
  */
 function headerCost(session) {
-  const cost = tokenLine(sessionTokens(session));
-  if (!cost) return null;
+  const usage = sessionTokens(session);
+  if (!usage) return null;
+  const short = (n) => (n === null ? '—' : l10n.compact(n));
+  const exact = (n) => (n === null ? '—' : l10n.number(n));
+  const id = usage.cacheRead === null ? 'convo-tokens' : 'convo-tokens-cached';
+  const cost = nodeFrom('span', 'session-cost meta-cost', id, {
+    sent: short(usage.sent),
+    received: short(usage.received),
+    cached: short(usage.cacheRead),
+    sentExact: exact(usage.sent),
+    receivedExact: exact(usage.received),
+    cachedExact: exact(usage.cacheRead),
+  });
   const sub = subagentTokens(session);
   const notes = [cost.title, sub && subagentCost(sub), state.usageIsFloor && t('usage-floor')];
   cost.title = notes.filter(Boolean).join('\n');
@@ -1564,30 +1637,7 @@ function paintHeader(session) {
 
   const theme = agentTheme(session.agentId, labelOfAgent(session.agentId));
   state.currentAgentLabel = theme.label;
-  const bits = [theme.label];
-  // Which models answered: a tool like Copilot runs Kimi, GPT or Claude alike.
-  if (state.models.models.length) bits.push(l10n.list(state.models.models));
-  bits.push(session.folderPath);
-  if (session.gitBranch) bits.push(session.gitBranch);
-  if (session.lastAt) bits.push(l10n.dateTime(session.lastAt));
-  bits.push(t('convo-message-count', { n: session.messageCount }));
-  if (session.source === 'history') bits.push(t('convo-purged'));
-  if (session.source === 'archive') bits.push(t('convo-saved'));
-  const text = node('span', 'convo-meta-text');
-  text.textContent = bits.join(' · ');
-  el.convoMeta.replaceChildren(text);
-  // What the whole conversation cost, as the sidebar says it: the text before
-  // it is cut when the line runs long, never the figures.
-  const cost = headerCost(session);
-  if (cost) {
-    const wrap = node('span', 'convo-cost');
-    // In the text, like the sidebar's: a separator drawn by CSS alone is not copied.
-    wrap.append(' · ', cost);
-    el.convoMeta.append(wrap);
-  }
-  // The line is cut when it runs long — four models are enough — so the whole
-  // of it is on hover.
-  el.convoMeta.title = el.convoMeta.textContent;
+  el.convoMeta.replaceChildren(...headerFacts(session, theme));
 
   paintChain(session.id);
   paintOrigin();

@@ -129,6 +129,17 @@ convo-empty = Diese Unterhaltung enthält keine Nachricht, die sich anzeigen lä
 convo-not-found = Unterhaltung nicht gefunden.
 convo-id =
     .title = Die Kennung dieser Unterhaltung – die, mit der ihr Assistent sie fortsetzt
+convo-tokens = ↑ { $sent } gesendet · ↓ { $received } empfangen
+    .title =
+        Gesendet: { $sentExact } neue Tokens in den Prompts
+        Empfangen: { $receivedExact } Tokens
+convo-tokens-cached = ↑ { $sent } gesendet · ↓ { $received } empfangen · { $cached } aus dem Cache gelesen
+    .title =
+        Gesendet: { $sentExact } neue Tokens in den Prompts
+        Empfangen: { $receivedExact } Tokens
+        Aus dem Cache gelesen: { $cachedExact } Tokens – der Kontext, der in jeder Runde erneut gesendet wird
+convo-branch =
+    .title = Git-Branch
 convo-message-count = { $n ->
         [one] { $n } Nachricht
        *[other] { $n } Nachrichten
@@ -168,6 +179,7 @@ export-pdf = PDF (.pdf)
 copy-command-button = Kopieren
     .title = Befehl zum Fortsetzen kopieren
 open-folder-button = Ordner öffnen
+    .title = Diesen Ordner im Dateimanager öffnen
 folder-gone = Dieser Ordner existiert nicht mehr auf dem Datenträger.
 forget-button = Vergessen
     .title = Die Kopie, die Ariane von dieser Unterhaltung aufbewahrt, endgültig löschen

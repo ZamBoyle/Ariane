@@ -580,25 +580,66 @@ button.stats:focus-visible {
 
 .convo-meta {
   display: flex;
-  margin: 2px 0 0;
+  flex-direction: column;
+  gap: 3px;
+  margin: 4px 0 0;
   font-size: 12px;
-  color: var(--text-faint);
+  color: var(--text-soft);
+}
+
+/* Les faits de la conversation, groupés par la question qu'ils règlent — qui,
+   où, quand, combien — au lieu de huit faits dans une seule chaîne de points.
+   Un groupe passe entier à la ligne ; aucun n'est jamais coupé. */
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 18px;
+  row-gap: 3px;
+}
+
+.meta-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   white-space: nowrap;
-  overflow: hidden;
 }
 
-/* La ligne se coupe dans son texte — le dossier, la date —, jamais dans ce
-   qu'a coûté la conversation, qui reste entier au bout. */
-.convo-meta-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.convo-cost {
+.meta-icon {
+  width: 14px;
+  height: 14px;
   flex: none;
-  /* Garde l'espace avant le point médian, en tête de l'élément. */
-  white-space: pre;
+  color: var(--text-faint);
+}
+
+.meta-group > .agent-dot {
+  flex: none;
+}
+
+.meta-strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* La branche : une étiquette, pour qu'on ne la lise pas comme un dossier. */
+.meta-branch {
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--bg-hover);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.meta-badge {
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.meta-cost {
+  font-variant-numeric: tabular-nums;
 }
 
 .ghost-btn {
@@ -1355,14 +1396,19 @@ mark {
 /* Six actions and their labels need ~635 px, and the title deserves room of its
    own: below that, the labels step aside and the icons speak alone. Each
    button keeps its name in aria-label (see icons.js), and its tooltip. */
-@container convo (max-width: 920px) {
-  .convo-actions .ghost-btn .label {
-    display: none;
-  }
+/* Les actions de l'en-tête en icônes seules, leur nom au survol : la place
+   va aux faits de la conversation. Seule la question d'« Oublier » se lit en
+   entier — le second clic efface pour de bon. */
+.convo-actions .ghost-btn .label {
+  display: none;
+}
 
-  .convo-actions .ghost-btn {
-    padding: 5px 7px;
-  }
+.convo-actions .ghost-btn {
+  padding: 5px 7px;
+}
+
+.convo-actions .ghost-btn.danger .label {
+  display: inline;
 }
 
 /* ── Chercher dans la conversation ouverte (Ctrl+F) ───────────────────── */

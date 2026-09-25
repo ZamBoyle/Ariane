@@ -115,6 +115,17 @@ convo-empty = この会話には表示できるメッセージがありません
 convo-not-found = 会話が見つかりません。
 convo-id =
     .title = この会話の ID — アシスタントが再開に使うもの
+convo-tokens = ↑ { $sent } 送信 · ↓ { $received } 受信
+    .title =
+        送信：プロンプト内の新しいトークン { $sentExact }
+        受信：{ $receivedExact } トークン
+convo-tokens-cached = ↑ { $sent } 送信 · ↓ { $received } 受信 · キャッシュから { $cached } 再読込
+    .title =
+        送信：プロンプト内の新しいトークン { $sentExact }
+        受信：{ $receivedExact } トークン
+        キャッシュからの再読み込み：{ $cachedExact } トークン（毎ターン再送されるコンテキスト）
+convo-branch =
+    .title = Git ブランチ
 convo-message-count = { $n ->
        *[other] メッセージ { $n } 件
     }
@@ -147,6 +158,7 @@ export-pdf = PDF (.pdf)
 copy-command-button = コピー
     .title = 再開コマンドをコピー
 open-folder-button = フォルダーを開く
+    .title = このフォルダをファイルマネージャーで開く
 folder-gone = このフォルダーはもうディスク上にありません。
 forget-button = 消去
     .title = Ariane が保持しているこの会話のコピーを完全に消去

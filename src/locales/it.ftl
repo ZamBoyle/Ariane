@@ -128,6 +128,17 @@ convo-empty = Questa conversazione non contiene alcun messaggio da mostrare.
 convo-not-found = Conversazione non trovata.
 convo-id =
     .title = L’identificativo di questa conversazione: quello con cui il suo assistente la riprende
+convo-tokens = ↑ { $sent } inviati · ↓ { $received } ricevuti
+    .title =
+        Inviati: { $sentExact } token nuovi nei prompt
+        Ricevuti: { $receivedExact } token
+convo-tokens-cached = ↑ { $sent } inviati · ↓ { $received } ricevuti · { $cached } riletti dalla cache
+    .title =
+        Inviati: { $sentExact } token nuovi nei prompt
+        Ricevuti: { $receivedExact } token
+        Riletti dalla cache: { $cachedExact } token, il contesto rinviato a ogni turno
+convo-branch =
+    .title = Branch git
 convo-message-count = { $n ->
         [one] { $n } messaggio
        *[other] { $n } messaggi
@@ -167,6 +178,7 @@ export-pdf = PDF (.pdf)
 copy-command-button = Copia
     .title = Copia il comando per riprendere
 open-folder-button = Apri la cartella
+    .title = Apri questa cartella nel gestore file
 folder-gone = Questa cartella non esiste più sul disco.
 forget-button = Dimentica
     .title = Cancella definitivamente la copia che Ariane conserva di questa conversazione

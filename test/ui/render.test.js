@@ -113,6 +113,17 @@ const SCRIPT = `(async () => {
     modelLabels: transcript.querySelectorAll('.msg-model').length,
     cost: headCost ? headCost.textContent : null,
     costTitle: headCost ? headCost.title : null,
+    who: (document.querySelector('#convo-meta .meta-who .meta-strong') || {}).textContent || null,
+    folder: (document.querySelector('#convo-meta .meta-folder') || {}).textContent || null,
+    folderTitle: (document.querySelector('#convo-meta .meta-where') || {}).title || null,
+    branch: (document.querySelector('#convo-meta .meta-branch') || {}).textContent || null,
+    branchTitle: (document.querySelector('#convo-meta .meta-branch') || {}).title || null,
+    groups: [...document.querySelectorAll('#convo-meta .meta-group')].map((g) => g.className.replace('meta-group ', '')),
+    rows: document.querySelectorAll('#convo-meta .meta-row').length,
+    costRow: (document.querySelector('#convo-meta .meta-cost-row') || {}).textContent || null,
+    // Icons alone since choice C: each shown action still has a name, spoken and on hover.
+    unnamed: [...document.querySelectorAll('.convo-actions button')].filter((b) => b.checkVisibility())
+      .filter((b) => !(b.getAttribute('aria-label') || '').trim() || !(b.title || '').trim()).map((b) => b.id),
     id: document.getElementById('convo-id').textContent,
     idTitle: document.getElementById('convo-id').title,
     idShown: !document.getElementById('convo-id').hidden,
@@ -136,6 +147,7 @@ const SCRIPT = `(async () => {
           title: document.getElementById('convo-title').textContent,
           modelLabels: [...transcript.querySelectorAll('.msg-model')].map((m) => m.textContent),
           cost: document.querySelector('#convo-meta .session-cost') ? 'présent' : null,
+          who: (document.querySelector('#convo-meta .meta-who .meta-strong') || {}).textContent || null,
         };
         break;
       }
@@ -202,8 +214,6 @@ const SCRIPT = `(async () => {
     untitled = {
       found: true,
       title: document.getElementById('convo-title').textContent,
-      metaText: document.getElementById('convo-meta').textContent,
-      metaTitle: document.getElementById('convo-meta').title,
     };
   }
 
@@ -1152,7 +1162,7 @@ const SCREENS_SCRIPT = `(async () => {
     '.msg-body', '.folder-name', '.folder-parent', '.session-title', '.result-snippet',
     '.result-title strong', '.results-group', '#convo-title', '.agent-chip', '.agent-dot',
     '.fold pre', '.fold-tag', 'code', 'pre', '.outline-tick', 'title', '.msg-model', '.session-model',
-    '.stats-model', '.stats-folder', '.stats-parent', '.convo-id',
+    '.stats-model', '.stats-folder', '.stats-parent', '.convo-id', '.meta-folder', '.meta-branch',
   ].join(', ');
   // Names, not sentences: the app's, the assistants', the languages' own.
   const NAMES = new Set(['Ariane', 'Claude Code', 'Codex', 'Copilot CLI', 'Qwen Code', 'Gemini CLI',
@@ -1671,7 +1681,15 @@ async function run() {
 
   // -- chrome --------------------------------------------------------------
   check('the conversation header names the session', r.title === 'Session de test', r.title);
-  check('the header shows the real folder path', r.meta.includes('/home/zam/projet'), r.meta);
+  check('the header names the folder, its whole path on hover',
+    r.claudeChrome.folder === 'projet' && r.claudeChrome.folderTitle === '/home/zam/projet', JSON.stringify(r.claudeChrome));
+  check('l’en-tête range ses faits par question — qui, où, quand, combien — et le coût à part',
+    JSON.stringify(r.claudeChrome.groups) === '["meta-who","meta-where","meta-when","meta-size"]' && r.claudeChrome.rows === 2,
+    JSON.stringify(r.claudeChrome));
+  check('chaque action de l’en-tête, en icône seule, a un nom : dit à un lecteur d’écran, et au survol',
+    Array.isArray(r.claudeChrome.unnamed) && r.claudeChrome.unnamed.length === 0, JSON.stringify(r.claudeChrome.unnamed));
+  check('la branche est une étiquette, nommée au survol',
+    r.claudeChrome.branch === 'master' && r.claudeChrome.branchTitle === 'Branche git', JSON.stringify(r.claudeChrome));
 
   // -- quel modèle a répondu ---------------------------------------------
   check('l’en-tête nomme le modèle qui a répondu', r.meta.includes('claude-opus-5'), r.meta);
@@ -1730,7 +1748,7 @@ async function run() {
   check('it is labelled with that agent name',
     r.otherAgent.speaker === 'Codex', `speaker=${r.otherAgent.speaker}`);
   check('its header names the agent too',
-    r.otherAgent.meta && r.otherAgent.meta.startsWith('Codex'), r.otherAgent.meta);
+    r.otherAgent.who === 'Codex', JSON.stringify(r.otherAgent));
 
   // -- agents: one list, newest first, whoever wrote it ---------------------
   // The fixture is built for this: the Claude session is the most recent
@@ -1761,8 +1779,6 @@ async function run() {
     r.sessionRows.map((s) => `${s.agent}:${s.line}`).join(' | '));
   check('sans titre, l’en-tête la nomme par ses premiers mots, comme la barre latérale',
     r.untitled.found && r.untitled.title === 'une question sans titre', JSON.stringify(r.untitled));
-  check('la ligne sous le titre se lit en entier au survol',
-    r.untitled.found && r.untitled.metaTitle === r.untitled.metaText, JSON.stringify(r.untitled));
 
   check('une conversation mesurée montre ses jetons sous son résumé, en K et M',
     claudeRow && claudeRow.tokens === '↑ 167K · ↓ 78,2K · cache 5,9M',
@@ -1773,8 +1789,8 @@ async function run() {
   check('au survol, les chiffres exacts',
     claudeRow && /166\u202f659/.test(claudeRow.tokensTitle) && /5\u202f933\u202f004/.test(claudeRow.tokensTitle),
     claudeRow && JSON.stringify(claudeRow.tokensTitle));
-  check('en haut de la conversation, ce qu’elle a coûté : la ligne de la barre latérale, au bout de la ligne',
-    r.claudeChrome.cost === '↑ 167K · ↓ 78,2K · cache 5,9M' && r.claudeChrome.meta.endsWith(' · ↑ 167K · ↓ 78,2K · cache 5,9M'),
+  check('en haut de la conversation, ce qu’elle a coûté, sur sa propre ligne, ses chiffres nommés',
+    r.claudeChrome.costRow === '↑ 167K envoyés · ↓ 78,2K reçus · 5,9M relus depuis le cache',
     JSON.stringify(r.claudeChrome));
   check('tout en haut, l’identifiant de la conversation, tel que son assistant le connaît, à copier',
     r.claudeChrome.idShown && r.claudeChrome.id === 's1' && r.claudeChrome.idFirst === 'convo-id'

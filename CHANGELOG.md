@@ -39,6 +39,34 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### Un en-tête où l'on s'y retrouve
+
+**Signalé** : « tout est mélangé dans l'entête de la conversation, on ne s'y retrouve pas ». Huit
+faits de nature différente — l'assistant, les modèles, le dossier, la branche, la date, le nombre de
+messages, trois chiffres de jetons — tenaient dans une seule chaîne de points, à la même taille et
+dans la même couleur, et le dossier finissait coupé (« /home/zam/Do… »). Il fallait tout lire pour
+trouver un fait.
+
+**Choisi sur pièces.** Deux maquettes, faites dans l'application réelle sur la conversation de la
+capture et montrées en images : A garde les libellés des boutons, et les faits passent sur trois
+lignes ; C met les boutons en icônes, et les faits tiennent en deux. **C** a été retenue.
+
+**Ce qui se voit maintenant.** Sous le titre, les faits sont groupés par la question qu'ils
+règlent : **qui** (la marque de l'assistant, comme dans la barre latérale, son nom, les modèles),
+**où** (le dossier par son nom, le chemin entier au survol, la branche en étiquette), **quand**,
+**combien** de messages — chaque groupe annoncé par une icône. Sur une ligne à lui, **ce qu'a coûté
+la conversation**, ses chiffres nommés : « ↑ 756K envoyés · ↓ 477K reçus · 94,8M relus depuis le
+cache ». Un groupe passe entier à la ligne quand la place manque ; aucun n'est coupé. Les actions de
+l'en-tête sont des icônes, nommées au survol et pour les lecteurs d'écran ; « Oublier » montre sa
+question en toutes lettres pendant qu'il attend le second clic — ce qu'il ne faisait pas quand la
+fenêtre était étroite.
+
+**Vérifié** : la suite de rendu contrôle les groupes, le chemin au survol, la branche nommée, le coût
+sur sa ligne, et que chaque action affichée a un nom — elle échoue si on retire l'infobulle
+d'« Ouvrir le dossier », ajoutée pour l'occasion dans les neuf langues. La suite de mise en page
+vérifie qu'un dossier au nom interminable fait passer des groupes à la ligne sans en couper aucun,
+et que le titre dispose maintenant de 766 px au lieu de 200 à 340.
+
 ### Des textes qu'on lit : le contraste, mesuré
 
 **Signalé** : « les textes sont sombres un peu, non ? » — et ils l'étaient, chiffres à l'appui. Le

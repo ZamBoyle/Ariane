@@ -115,6 +115,17 @@ convo-empty = 此对话中没有可显示的消息。
 convo-not-found = 未找到对话。
 convo-id =
     .title = 此对话的 ID——其助手用来恢复它的标识
+convo-tokens = ↑ { $sent } 已发送 · ↓ { $received } 已接收
+    .title =
+        发送：提示词中的新 token { $sentExact } 个
+        接收：{ $receivedExact } 个 token
+convo-tokens-cached = ↑ { $sent } 已发送 · ↓ { $received } 已接收 · 从缓存重读 { $cached }
+    .title =
+        发送：提示词中的新 token { $sentExact } 个
+        接收：{ $receivedExact } 个 token
+        从缓存重读：{ $cachedExact } 个 token，即每轮重新发送的上下文
+convo-branch =
+    .title = Git 分支
 convo-message-count = { $n ->
        *[other] { $n } 条消息
     }
@@ -147,6 +158,7 @@ export-pdf = PDF (.pdf)
 copy-command-button = 复制
     .title = 复制继续对话的命令
 open-folder-button = 打开文件夹
+    .title = 在文件管理器中打开此文件夹
 folder-gone = 此文件夹已不在磁盘上。
 forget-button = 删除
     .title = 永久删除 Ariane 保存的这份对话副本

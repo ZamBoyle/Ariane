@@ -128,6 +128,17 @@ convo-empty = Cette conversation ne contient aucun message affichable.
 convo-not-found = Conversation introuvable.
 convo-id =
     .title = L’identifiant de cette conversation — celui par lequel son assistant la reprend
+convo-tokens = ↑ { $sent } envoyés · ↓ { $received } reçus
+    .title =
+        Envoyés : { $sentExact } jetons nouveaux dans les prompts
+        Reçus : { $receivedExact } jetons
+convo-tokens-cached = ↑ { $sent } envoyés · ↓ { $received } reçus · { $cached } relus depuis le cache
+    .title =
+        Envoyés : { $sentExact } jetons nouveaux dans les prompts
+        Reçus : { $receivedExact } jetons
+        Relus depuis le cache : { $cachedExact } jetons, le contexte renvoyé à chaque tour
+convo-branch =
+    .title = Branche git
 convo-message-count = { $n ->
         [one] { $n } message
        *[other] { $n } messages
@@ -167,6 +178,7 @@ export-pdf = PDF (.pdf)
 copy-command-button = Copier
     .title = Copier la commande de reprise
 open-folder-button = Ouvrir le dossier
+    .title = Ouvrir ce dossier dans le gestionnaire de fichiers
 folder-gone = Ce dossier n'existe plus sur le disque.
 forget-button = Oublier
     .title = Effacer définitivement la copie qu'Ariane garde de cette conversation

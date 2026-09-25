@@ -200,28 +200,34 @@ async function run() {
         - parseFloat(getComputedStyle(head).paddingLeft) - parseFloat(getComputedStyle(head).paddingRight))) < 2,
     };
   })()`;
-  // The line under the title, far too long for the window, built as the app
-  // builds it: its text is cut, never what the conversation cost.
+  // The facts under the title, with a folder name far too long for the window,
+  // built as the app builds them: a group wraps whole, none is ever cut.
   const META = `(() => {
     document.getElementById('convo-head').hidden = false;
     const meta = document.getElementById('convo-meta');
-    const text = document.createElement('span');
-    text.className = 'convo-meta-text';
-    text.textContent = 'Claude · claude-opus-5-5 · ' + '/home/zam/un/chemin/assez/long'.repeat(8)
-      + ' · 25 sept. 2026, 16:01 · 25 messages';
-    const wrap = document.createElement('span');
-    wrap.className = 'convo-cost';
+    const group = (cls, text) => {
+      const g = document.createElement('span');
+      g.className = 'meta-group ' + cls;
+      const t = document.createElement('span');
+      t.textContent = text;
+      g.append(t);
+      return g;
+    };
+    const row = document.createElement('span');
+    row.className = 'meta-row';
+    row.append(group('meta-who', 'Claude claude-opus-5, claude-opus-5-5 et gpt-6-astra'), ' ',
+      group('meta-where', 'un-dossier-au-nom-vraiment-très-long-pour-une-fenêtre-étroite'), ' ',
+      group('meta-when', '25 sept. 2026, 18:29'), ' ', group('meta-size', '7 484 messages'));
     const cost = document.createElement('span');
-    cost.className = 'session-cost';
-    cost.textContent = '↑ 167K · ↓ 78,2K · cache 5,9M';
-    wrap.append(' · ', cost);
-    meta.replaceChildren(text, wrap);
+    cost.className = 'meta-row meta-cost-row';
+    cost.textContent = '↑ 11,1M envoyés · ↓ 2,2M reçus · 1,1G relus depuis le cache';
+    meta.replaceChildren(row, cost);
+    const groups = [...meta.querySelectorAll('.meta-group')];
     const box = (el) => el.getBoundingClientRect();
     return {
-      textCut: text.scrollWidth > text.clientWidth,
-      costWhole: wrap.scrollWidth <= wrap.clientWidth + 1,
-      costInside: box(wrap).right <= box(meta).right + 1,
-      costWidth: Math.round(box(wrap).width),
+      whole: groups.every((g) => g.scrollWidth <= g.clientWidth + 1 && box(g).right <= box(meta).right + 1),
+      wrapped: new Set(groups.map((g) => Math.round(box(g).top))).size > 1,
+      costWhole: cost.scrollWidth <= cost.clientWidth + 1,
     };
   })()`;
   // The search bar with both lists at their widest real labels.
@@ -367,16 +373,15 @@ async function run() {
     wideComposer.oneLine && wideComposer.field >= 300, JSON.stringify(wideComposer));
 
   // -- the conversation header: icons, and labels when there is room -------
-  check('a line too long under the title is cut in its text, never in what the conversation cost',
-    narrowMeta.textCut && narrowMeta.costWhole && narrowMeta.costInside && narrowMeta.costWidth > 120,
-    JSON.stringify(narrowMeta));
+  check('the facts under the title wrap by whole groups, never cut, and so does the cost',
+    narrowMeta.whole && narrowMeta.wrapped && narrowMeta.costWhole, JSON.stringify(narrowMeta));
 
   check('a narrow header keeps its actions on one line, icons alone',
     !narrow.overflow && narrow.labels > 0 && narrow.labelsShown === 0 && narrow.title > 100,
     `débordement=${narrow.overflow}, libellés affichés ${narrow.labelsShown}/${narrow.labels}, titre ${narrow.title} px`);
   for (const [lang, header] of Object.entries(others)) {
-    check(`a header in ${lang} holds its labels, and steps aside when narrow`,
-      !header.wide.overflow && header.wide.labelsShown === header.wide.labels && header.wide.title > 200
+    check(`a header in ${lang} keeps its actions to icons, and gives the room to the title`,
+      !header.wide.overflow && header.wide.labelsShown === 0 && header.wide.title > 500
         && !header.tight.overflow && header.tight.labelsShown === 0 && header.tight.title > 100,
       `large: débordement=${header.wide.overflow} libellés=${header.wide.labelsShown}/${header.wide.labels} titre=${header.wide.title}px`
         + ` · étroit: débordement=${header.tight.overflow} libellés=${header.tight.labelsShown} titre=${header.tight.title}px`);
@@ -387,9 +392,11 @@ async function run() {
   check('the conversation id at the top stays whole, narrow header or wide',
     narrow.idWhole && wide.idWhole && narrow.idAcross && wide.idAcross,
     JSON.stringify({ narrow: [narrow.idWhole, narrow.idAcross], wide: [wide.idWhole, wide.idAcross] }));
-  check('a wide header shows each label beside its icon',
-    !wide.overflow && wide.labelsShown === wide.labels,
-    `libellés affichés ${wide.labelsShown}/${wide.labels}, fenêtre ${wide.window}px, en-tête ${wide.head}px`);
+  // Choice C, 25 September 2026: the labels made the facts under the title
+  // wrap to three lines; icons alone, named on hover, leave them two.
+  check('a wide header keeps its actions to icons and gives the room to the title',
+    !wide.overflow && wide.labelsShown === 0 && wide.title > 500,
+    `libellés affichés ${wide.labelsShown}/${wide.labels}, titre ${wide.title}px, en-tête ${wide.head}px`);
 
   // -- the search bar, with no conversation open ---------------------------
   // `grid-template-rows: auto 1fr auto` assumed three items. With the header
