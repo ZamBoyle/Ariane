@@ -113,6 +113,8 @@ auto-saved = { $n ->
 
 convo-empty = この会話には表示できるメッセージがありません。
 convo-not-found = 会話が見つかりません。
+convo-id =
+    .title = この会話の ID — アシスタントが再開に使うもの
 convo-message-count = { $n ->
        *[other] メッセージ { $n } 件
     }

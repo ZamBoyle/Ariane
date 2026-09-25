@@ -483,6 +483,10 @@ route quand la personne reparle revient à la réponse d'avant. Rien ne s'affich
 déclare `usagePerSession` (Copilot) : le total d'une session sous une seule réponse passerait pour
 le coût de celle-ci. Les chiffres d'un sous-agent disent, au survol, qu'ils sont un minimum.
 
+**Son identifiant ouvre l'en-tête, sur une ligne à lui** (`#convo-id`, `flex-basis: 100%`) : dans
+la colonne du titre, les boutons le coupaient. Tel que son assistant le connaît — `bareId`, la règle
+de la reprise en terminal, appliquée dans `session:get` —, sélectionnable, son sens au survol.
+
 **Ce qu'a coûté la conversation finit la ligne sous son titre** (`headerCost` dans `app.js`), la
 ligne de la barre latérale avec ses sous-agents à part ; `session:get` y ajoute les sommes
 (`Index.sessionTokens`, la définition de la barre latérale). La ligne est une rangée flex : son

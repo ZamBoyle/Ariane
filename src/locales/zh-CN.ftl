@@ -113,6 +113,8 @@ auto-saved = { $n ->
 
 convo-empty = 此对话中没有可显示的消息。
 convo-not-found = 未找到对话。
+convo-id =
+    .title = 此对话的 ID——其助手用来恢复它的标识
 convo-message-count = { $n ->
        *[other] { $n } 条消息
     }

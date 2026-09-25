@@ -126,6 +126,8 @@ auto-saved = { $n ->
 
 convo-empty = Dit gesprek bevat geen enkel bericht dat getoond kan worden.
 convo-not-found = Gesprek niet gevonden.
+convo-id =
+    .title = De id van dit gesprek — waarmee de assistent het hervat
 convo-message-count = { $n ->
         [one] { $n } bericht
        *[other] { $n } berichten

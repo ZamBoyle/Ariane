@@ -182,6 +182,9 @@ async function run() {
     document.getElementById('convo-head').hidden = false;
     document.getElementById('convo-title').textContent = 'La réponse à la grande question';
     for (const id of ['resume', 'copy-cmd', 'open-folder', 'forget']) document.getElementById(id).hidden = false;
+    const convoId = document.getElementById('convo-id');
+    convoId.hidden = false;
+    convoId.textContent = 'c9e63dac-5513-42fa-9e27-04175df3fdc5';
     const head = document.getElementById('convo-head');
     const labels = [...head.querySelectorAll('.convo-actions .ghost-btn .label')];
     return {
@@ -191,6 +194,10 @@ async function run() {
       title: Math.round(document.querySelector('.convo-titles').getBoundingClientRect().width),
       window: innerWidth,
       head: Math.round(head.getBoundingClientRect().width),
+      idWhole: convoId.scrollWidth <= convoId.clientWidth + 1,
+      // Its own row, across the header — not a column the buttons can narrow.
+      idAcross: Math.abs(convoId.getBoundingClientRect().width - (head.clientWidth
+        - parseFloat(getComputedStyle(head).paddingLeft) - parseFloat(getComputedStyle(head).paddingRight))) < 2,
     };
   })()`;
   // The line under the title, far too long for the window, built as the app
@@ -350,6 +357,7 @@ async function run() {
   check('a line too long under the title is cut in its text, never in what the conversation cost',
     narrowMeta.textCut && narrowMeta.costWhole && narrowMeta.costInside && narrowMeta.costWidth > 120,
     JSON.stringify(narrowMeta));
+
   check('a narrow header keeps its actions on one line, icons alone',
     !narrow.overflow && narrow.labels > 0 && narrow.labelsShown === 0 && narrow.title > 100,
     `débordement=${narrow.overflow}, libellés affichés ${narrow.labelsShown}/${narrow.labels}, titre ${narrow.title} px`);
@@ -361,6 +369,11 @@ async function run() {
         + ` · étroit: débordement=${header.tight.overflow} libellés=${header.tight.labelsShown} titre=${header.tight.title}px`);
   }
 
+  // Wide, the labelled buttons leave the title column narrowest: 260 px in the
+  // real app, where the id was cut before it got a row of its own.
+  check('the conversation id at the top stays whole, narrow header or wide',
+    narrow.idWhole && wide.idWhole && narrow.idAcross && wide.idAcross,
+    JSON.stringify({ narrow: [narrow.idWhole, narrow.idAcross], wide: [wide.idWhole, wide.idAcross] }));
   check('a wide header shows each label beside its icon',
     !wide.overflow && wide.labelsShown === wide.labels,
     `libellés affichés ${wide.labelsShown}/${wide.labels}, fenêtre ${wide.window}px, en-tête ${wide.head}px`);

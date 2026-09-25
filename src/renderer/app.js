@@ -208,6 +208,7 @@ const el = {
   convoHead: document.getElementById('convo-head'),
   convoTitle: document.getElementById('convo-title'),
   convoMeta: document.getElementById('convo-meta'),
+  convoId: document.getElementById('convo-id'),
   openFolder: document.getElementById('open-folder'),
   resume: document.getElementById('resume'),
   exportButton: document.getElementById('export'),
@@ -1553,6 +1554,9 @@ async function onToggleMessageStar(button) {
 
 function paintHeader(session) {
   el.convoHead.hidden = false;
+  // At the very top, its id as its assistant knows it: selectable, to be copied.
+  el.convoId.textContent = session.localId || '';
+  el.convoId.hidden = !session.localId;
   // The same name the sidebar gives it: a conversation with no title is known
   // by its first words there, and was "Untitled" here.
   el.convoTitle.textContent =

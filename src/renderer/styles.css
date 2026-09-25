@@ -548,6 +548,23 @@ button.stats:focus-visible {
   min-width: 0;
 }
 
+/* L'identifiant de la conversation, tout en haut : une ligne à lui sur toute
+   la largeur de l'en-tête — dans la colonne du titre, les boutons le coupaient.
+   Discret, à chasse fixe, sélectionnable pour être copié. Des données, pas une
+   phrase. La marge négative rend l'écart de l'en-tête (12 px) au titre. */
+.convo-id {
+  flex-basis: 100%;
+  min-width: 0;
+  margin: 0 0 -9px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: text;
+}
+
 .convo-title {
   margin: 0;
   font-size: 15px;

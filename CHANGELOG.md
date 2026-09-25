@@ -39,6 +39,17 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### L'identifiant de la conversation, tout en haut
+
+**Demandé** : tout en haut de l'en-tête, sur une ligne à lui, l'identifiant de la conversation tel
+que son assistant le connaît — celui qu'on donne à `claude --resume` —, en petits caractères à
+chasse fixe, sélectionnable pour être copié, et son sens au survol. Calculé par la même fonction
+que la reprise dans un terminal (`bareId`), pour qu'il ne puisse pas y avoir deux règles.
+
+**Une ligne à lui, parce que dans la colonne du titre il était coupé** : les six boutons de
+l'en-tête ne lui laissaient que 260 px, et `…04175df3fd…` ne se copie pas. La suite de mise en page
+vérifie qu'il occupe toute la largeur de l'en-tête — elle échoue s'il retourne dans la colonne.
+
 ### Une conversation qui mettait 31 secondes à s'ouvrir
 
 **Signalé** : « une conversation très difficile à ouvrir ». Mesuré étape par étape sur les plus

@@ -41,6 +41,8 @@ const languageSaves = [];
 const MARKS = {};
 const marked = (session) => ({
   ...session,
+  // Comme session:get : l'identifiant tel que l'assistant le connaît (resume.js, bareId).
+  localId: session.id.slice(session.id.indexOf(':') + 1),
   favorite: Boolean(MARKS[session.id] && MARKS[session.id].favorite),
   note: (MARKS[session.id] && MARKS[session.id].note) || '',
   messages: (MARKS[session.id] && MARKS[session.id].messages) || [],

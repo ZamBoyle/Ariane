@@ -127,6 +127,8 @@ auto-saved = { $n ->
 
 convo-empty = Diese Unterhaltung enthält keine Nachricht, die sich anzeigen lässt.
 convo-not-found = Unterhaltung nicht gefunden.
+convo-id =
+    .title = Die Kennung dieser Unterhaltung – die, mit der ihr Assistent sie fortsetzt
 convo-message-count = { $n ->
         [one] { $n } Nachricht
        *[other] { $n } Nachrichten

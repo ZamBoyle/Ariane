@@ -126,6 +126,8 @@ auto-saved = { $n ->
 
 convo-empty = Cette conversation ne contient aucun message affichable.
 convo-not-found = Conversation introuvable.
+convo-id =
+    .title = L’identifiant de cette conversation — celui par lequel son assistant la reprend
 convo-message-count = { $n ->
         [one] { $n } message
        *[other] { $n } messages

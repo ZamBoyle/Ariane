@@ -113,6 +113,11 @@ const SCRIPT = `(async () => {
     modelLabels: transcript.querySelectorAll('.msg-model').length,
     cost: headCost ? headCost.textContent : null,
     costTitle: headCost ? headCost.title : null,
+    id: document.getElementById('convo-id').textContent,
+    idTitle: document.getElementById('convo-id').title,
+    idShown: !document.getElementById('convo-id').hidden,
+    idSelectable: getComputedStyle(document.getElementById('convo-id')).userSelect,
+    idFirst: document.getElementById('convo-head').firstElementChild.id,
   };
 
   // Open a session belonging to ANOTHER agent and read back who it credits.
@@ -1147,7 +1152,7 @@ const SCREENS_SCRIPT = `(async () => {
     '.msg-body', '.folder-name', '.folder-parent', '.session-title', '.result-snippet',
     '.result-title strong', '.results-group', '#convo-title', '.agent-chip', '.agent-dot',
     '.fold pre', '.fold-tag', 'code', 'pre', '.outline-tick', 'title', '.msg-model', '.session-model',
-    '.stats-model', '.stats-folder', '.stats-parent',
+    '.stats-model', '.stats-folder', '.stats-parent', '.convo-id',
   ].join(', ');
   // Names, not sentences: the app's, the assistants', the languages' own.
   const NAMES = new Set(['Ariane', 'Claude Code', 'Codex', 'Copilot CLI', 'Qwen Code', 'Gemini CLI',
@@ -1770,6 +1775,11 @@ async function run() {
     claudeRow && JSON.stringify(claudeRow.tokensTitle));
   check('en haut de la conversation, ce qu’elle a coûté : la ligne de la barre latérale, au bout de la ligne',
     r.claudeChrome.cost === '↑ 167K · ↓ 78,2K · cache 5,9M' && r.claudeChrome.meta.endsWith(' · ↑ 167K · ↓ 78,2K · cache 5,9M'),
+    JSON.stringify(r.claudeChrome));
+  check('tout en haut, l’identifiant de la conversation, tel que son assistant le connaît, à copier',
+    r.claudeChrome.idShown && r.claudeChrome.id === 's1' && r.claudeChrome.idFirst === 'convo-id'
+      && r.claudeChrome.idSelectable === 'text'
+      && r.claudeChrome.idTitle === 'L’identifiant de cette conversation — celui par lequel son assistant la reprend',
     JSON.stringify(r.claudeChrome));
   check('et au survol, les chiffres exacts',
     /166\u202f659/.test(r.claudeChrome.costTitle || '') && /5\u202f933\u202f004/.test(r.claudeChrome.costTitle || ''),

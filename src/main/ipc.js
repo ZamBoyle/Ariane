@@ -20,7 +20,7 @@ const { Indexer } = require('../core/indexer');
 const { Memo } = require('../core/memo');
 const { Archive } = require('../core/archive');
 const { Marks, NOTE_MAX } = require('../core/marks');
-const { resumeCommand } = require('../core/resume');
+const { resumeCommand, bareId } = require('../core/resume');
 const { periodStart } = require('../core/period');
 const { summarize } = require('../core/statistics');
 const { pathToFileURL } = require('url');
@@ -270,7 +270,8 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
     const chain = state.index.chain(id);
     return {
       // What it cost, as the sidebar sums it: the header shows the same line.
-      session: { ...withMark(session), ...state.index.sessionTokens(id) },
+      // And its id as its assistant knows it — the one to resume it by.
+      session: { ...withMark(session), ...state.index.sessionTokens(id), localId: bareId(id) },
       chain: chain.length > 1 ? chain.map(({ id: part, title }) => ({ id: part, title })) : [],
       // A resumed or forked session began by copying another's history: how
       // much, and from where, so the reader can be sent there (core/db.js).

@@ -456,6 +456,10 @@ count still pending when the person speaks again goes back to the reply before. 
 where the adapter declares `usagePerSession` (Copilot): a session's total under one reply would
 read as that reply's cost. A subagent's figures say, on hover, that they are a floor.
 
+**Its id opens the header, on a row of its own** (`#convo-id`, `flex-basis: 100%`): in the title's
+column the action buttons cut it. As its assistant knows it — `bareId`, the rule the terminal
+resume uses, applied in `session:get` — selectable, its meaning on hover.
+
 **The conversation's own cost ends the line under its title** (`headerCost` in `app.js`), the
 sidebar's line with its subagents apart; `session:get` adds the sums (`Index.sessionTokens`, the
 sidebar's definition). The line is a flex row: its text is cut, never the figures — a layout check
