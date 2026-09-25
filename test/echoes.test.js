@@ -242,7 +242,6 @@ test('une archive d’avant la correction est nettoyée à la lecture', (t) => {
 
 test('la migration de l’index sauve une conversation disparue sans ses échos', (t) => {
   const fx = createFixture();
-  t.after(() => fx.cleanup());
   const archive = new Archive(path.join(fx.root, 'archive'));
   const file = path.join(fx.root, 'index.sqlite3');
 
@@ -274,7 +273,12 @@ test('la migration de l’index sauve une conversation disparue sans ses échos'
   raw.close();
 
   const migrated = new Index(file, { archive });
-  t.after(() => migrated.close());
+  // La base d'abord, le dossier ensuite : Windows refuse d'effacer un fichier
+  // ouvert, et les `after` s'exécutent dans l'ordre où on les a inscrits.
+  t.after(() => {
+    migrated.close();
+    fx.cleanup();
+  });
   assert.ok(archive.has('claude:s1'), 'sauvée avant que les tables tombent');
   assert.deepEqual(
     archive.read(archive.fileFor('claude:s1')).messages.map((m) => m.text),
