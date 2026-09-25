@@ -64,6 +64,12 @@ plusieurs jours repoussait tout : cinq lignes à côté d'un grand vide sous les
 maintenant toute la largeur de l'en-tête, et l'option A retrouve ses trois lignes. L'ordre de
 lecture ne change pas pour un lecteur d'écran : le titre, les faits, puis les boutons.
 
+**Une question par ligne**, sur une remarque d'ergonomie (« les messages ne devraient pas passer au
+début de la dernière ligne ? ») : le nombre de messages quitte la ligne des dates et ouvre celle
+de ce qu'a coûté la conversation. Qui et où ; quand et combien de temps ; combien — les messages,
+puis les jetons. « Transcription purgée » et « sauvée par Ariane » ferment cette dernière ligne :
+elles disent ce qui reste de la conversation.
+
 **Vérifié** : l'index (le début d'une reprise est son premier message à elle), le formatage en
 français et en anglais, l'en-tête rendu (la plage, les deux bouts au survol, la durée, les deux
 icônes, et pas de durée pour un seul instant), et la mise en page (les faits sur toute la largeur,

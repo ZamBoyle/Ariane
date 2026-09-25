@@ -215,22 +215,28 @@ async function run() {
       g.append(t);
       return g;
     };
-    const row = document.createElement('span');
-    row.className = 'meta-row';
-    row.append(group('meta-who', 'Claude claude-opus-5, claude-opus-5-5 et gpt-6-astra'), ' ',
-      group('meta-where', 'un-dossier-au-nom-vraiment-très-long-pour-une-fenêtre-étroite'.repeat(3)), ' ',
-      group('meta-when', '25 sept. 2026, 18:29'), ' ', group('meta-size', '7 484 messages'));
+    const row = (cls, ...content) => {
+      const r = document.createElement('span');
+      r.className = 'meta-row ' + cls;
+      r.append(...content);
+      return r;
+    };
     const cost = document.createElement('span');
-    cost.className = 'meta-row meta-cost-row';
+    cost.className = 'session-cost meta-cost';
     cost.textContent = '↑ 11,1M envoyés · ↓ 2,2M reçus · 1,1G relus depuis le cache';
-    meta.replaceChildren(row, cost);
+    const who = group('meta-who', 'Claude claude-opus-5, claude-opus-5-5 et gpt-6-astra');
+    const where = group('meta-where', 'un-dossier-au-nom-vraiment-très-long-pour-une-fenêtre-étroite'.repeat(3));
+    meta.replaceChildren(
+      row('meta-context', who, ' ', where),
+      row('meta-time', group('meta-when', '21 sept. 2026, 08:11 – 25 sept. 2026, 22:19'), ' ', group('meta-duration', '4 j et 14 h')),
+      row('meta-amount', group('meta-size', '8 251 messages'), ' ', cost));
     const groups = [...meta.querySelectorAll('.meta-group')];
     const box = (el) => el.getBoundingClientRect();
     const others = groups.filter((g) => !g.classList.contains('meta-where'));
     return {
       inside: groups.every((g) => box(g).right <= box(meta).right + 1) && meta.scrollWidth <= meta.clientWidth + 1,
       othersWhole: others.every((g) => g.scrollWidth <= g.clientWidth + 1),
-      wrapped: new Set(groups.map((g) => Math.round(box(g).top))).size > 1,
+      wrapped: Math.round(box(who).top) !== Math.round(box(where).top),
       costWhole: cost.scrollWidth <= cost.clientWidth + 1,
       // Toute la largeur de l'en-tête, sous les boutons aussi : serrés dans la
       // colonne du titre, les faits d'une conversation de plusieurs jours

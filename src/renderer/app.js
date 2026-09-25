@@ -1106,10 +1106,11 @@ function tokenLine(usage) {
 
 /**
  * What the header says about a conversation, grouped by the question each fact
- * answers, one line per pair of questions — who and where, then when and how
- * many, then what it cost — rather than eight facts in one string of dots,
- * where the eye had to read them all to find one (asked 25 September 2026;
- * choice A, after C put too much on one line). A group wraps whole.
+ * answers, one line per question — who and where, then when and for how long,
+ * then how much: its messages and what they cost — rather than eight facts in
+ * one string of dots, where the eye had to read them all to find one (asked
+ * 25 September 2026; choice A, after C put too much on one line). A group
+ * wraps whole.
  */
 function headerFacts(session, theme) {
   const group = (className, iconName, ...content) => {
@@ -1153,7 +1154,7 @@ function headerFacts(session, theme) {
   // When: its first and last messages as one span, the way a calendar writes
   // an event, each moment in full on hover; then how long that was — never
   // for a conversation that is a single instant.
-  const measure = node('span', 'meta-row');
+  const time = node('span', 'meta-row meta-time');
   const { startedAt, endedAt } = session;
   if (startedAt || endedAt) {
     const when = group('meta-when', 'calendar', text('meta-span', l10n.span(startedAt, endedAt)));
@@ -1165,25 +1166,24 @@ function headerFacts(session, theme) {
       }).attributes.title;
       const lasted = group('meta-duration', 'stopwatch', text('meta-lasted', l10n.duration(elapsed)));
       lasted.title = l10n.message('convo-duration').attributes.title;
-      measure.append(when, ' ', lasted, ' ');
+      time.append(when, ' ', lasted);
     } else {
       when.title = l10n.fullDateTime(startedAt || endedAt);
-      measure.append(when, ' ');
+      time.append(when);
     }
   }
-  const count = t('convo-message-count', { n: session.messageCount });
-  measure.append(group('meta-size', 'bubble', count));
-  if (session.source === 'history') measure.append(' ', text('meta-badge', t('convo-purged')));
-  if (session.source === 'archive') measure.append(' ', text('meta-badge', t('convo-saved')));
 
-  const rows = [context, measure];
+  // How much: its messages, then what they cost — one question, one line
+  // (asked 25 September 2026: the count sat with the dates). What is left of
+  // it, when its file is gone, closes the line.
+  const amount = node('span', 'meta-row meta-amount');
+  amount.append(group('meta-size', 'bubble', t('convo-message-count', { n: session.messageCount })));
   const cost = headerCost(session);
-  if (cost) {
-    const costRow = node('span', 'meta-row meta-cost-row');
-    costRow.append(cost);
-    rows.push(costRow);
-  }
-  return rows;
+  if (cost) amount.append(' ', cost);
+  if (session.source === 'history') amount.append(' ', text('meta-badge', t('convo-purged')));
+  if (session.source === 'archive') amount.append(' ', text('meta-badge', t('convo-saved')));
+
+  return time.childNodes.length ? [context, time, amount] : [context, amount];
 }
 
 /**

@@ -122,7 +122,8 @@ const SCRIPT = `(async () => {
     rows: document.querySelectorAll('#convo-meta .meta-row').length,
     byRow: [...document.querySelectorAll('#convo-meta .meta-row')]
       .map((row) => [...row.querySelectorAll('.meta-group')].map((g) => g.className.replace('meta-group ', ''))),
-    costRow: (document.querySelector('#convo-meta .meta-cost-row') || {}).textContent || null,
+    costRow: (document.querySelector('#convo-meta .meta-cost') || {}).textContent || null,
+    amountRow: (document.querySelector('#convo-meta .meta-amount') || {}).textContent || null,
     when: (document.querySelector('#convo-meta .meta-when') || {}).textContent || null,
     whenTitle: (document.querySelector('#convo-meta .meta-when') || {}).title || null,
     lasted: (document.querySelector('#convo-meta .meta-duration') || {}).textContent || null,
@@ -1693,11 +1694,14 @@ async function run() {
   check('the conversation header names the session', r.title === 'Session de test', r.title);
   check('the header names the folder, its whole path on hover',
     r.claudeChrome.folder === 'projet' && r.claudeChrome.folderTitle === '/home/zam/projet', JSON.stringify(r.claudeChrome));
-  check('l’en-tête range ses faits par question, deux par ligne — qui et où, quand et combien — et le coût à part',
+  check('l’en-tête range ses faits par question, une par ligne — qui et où, quand et combien de temps, combien',
     JSON.stringify(r.claudeChrome.groups) === '["meta-who","meta-where","meta-when","meta-duration","meta-size"]'
       && r.claudeChrome.rows === 3
-      && JSON.stringify(r.claudeChrome.byRow) === '[["meta-who","meta-where"],["meta-when","meta-duration","meta-size"],[]]',
+      && JSON.stringify(r.claudeChrome.byRow) === '[["meta-who","meta-where"],["meta-when","meta-duration"],["meta-size"]]',
     JSON.stringify(r.claudeChrome));
+  check('combien : les messages en tête de la dernière ligne, puis ce qu’ils ont coûté',
+    (r.claudeChrome.amountRow || '').replace(/\s/g, ' ') === '6 messages ↑ 167K envoyés · ↓ 78,2K reçus · 5,9M relus depuis le cache',
+    JSON.stringify(r.claudeChrome.amountRow));
   // 23:00 → 23:06 UTC : quel que soit le fuseau de la machine, le même jour, six minutes.
   check('l’en-tête dit quand la conversation a commencé et fini, comme un agenda : la date une fois, deux heures',
     /\d{4},\s\d{2}:\d{2}\s–\s\d{2}:\d{2}$/.test(r.claudeChrome.when || ''), JSON.stringify(r.claudeChrome.when));
@@ -1814,7 +1818,7 @@ async function run() {
   check('au survol, les chiffres exacts',
     claudeRow && /166\u202f659/.test(claudeRow.tokensTitle) && /5\u202f933\u202f004/.test(claudeRow.tokensTitle),
     claudeRow && JSON.stringify(claudeRow.tokensTitle));
-  check('en haut de la conversation, ce qu’elle a coûté, sur sa propre ligne, ses chiffres nommés',
+  check('en haut de la conversation, ce qu’elle a coûté, ses chiffres nommés',
     r.claudeChrome.costRow === '↑ 167K envoyés · ↓ 78,2K reçus · 5,9M relus depuis le cache',
     JSON.stringify(r.claudeChrome));
   check('tout en haut, l’identifiant de la conversation, tel que son assistant le connaît, à copier',

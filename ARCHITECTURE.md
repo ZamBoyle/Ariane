@@ -463,9 +463,9 @@ resume uses, applied in `session:get` — selectable, its meaning on hover.
 **Under the title, the facts are grouped by the question they answer** (`headerFacts` in
 `app.js`, chosen on screenshots on 25 September 2026 — option A, after C, icons alone, put too
 much on one line): who and where on a line (the assistant's mark, its name, the models; the folder
-by its name, the whole path on hover, the git branch as a tag), when, how long and how many
-messages on the next — each group led by an icon, never a string of dots — and on a line of its own what the
-conversation cost, its figures named (`headerCost`, subagents apart; `session:get` adds
+by its name, the whole path on hover, the git branch as a tag), when and how long on the
+next, then how much on the last, the number of messages first, then what the conversation cost —
+each group led by an icon, never a string of dots. The cost's figures are named (`headerCost`, subagents apart; `session:get` adds
 `Index.sessionTokens`, the sidebar's definition). A group wraps whole, and one still too wide on a
 line of its own ends in "…". The actions keep their labels, icons alone when narrow; « Oublier »
 shows its question while it waits for the second click. The layout suite measures the wrapping,
