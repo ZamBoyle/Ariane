@@ -246,7 +246,6 @@ test.describe('the archive keeps only what exists nowhere else', () => {
     fs.writeFileSync(rollout, bytes);
     const unreadable = {
       ...codexAdapter,
-      // eslint-disable-next-line require-yield
       async *read() {
         throw new Error('EACCES');
       },
