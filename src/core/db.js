@@ -1268,7 +1268,8 @@ class Index {
     if (!match) return [];
 
     const sql = `
-      SELECT m.id, m.session_id AS sessionId, m.role, ${MESSAGE_TIME_SQL} AS ts, m.seq,
+      SELECT m.id, m.session_id AS sessionId, m.role, m.is_sidechain AS isSidechain,
+             ${MESSAGE_TIME_SQL} AS ts, m.seq,
              s.title, s.source, s.agent_id AS agentId,
              f.path AS folderPath, f.id AS folderId,
              snippet(messages_fts, 0, @open, @close, @ellipsis, 14) AS snippet,

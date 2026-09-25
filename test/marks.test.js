@@ -257,6 +257,20 @@ test.describe('starring a message inside a conversation', () => {
     assert.deepEqual(marks.resolve(ID, shifted), [202], 'the opening of the text catches the shift');
   });
 
+  // L'étoile d'un message sans identifiant, dont la position a bougé depuis (une
+  // reconstruction) : resolve() la retrouve par son texte, mais la retirer
+  // cherchait sa position d'origine, et ne retirait rien (26 septembre 2026).
+  test('a star found again by its text can be taken off where it now stands', (t) => {
+    const marks = setup(t);
+    marks.setMessage(ID, { seq: 2, role: 'user', preview: 'et pourquoi si lentement ?' });
+    const shifted = conversation.map((m, i) => ({ ...m, id: 200 + i, seq: m.seq + 1 }));
+    assert.deepEqual(marks.resolve(ID, shifted), [202]);
+
+    marks.setMessage(ID, { seq: 3, role: 'user', preview: 'et pourquoi si lentement ?' }, false);
+    assert.deepEqual(marks.resolve(ID, shifted), [], 'l’étoile est partie');
+    assert.deepEqual(readBack(marks).marks, {}, 'et le fichier le dit');
+  });
+
   test('a message that no longer exists resolves to nothing, and is kept', (t) => {
     const marks = setup(t);
     marks.setMessage(ID, { uuid: 'u-parti', seq: 9, preview: 'effacé depuis' });
@@ -300,6 +314,13 @@ test.describe('starring a message inside a conversation', () => {
       preview: 'x'.repeat(400) });
     const [stored] = marks.of(ID).messages;
     assert.equal(stored.preview.length, 160);
+    // L'écran retrouve ce message dans la vue des favoris par la même règle :
+    // preview(text, 160) y rendait 159 caractères et « … », et un message de
+    // plus de 160 caractères ramenait au premier étoilé (26 septembre 2026).
+    return import('../src/renderer/format.js').then((F) => {
+      assert.equal(F.markOpening('x'.repeat(400)), stored.preview);
+      assert.equal(F.markOpening('  un   texte\n court '), 'un texte court');
+    });
     assert.deepEqual(Object.keys(stored).sort(), ['at', 'preview', 'role', 'seq', 'uuid']);
   });
 });

@@ -174,6 +174,11 @@ test('Codex : un sous-agent nomme son parent dans son en-tête, et sa consigne n
     index.messages(`codex:${child}`).every((m) => m.isSidechain),
     'Codex ne marque rien : toute la session l’est, la consigne comprise'
   );
+  // Trouvée par la recherche, la consigne le dit aussi : sans ce drapeau, la
+  // liste des résultats la signait « Vous » (26 septembre 2026).
+  const [hit] = index.search('brief');
+  assert.equal(hit.sessionId, `codex:${child}`);
+  assert.equal(hit.isSidechain, 1);
 });
 
 // ── Ce qui se compte à part ─────────────────────────────────────────────────

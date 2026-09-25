@@ -621,6 +621,15 @@ contextBridge.exposeInMainWorld('api', {
     if (!query || !query.trim()) return [];
     // The fixture's hits are all older than a week: the empty case, worded.
     if (options.period === '7d') return [];
+    // Le briefing d'un sous-agent : écrit par l'assistant parent, jamais par la personne.
+    if (query.includes('consigne')) {
+      return [{
+        id: 95, sessionId: SUBAGENT.id, role: 'user', isSidechain: 1, ts: SUBAGENT.firstAt, seq: 0,
+        title: SUBAGENT.title, source: 'transcript', agentId: 'codex',
+        folderPath: '/home/zam/projet', folderId: 1,
+        snippet: `la ${String.fromCharCode(1)}consigne${String.fromCharCode(2)} du sous-agent`, rank: -1,
+      }];
+    }
     if (query.includes('profond')) {
       return [{
         id: 100007, sessionId: BIG_ID, role: 'user', ts: BIG[7].ts, seq: 7,

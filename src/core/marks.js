@@ -104,7 +104,15 @@ class Marks {
 
     const marks = { ...read.marks };
     const previous = isPlainObject(marks[sessionId]) ? marks[sessionId] : {};
-    const messages = messagesIn(previous).filter((m) => keyOf(m) !== keyOf(coordinates));
+    const stored = messagesIn(previous);
+    const messages = stored.filter((m) => keyOf(m) !== keyOf(coordinates));
+    // A message with no id of its own whose position moved (a rebuild):
+    // resolve() finds its mark by the opening of its text, so taking the star
+    // off must too — it looked for the old position, and removed nothing.
+    if (!on && messages.length === stored.length && !coordinates.uuid && coordinates.preview) {
+      const moved = messages.findIndex((m) => !m.uuid && m.preview === coordinates.preview);
+      if (moved >= 0) messages.splice(moved, 1);
+    }
     if (on) messages.push(coordinates);
 
     const next = {

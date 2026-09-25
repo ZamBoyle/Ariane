@@ -19,6 +19,7 @@ import {
   renderSnippet,
   folderLabel,
   preview,
+  markOpening,
   speakerOf,
   commandLabel,
   groupMessages,
@@ -602,6 +603,9 @@ function showWelcome() {
  * @returns {number} The token this pane now owns (state.openToken).
  */
 function leaveConversation() {
+  // What was typed in the note goes before the conversation does: its id is
+  // taken now, before it is forgotten below.
+  saveNote();
   const token = ++state.openToken;
   state.statsOpen = false;
   state.currentSessionId = null;
@@ -1547,7 +1551,7 @@ async function openSession(sessionId, highlightMessageId = null, { starred = nul
   // Asked for from the starred list: land on that very message.
   if (starred && state.starred.size) {
     const wanted = messages.find(
-      (m) => state.starred.has(m.id) && preview(m.text, 160) === preview(starred, 160)
+      (m) => state.starred.has(m.id) && markOpening(m.text) === markOpening(starred)
     );
     highlightMessageId = wanted ? wanted.id : [...state.starred][0];
   }
@@ -1699,7 +1703,13 @@ async function onToggleMessageStar(button) {
   if (state.favoritesOnly) renderTree();
 }
 
-function paintHeader(session) {
+/**
+ * @param {object} session
+ * @param {{refreshing?: boolean}} [options] A pass repainting the conversation
+ *   already open: the note being typed is left exactly as it is — the 30-second
+ *   refresh used to wipe it, and close its bar (26 September 2026).
+ */
+function paintHeader(session, { refreshing = false } = {}) {
   el.convoHead.hidden = false;
   // At the very top, its id as its assistant knows it: selectable, to be copied.
   el.convoId.textContent = session.localId || '';
@@ -1719,11 +1729,13 @@ function paintHeader(session) {
 
   // What the person marked on it: their star, and their note (marks.js).
   state.favorite = session.favorite === true;
-  state.note = typeof session.note === 'string' ? session.note : '';
   paintFavorite();
-  el.noteInput.value = state.note;
-  el.noteStatus.textContent = '';
-  setNoteOpen(Boolean(state.note));
+  if (!refreshing) {
+    state.note = typeof session.note === 'string' ? session.note : '';
+    el.noteInput.value = state.note;
+    el.noteStatus.textContent = '';
+    setNoteOpen(Boolean(state.note));
+  }
   // Only what Ariane alone holds can be forgotten from here.
   el.forget.hidden = session.source !== 'archive';
 }
@@ -1766,7 +1778,7 @@ async function refreshOpenConversation() {
   state.origin = originOf(payload);
   state.subagents = payload.subagents || [];
   state.models = modelMarks(payload.messages);
-  paintHeader(payload.session);
+  paintHeader(payload.session, { refreshing: true });
   if (payload.messages.length === state.openMessageCount) return;
 
   const before = state.openMessages || [];
@@ -2536,10 +2548,13 @@ function renderResult(hit, i) {
   const title = node('div', 'result-title');
   const strong = document.createElement('strong');
   strong.textContent = hit.title || t('session-untitled');
-  // The hit's own agent, never a constant: a Codex result labelled "Claude" is
-  // the same error as crediting the person with the output of `git status`.
+  // Who said it, by the screen's own rule: a subagent's briefing is nobody's —
+  // it read « Vous » here while the transcript credited no one. And the hit's
+  // own agent, never a constant: a Codex result labelled "Claude" is the same
+  // error as crediting the person with the output of `git status`.
+  const who = speakerOf({ role: hit.role, isSidechain: Boolean(hit.isSidechain), parts: [] });
   const speaker =
-    hit.role === 'user' ? t('speaker-you') : agentTheme(hit.agentId, labelOfAgent(hit.agentId)).label;
+    who === 'you' ? t('speaker-you') : who ? agentTheme(hit.agentId, labelOfAgent(hit.agentId)).label : '';
   const when = node('span', 'result-when', l10n.ago(hit.ts));
   when.title = l10n.dateTime(hit.ts);
   title.append(strong, node('span', '', speaker), when);
@@ -2585,7 +2600,8 @@ function onSearchKeydown(event) {
     event.preventDefault();
     const hit = state.results[state.activeResult];
     hideResults();
-    openSession(hit.sessionId, hit.id);
+    // The searched words go along, as with a click.
+    openSession(hit.sessionId, hit.id, { terms: termsOf(el.search.value) });
   }
 }
 
@@ -2614,6 +2630,12 @@ function onGlobalKeydown(event) {
   if (event.altKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp') && state.currentSessionId) {
     event.preventDefault();
     jumpToOwn(event.key === 'ArrowDown' ? 1 : -1);
+    return;
+  }
+  if (event.key === 'Escape' && [el.noteInput, el.filter].includes(document.activeElement)) {
+    // Leaving the field one is typing in, not the conversation: Escape in the
+    // note closed the conversation, and the note went unsaved. Its blur writes it.
+    document.activeElement.blur();
     return;
   }
   if (event.key === 'Escape' && document.activeElement !== el.search) {

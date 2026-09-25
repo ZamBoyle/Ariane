@@ -594,6 +594,16 @@ export function findRanges(text, needle) {
   return ranges;
 }
 
+/**
+ * The opening of a message as a star keeps it (core/marks.js, PREVIEW_MAX):
+ * blanks folded, the first 160 characters, no ellipsis. The starred list finds
+ * a message again by it; `preview(text, 160)` gave 159 and "…", and every
+ * message longer than that led to the first star instead (26 September 2026).
+ */
+export function markOpening(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+}
+
 /** First meaningful line of a prompt, for a list preview. */
 export function preview(text, max = 120) {
   const clean = String(text || '').replace(/\s+/g, ' ').trim();

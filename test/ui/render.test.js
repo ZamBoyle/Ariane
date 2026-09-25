@@ -814,6 +814,30 @@ const SCRIPT = `(async () => {
     status: document.getElementById('note-status').textContent,
   };
 
+  // Une passe tombe pendant qu'on écrit la note : le brouillon reste, la barre aussi.
+  noteInput.focus();
+  noteInput.value = 'un brouillon en cours';
+  noteInput.dispatchEvent(new Event('input', { bubbles: true }));
+  document.getElementById('refresh').click();
+  await sleep(400);
+  marksCheck.draft = { value: noteInput.value, open: !noteBar.hidden };
+  // Échap quitte le champ, pas la conversation — et la note est écrite en sortant.
+  noteInput.focus();
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await sleep(250);
+  marksCheck.escaped = {
+    title: document.getElementById('convo-title').textContent,
+    focused: document.activeElement === noteInput,
+    stored: window.mock.marks(),
+  };
+  // Remise en état pour la suite.
+  noteInput.focus();
+  noteInput.value = 'le calcul de <ponder()> est ici';
+  noteInput.dispatchEvent(new Event('input', { bubbles: true }));
+  noteInput.blur();
+  // Au-delà du délai d'écriture de la note : la vue des favoris lit la suivante.
+  await sleep(900);
+
   favButton.click();
   await sleep(250);
   const favRow = tree.querySelector('.favorite-row');
@@ -1122,6 +1146,29 @@ const SCRIPT = `(async () => {
     search.dispatchEvent(new Event('input', { bubbles: true }));
     await sleep(400);
     highlightCheck.afterClearing = marksNow().length;
+
+    // Au clavier — ↓ puis Entrée — comme au clic : les mots cherchés suivent.
+    search.value = 'profond numero';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(400);
+    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await sleep(500);
+    highlightCheck.byKeyboard = marksNow().length;
+    search.value = '';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(400);
+
+    // La consigne d'un sous-agent trouvée par la recherche : personne ne la
+    // signe « Vous » — l'invariant 1, dans la liste des résultats aussi.
+    search.value = 'consigne';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(400);
+    const briefing = document.querySelector('#results .result .result-title');
+    highlightCheck.briefingSpeaker = briefing ? briefing.children[1].textContent : null;
+    search.value = '';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(400);
 
   } catch (error) {
     highlightCheck = { error: String((error && error.message) || error) };
@@ -2079,6 +2126,12 @@ async function run() {
     JSON.stringify(mk.starred));
   check('the star says which way it goes, for a screen reader too',
     mk.starred.label.includes('favori'), mk.starred.label);
+  check('une passe qui tombe pendant qu’on écrit la note laisse le brouillon et la barre',
+    mk.draft && mk.draft.value === 'un brouillon en cours' && mk.draft.open, JSON.stringify(mk.draft));
+  check('Échap dans la note quitte le champ, pas la conversation, et la note est écrite',
+    mk.escaped && mk.escaped.title === 'Session de test' && !mk.escaped.focused
+      && mk.escaped.stored[id].note === 'un brouillon en cours',
+    JSON.stringify(mk.escaped && { title: mk.escaped.title, focused: mk.escaped.focused, note: mk.escaped.stored[id] && mk.escaped.stored[id].note }));
   check('a note is written as it is typed, and says so',
     mk.noteOpen && mk.noted.stored[id].note === 'le calcul de <ponder()> est ici'
       && mk.noted.status === 'Note enregistrée',
@@ -2136,6 +2189,10 @@ async function run() {
     JSON.stringify(hl.paintedAfter));
   check('clearing the search clears the highlight it caused',
     hl.afterClearing === 0, `${hl.afterClearing} marque(s) restante(s)`);
+  check('un résultat ouvert au clavier surligne les mots cherchés, comme au clic',
+    hl.byKeyboard > 0, `${hl.byKeyboard} marque(s)`);
+  check('la consigne d’un sous-agent trouvée par la recherche n’est signée par personne',
+    hl.briefingSpeaker === '', JSON.stringify(hl.briefingSpeaker));
 
   // ── Le filtre par assistant ─────────────────────────────────────────────
   const af = r.agentFilterCheck;
