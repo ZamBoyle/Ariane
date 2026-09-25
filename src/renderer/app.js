@@ -929,8 +929,13 @@ function sessionList(sessions) {
       title.append(nodeFrom('span', 'badge-history', 'session-badge-prompts'));
     }
 
-    const sub = node('span', 'session-sub');
-    sub.textContent = t('session-summary', { when: l10n.ago(session.lastAt), count: session.messageCount });
+    // When and how many, each led by its icon, as in the conversation's header.
+    const sub = node('span', 'session-sub session-facts');
+    sub.append(
+      sessionFact('clock', l10n.ago(session.lastAt)),
+      ' ',
+      sessionFact('bubble', t('convo-message-count', { n: session.messageCount }))
+    );
 
     button.append(title, sub);
     const last = lastLine(session);
@@ -1021,11 +1026,8 @@ function renderFavorites() {
  */
 function lastLine(session) {
   const models = sessionModels(session);
-  const cost = tokenLine(sessionTokens(session));
+  const cost = sidebarCost(session);
   if (!models.length && !cost) return null;
-  // Its subagents' cost, on hover and apart: they are never listed themselves.
-  const sub = subagentTokens(session);
-  if (cost && sub) cost.title = [cost.title, subagentCost(sub)].filter(Boolean).join('\n');
 
   const line = node('span', 'session-tokens');
   if (models.length === 1) {
@@ -1039,11 +1041,47 @@ function lastLine(session) {
     line.append(model);
   }
   if (cost) {
-    // In the text, like the header's: a separator drawn by CSS alone is not copied.
-    if (models.length) line.append(' · ');
+    // In the text, for whoever copies it: a gap drawn by CSS alone is not copied.
+    if (models.length) line.append(' ');
     line.append(cost);
   }
   return line;
+}
+
+/** One fact under a conversation's name: its icon, then its words. */
+function sessionFact(iconName, words) {
+  const fact = node('span', 'session-fact');
+  const glyph = icon(iconName);
+  fact.append(glyph, node('span', '', words));
+  return fact;
+}
+
+/**
+ * "↑ 11.3M · ↓ 2.4M" under a conversation's name: what was sent and received.
+ * The cache read back — the long figure that was cut on every row — is on
+ * hover with the exact ones, and in the conversation's header; its subagents'
+ * cost too, apart. Nothing when its assistant measured nothing.
+ */
+function sidebarCost(session) {
+  const usage = sessionTokens(session);
+  if (!usage) return null;
+  const short = (n) => (n === null ? '—' : l10n.compact(n));
+  const exact = (n) => (n === null ? '—' : l10n.number(n));
+  const args = {
+    sent: short(usage.sent),
+    received: short(usage.received),
+    cached: short(usage.cacheRead),
+    sentExact: exact(usage.sent),
+    receivedExact: exact(usage.received),
+    cachedExact: exact(usage.cacheRead),
+  };
+  const cost = nodeFrom('span', 'session-cost', 'session-tokens', args);
+  if (usage.cacheRead !== null) {
+    cost.title = l10n.message('session-tokens-cached', args).attributes.title || cost.title;
+  }
+  const sub = subagentTokens(session);
+  if (sub) cost.title = [cost.title, subagentCost(sub)].filter(Boolean).join('\n');
+  return cost;
 }
 
 /**

@@ -39,6 +39,22 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### La barre latérale, dans le même esprit
+
+**Demandé** : le même soin que pour l'en-tête. Sous le nom de chaque conversation, deux lignes
+grises : « il y a 1 minute · 7 706 messages », puis le modèle et trois chiffres de jetons — et
+cette troisième ligne était coupée sur presque chaque conversation (« cache 1,… »).
+
+**Deux maquettes, sur les vraies conversations.** L'une regroupée comme l'en-tête, sur trois
+lignes ; l'autre épurée sur deux — qui, dans les 300 px de la barre, se coupait partout (« il y a
+28… », « 2 549 mes… », « claude-o… ») : pire qu'avant. C'est la première.
+
+**Ce qui se voit maintenant** : quand et combien, chacun annoncé par son icône, comme dans
+l'en-tête ; puis le modèle dans une étiquette et ce que la conversation a coûté, envoyé et reçu —
+« ↑ 11,3M · ↓ 2,4M ». Le chiffre du cache, celui qui se coupait, passe au survol avec les chiffres
+exacts, et reste en toutes lettres dans l'en-tête. Plus rien n'est coupé ; si la place manque un
+jour, seul le nom du modèle cède.
+
 ### Un en-tête où l'on s'y retrouve
 
 **Signalé** : « tout est mélangé dans l'entête de la conversation, on ne s'y retrouve pas ». Huit

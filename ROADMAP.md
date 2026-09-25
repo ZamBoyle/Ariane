@@ -174,6 +174,18 @@ Claude (`extra_usage`, en euros), qui demanderait d'écrire une somme d'argent �
   dossier.
 - **Le saut à une date** dans une conversation ouverte : les dates sont dans l'infobulle de chaque
   trait du plan, mais rien ne permet d'y aller.
+- **La coloration syntaxique**, comme Claude Desktop et l'extension VS Code de Claude Code la font
+  pour les commandes exécutées — demandée le 25 septembre 2026, captures à l'appui. Mesuré le même
+  jour : **26 609 appels d'outils, dont 18 564 commandes shell** (Bash 13 743, `exec` 3 006,
+  `exec_command` 1 208, `shell` 607), et 2 015 blocs de code dont 558 nomment leur langage (bash 144,
+  js 129, sql 42, cpp 42, json 37, asm 18). D'abord les commandes : leur langage est sûr, l'outil le
+  dit ; un bloc sans étiquette (1 457) ne se devine pas, et ne sera pas deviné. C'est l'endroit où
+  une bibliothèque gagne nettement (highlight.js, BSD, embarquée : aucun réseau). **Le piège est
+  l'invariant 2** — `innerHTML` ne reçoit que ce qu'Ariane a échappé elle-même : la sortie du
+  coloriseur passe la même liste d'éléments et d'attributs que le rendu Markdown (des `span` à
+  classe, rien d'autre), vérifiée par un test qui lui soumet du code hostile ; ou la couleur se pose
+  sur des nœuds texte, jamais par une chaîne. Les couleurs viennent du thème, et passent le
+  contraste de l'étape 5.
 
 ### 5. L'accessibilité — commencée le 25 septembre 2026, moyen
 
@@ -226,9 +238,6 @@ Aucun de ces points ne gêne qui utilise déjà Ariane ; tous comptent pour qui 
 - **Les sessions actives** — celles qui tournent, celles qui attendent une réponse —, comme le
   « cockpit » d'Agent Sessions. La conversation ouverte se met déjà à jour toutes les 30 s ; ce qui
   manque est la vue d'ensemble.
-- **La coloration syntaxique** : 237 messages nomment le langage de leur code. Une bibliothèque y
-  gagne nettement, mais produit du HTML, contre l'invariant 2 (échapper, puis décorer) : à faire
-  sur des nœuds, pas sur des chaînes.
 - **D'autres assistants** (Cursor, Cline, Aider, OpenCode…). Aucun n'a de conversation sur la
   machine de développement : sans fichiers réels à mesurer, un adaptateur serait écrit à l'aveugle.
 - **Un coût en dollars**, en option et libellé « équivalent au prix public de l'API » : la décision

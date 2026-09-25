@@ -435,6 +435,37 @@ body {
   color: var(--text-faint);
 }
 
+/* Sous le nom d'une conversation, comme dans son en-tête : quand et combien,
+   chacun annoncé par son icône. Les deux tiennent dans la largeur de la barre ;
+   le premier jet, épuré sur une seule ligne, se coupait partout. */
+.session-facts {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 2px;
+  color: var(--text-soft);
+}
+
+.session-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.session-fact > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-fact .icon {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--text-faint);
+}
+
 /* Ce que la conversation a coûté, sous son résumé : plus discret encore, et
    aligné en chiffres pour qu'une colonne de lignes se lise d'un coup d'œil. */
 /* Ce qu'une réponse a coûté, dans sa tête : la même ligne que sous le nom de
@@ -446,15 +477,31 @@ body {
   white-space: nowrap;
 }
 
+/* Puis le modèle, en étiquette, et ce que la conversation a coûté — envoyé et
+   reçu ; le cache relu, qui se coupait sur chaque ligne, est au survol et dans
+   l'en-tête. Seul le nom du modèle cède, s'il faut céder. */
 .session-tokens {
-  display: block;
-  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 3px;
   font-size: 10.5px;
-  color: var(--text-faint);
+  color: var(--text-soft);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.session-tokens .session-model {
+  min-width: 0;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--bg-hover);
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.session-tokens .session-cost {
+  flex: none;
 }
 
 .badge-history {

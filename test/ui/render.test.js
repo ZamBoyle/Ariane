@@ -1770,7 +1770,7 @@ async function run() {
   // -- le modèle, dans la barre latérale ---------------------------------
   const codexRowA = r.sessionRows.find((s) => s.title.includes('Session Codex A'));
   check('sous une conversation, son modèle précède ce qu’elle a coûté',
-    claudeRow && claudeRow.model === 'claude-opus-5' && claudeRow.line === 'claude-opus-5 · ↑ 167K · ↓ 78,2K · cache 5,9M',
+    claudeRow && claudeRow.model === 'claude-opus-5' && claudeRow.line === 'claude-opus-5 ↑ 167K · ↓ 78,2K',
     claudeRow && claudeRow.line);
   check('plusieurs modèles : celui qui a le plus répondu, les autres comptés, tous au survol',
     codexRowA && codexRowA.model === 'gpt-6-astra +1' && codexRowA.modelTitle === 'gpt-6-astra et gpt-5.2-codex',
@@ -1783,8 +1783,9 @@ async function run() {
   check('sans titre, l’en-tête la nomme par ses premiers mots, comme la barre latérale',
     r.untitled.found && r.untitled.title === 'une question sans titre', JSON.stringify(r.untitled));
 
-  check('une conversation mesurée montre ses jetons sous son résumé, en K et M',
-    claudeRow && claudeRow.tokens === '↑ 167K · ↓ 78,2K · cache 5,9M',
+  // Le cache relu se coupait sur chaque ligne de la barre : il est au survol, et dans l'en-tête.
+  check('une conversation mesurée montre ce qu’elle a envoyé et reçu sous son résumé, en K et M',
+    claudeRow && claudeRow.tokens === '↑ 167K · ↓ 78,2K',
     claudeRow && claudeRow.tokens);
   check('le cache relu est à part : jamais additionné aux envoyés',
     claudeRow && !/6(,|\.)\d?M/.test(claudeRow.tokens.split('·')[0]),
