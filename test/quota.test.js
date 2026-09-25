@@ -518,3 +518,48 @@ test('une reconstruction garde les fenêtres que les fichiers n’ont plus, et l
   );
   assert.equal(after.meta('quotaWindowsCarried'), null, 'plus rien n’attend');
 });
+
+// ── ce qu'a coûté une conversation, pour son en-tête ────────────────────────
+
+test('l’en-tête reçoit les sommes de la barre latérale : copies à part, sous-agents à part, rien n’est zéro', (t) => {
+  const index = new Index(':memory:');
+  t.after(() => index.close());
+  index.upsertAgent('claude', 'Claude Code', '/root');
+  const folder = index.folderId('/p');
+  const said = (uuid, usage) => ({
+    role: 'assistant',
+    uuid,
+    timestamp: '2026-09-25T10:00:00Z',
+    text: uuid,
+    parts: [],
+    usage,
+  });
+  index.upsertSession({ id: 'claude:a', agent_id: 'claude', folder_id: folder });
+  index.addMessages('claude:a', [
+    said('r1', { input: 10, output: 100, cacheRead: 1000, cacheWrite: 50, reasoning: null }),
+    said('r2', { input: 5, output: 20, cacheRead: 2000, cacheWrite: 0, reasoning: null }),
+  ]);
+  index.db.prepare("UPDATE messages SET is_copy = 1 WHERE uuid = 'r2'").run();
+  index.upsertSession({
+    id: 'claude:sub',
+    agent_id: 'claude',
+    folder_id: folder,
+    parent_id: 'claude:a',
+  });
+  index.addMessages('claude:sub', [
+    said('s1', { input: 1, output: 7, cacheRead: 9, cacheWrite: 3, reasoning: null }),
+  ]);
+  index.upsertSession({ id: 'claude:rien', agent_id: 'claude', folder_id: folder });
+  index.addMessages('claude:rien', [said('x', null)]);
+
+  const a = index.sessionTokens('claude:a');
+  assert.deepEqual(
+    [a.tokInput, a.tokOutput, a.tokCacheRead, a.tokCacheWrite],
+    [10, 100, 1000, 50],
+    'la réponse recopiée compte là d’où elle vient'
+  );
+  assert.deepEqual([a.subagents, a.subOutput], [1, 7], 'les sous-agents, à part');
+  const rien = index.sessionTokens('claude:rien');
+  assert.equal(rien.tokOutput, null, 'rien mesuré, pas zéro');
+  assert.equal(rien.subagents, 0);
+});

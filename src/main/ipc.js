@@ -269,7 +269,8 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
     // order, so the reader is told which one they are looking at (core/db.js).
     const chain = state.index.chain(id);
     return {
-      session: withMark(session),
+      // What it cost, as the sidebar sums it: the header shows the same line.
+      session: { ...withMark(session), ...state.index.sessionTokens(id) },
       chain: chain.length > 1 ? chain.map(({ id: part, title }) => ({ id: part, title })) : [],
       // A resumed or forked session began by copying another's history: how
       // much, and from where, so the reader can be sent there (core/db.js).

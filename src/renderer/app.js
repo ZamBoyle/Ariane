@@ -1065,6 +1065,20 @@ function tokenLine(usage) {
   });
 }
 
+/**
+ * The conversation's own cost, for its header: the sidebar's line, exact on
+ * hover, with its subagents' cost apart — and, for a subagent, the reminder
+ * that its figures are a floor.
+ */
+function headerCost(session) {
+  const cost = tokenLine(sessionTokens(session));
+  if (!cost) return null;
+  const sub = subagentTokens(session);
+  const notes = [cost.title, sub && subagentCost(sub), state.usageIsFloor && t('usage-floor')];
+  cost.title = notes.filter(Boolean).join('\n');
+  return cost;
+}
+
 function subagentCost(sub) {
   const exact = (n) => (n === null ? '—' : l10n.number(n));
   return t('session-tokens-subagents', {
@@ -1555,10 +1569,21 @@ function paintHeader(session) {
   bits.push(t('convo-message-count', { n: session.messageCount }));
   if (session.source === 'history') bits.push(t('convo-purged'));
   if (session.source === 'archive') bits.push(t('convo-saved'));
-  el.convoMeta.textContent = bits.join(' · ');
+  const text = node('span', 'convo-meta-text');
+  text.textContent = bits.join(' · ');
+  el.convoMeta.replaceChildren(text);
+  // What the whole conversation cost, as the sidebar says it: the text before
+  // it is cut when the line runs long, never the figures.
+  const cost = headerCost(session);
+  if (cost) {
+    const wrap = node('span', 'convo-cost');
+    // In the text, like the sidebar's: a separator drawn by CSS alone is not copied.
+    wrap.append(' · ', cost);
+    el.convoMeta.append(wrap);
+  }
   // The line is cut when it runs long — four models are enough — so the whole
   // of it is on hover.
-  el.convoMeta.title = bits.join(' · ');
+  el.convoMeta.title = el.convoMeta.textContent;
 
   paintChain(session.id);
   paintOrigin();

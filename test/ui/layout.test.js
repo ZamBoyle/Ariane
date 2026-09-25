@@ -193,6 +193,30 @@ async function run() {
       head: Math.round(head.getBoundingClientRect().width),
     };
   })()`;
+  // The line under the title, far too long for the window, built as the app
+  // builds it: its text is cut, never what the conversation cost.
+  const META = `(() => {
+    document.getElementById('convo-head').hidden = false;
+    const meta = document.getElementById('convo-meta');
+    const text = document.createElement('span');
+    text.className = 'convo-meta-text';
+    text.textContent = 'Claude · claude-opus-5-5 · ' + '/home/zam/un/chemin/assez/long'.repeat(8)
+      + ' · 25 sept. 2026, 16:01 · 25 messages';
+    const wrap = document.createElement('span');
+    wrap.className = 'convo-cost';
+    const cost = document.createElement('span');
+    cost.className = 'session-cost';
+    cost.textContent = '↑ 167K · ↓ 78,2K · cache 5,9M';
+    wrap.append(' · ', cost);
+    meta.replaceChildren(text, wrap);
+    const box = (el) => el.getBoundingClientRect();
+    return {
+      textCut: text.scrollWidth > text.clientWidth,
+      costWhole: wrap.scrollWidth <= wrap.clientWidth + 1,
+      costInside: box(wrap).right <= box(meta).right + 1,
+      costWidth: Math.round(box(wrap).width),
+    };
+  })()`;
   // The search bar with both lists at their widest real labels.
   const COMPOSER = `(() => {
     const fill = (id, labels) => {
@@ -253,6 +277,7 @@ async function run() {
   }
 
   const narrow = await win.webContents.executeJavaScript(HEADER);
+  const narrowMeta = await win.webContents.executeJavaScript(META);
   const narrowComposer = await win.webContents.executeJavaScript(COMPOSER);
   await resizeTo(win, 780, 480); // the window's minimum width (main.js)
   const narrowest = await win.webContents.executeJavaScript(COMPOSER);
@@ -322,6 +347,9 @@ async function run() {
     wideComposer.oneLine && wideComposer.field >= 300, JSON.stringify(wideComposer));
 
   // -- the conversation header: icons, and labels when there is room -------
+  check('a line too long under the title is cut in its text, never in what the conversation cost',
+    narrowMeta.textCut && narrowMeta.costWhole && narrowMeta.costInside && narrowMeta.costWidth > 120,
+    JSON.stringify(narrowMeta));
   check('a narrow header keeps its actions on one line, icons alone',
     !narrow.overflow && narrow.labels > 0 && narrow.labelsShown === 0 && narrow.title > 100,
     `débordement=${narrow.overflow}, libellés affichés ${narrow.labelsShown}/${narrow.labels}, titre ${narrow.title} px`);

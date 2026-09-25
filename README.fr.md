@@ -58,8 +58,9 @@ deux par cinq d'entre eux :
   titre, et une vue qui ne montre que ce qui est marqué. Elles vivent dans un fichier à vous, hors de l'index :
   une mise à jour d'Ariane ne peut pas les effacer.
 - **Ce que coûte chaque message** : sous chaque réponse, les jetons envoyés, reçus et relus depuis
-  le cache — la même ligne que sous le nom de la conversation. De quoi montrer, en formation, que
-  le contexte relu à chaque tour pèse bien plus que la réponse elle-même.
+  le cache — la même ligne que sous le nom de la conversation, et celle de toute la conversation en
+  haut de celle-ci. De quoi montrer, en formation, que le contexte relu à chaque tour pèse bien plus
+  que la réponse elle-même.
 - **Des statistiques** : qui a écrit quoi — les messages que vous avez tapés, les réponses, les
   sorties d'outils —, puis les jetons envoyés, reçus et relus depuis le cache, mois par mois, par
   assistant, par modèle et par dossier. Elles disent combien de conversations ont vraiment été

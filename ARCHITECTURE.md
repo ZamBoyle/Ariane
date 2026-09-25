@@ -456,6 +456,11 @@ count still pending when the person speaks again goes back to the reply before. 
 where the adapter declares `usagePerSession` (Copilot): a session's total under one reply would
 read as that reply's cost. A subagent's figures say, on hover, that they are a floor.
 
+**The conversation's own cost ends the line under its title** (`headerCost` in `app.js`), the
+sidebar's line with its subagents apart; `session:get` adds the sums (`Index.sessionTokens`, the
+sidebar's definition). The line is a flex row: its text is cut, never the figures — a layout check
+measures it on a line eight times too long.
+
 **Nothing counts the person's own message.** The files count per call to the model, never per
 message: measured on 627 prompts, the `↑` of the call that follows one does not follow its length
 (10 characters → 1 779 sent, 1 331 characters → 615) — it is the context. An estimate from the text

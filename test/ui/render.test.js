@@ -106,10 +106,13 @@ const SCRIPT = `(async () => {
     copyHidden: document.getElementById('copy-cmd').hidden,
   };
 
+  const headCost = document.querySelector('#convo-meta .session-cost');
   const claudeChrome = {
     title: document.getElementById('convo-title').textContent,
     meta: document.getElementById('convo-meta').textContent,
     modelLabels: transcript.querySelectorAll('.msg-model').length,
+    cost: headCost ? headCost.textContent : null,
+    costTitle: headCost ? headCost.title : null,
   };
 
   // Open a session belonging to ANOTHER agent and read back who it credits.
@@ -127,6 +130,7 @@ const SCRIPT = `(async () => {
           meta: document.getElementById('convo-meta').textContent,
           title: document.getElementById('convo-title').textContent,
           modelLabels: [...transcript.querySelectorAll('.msg-model')].map((m) => m.textContent),
+          cost: document.querySelector('#convo-meta .session-cost') ? 'présent' : null,
         };
         break;
       }
@@ -1112,6 +1116,7 @@ const SCRIPT = `(async () => {
     title: claudeChrome.title,
     meta: claudeChrome.meta,
     claudeModelLabels: claudeChrome.modelLabels,
+    claudeChrome,
     untitled,
     stats: document.getElementById('stats').textContent,
     searchVisible,
@@ -1763,6 +1768,14 @@ async function run() {
   check('au survol, les chiffres exacts',
     claudeRow && /166\u202f659/.test(claudeRow.tokensTitle) && /5\u202f933\u202f004/.test(claudeRow.tokensTitle),
     claudeRow && JSON.stringify(claudeRow.tokensTitle));
+  check('en haut de la conversation, ce qu’elle a coûté : la ligne de la barre latérale, au bout de la ligne',
+    r.claudeChrome.cost === '↑ 167K · ↓ 78,2K · cache 5,9M' && r.claudeChrome.meta.endsWith(' · ↑ 167K · ↓ 78,2K · cache 5,9M'),
+    JSON.stringify(r.claudeChrome));
+  check('et au survol, les chiffres exacts',
+    /166\u202f659/.test(r.claudeChrome.costTitle || '') && /5\u202f933\u202f004/.test(r.claudeChrome.costTitle || ''),
+    JSON.stringify(r.claudeChrome.costTitle));
+  check('une conversation qui n’a rien mesuré n’en dit rien dans son en-tête non plus',
+    r.otherAgent.cost === null, JSON.stringify(r.otherAgent));
   check('une conversation que son agent n’a pas mesurée ne montre rien, pas zéro',
     r.sessionRows.filter((s) => s.agent === 'codex').every((s) => s.tokens === null),
     r.sessionRows.map((s) => `${s.agent}:${s.tokens}`).join(' | '));

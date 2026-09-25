@@ -483,6 +483,12 @@ route quand la personne reparle revient à la réponse d'avant. Rien ne s'affich
 déclare `usagePerSession` (Copilot) : le total d'une session sous une seule réponse passerait pour
 le coût de celle-ci. Les chiffres d'un sous-agent disent, au survol, qu'ils sont un minimum.
 
+**Ce qu'a coûté la conversation finit la ligne sous son titre** (`headerCost` dans `app.js`), la
+ligne de la barre latérale avec ses sous-agents à part ; `session:get` y ajoute les sommes
+(`Index.sessionTokens`, la définition de la barre latérale). La ligne est une rangée flex : son
+texte se coupe, jamais les chiffres — un contrôle de mise en page le mesure sur une ligne huit fois
+trop longue.
+
 **Rien ne compte le message de la personne seul.** Les fichiers comptent par appel au modèle,
 jamais par message : mesuré sur 627 prompts, le `↑` de l'appel qui suit l'un d'eux ne suit pas sa
 longueur (10 caractères → 1 779 envoyés, 1 331 caractères → 615) — c'est le contexte. Une

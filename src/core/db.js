@@ -620,6 +620,20 @@ class Index {
                s.parent_id AS parentId
         FROM sessions s JOIN folders f ON f.id = s.folder_id WHERE s.id = ?
       `),
+      // One conversation's cost, as the sidebar sums it (sessionsOfFolderSql):
+      // its own messages, copies left where they came from, subagents apart.
+      tokenSums: db.prepare(`
+        SELECT SUM(tok_input) AS tokInput, SUM(tok_output) AS tokOutput,
+               SUM(tok_cache_read) AS tokCacheRead, SUM(tok_cache_write) AS tokCacheWrite
+        FROM messages WHERE session_id = ? AND is_copy = 0
+      `),
+      subagentSums: db.prepare(`
+        SELECT COUNT(DISTINCT sp.id) AS subagents,
+               SUM(m.tok_input) AS subInput, SUM(m.tok_output) AS subOutput,
+               SUM(m.tok_cache_read) AS subCacheRead, SUM(m.tok_cache_write) AS subCacheWrite
+        FROM sessions sp LEFT JOIN messages m ON m.session_id = sp.id AND m.is_copy = 0
+        WHERE sp.parent_id = ?
+      `),
       getMessages: db.prepare(`
         SELECT id, seq, uuid, parent_uuid AS parentUuid, role, ts, model,
                tok_input, tok_output, tok_cache_read, tok_cache_write, tok_reasoning,
@@ -1056,6 +1070,15 @@ class Index {
 
   session(id) {
     return this.s.getSession.get(id) || null;
+  }
+
+  /**
+   * What one conversation cost, in the sidebar's own fields — the header shows
+   * the same line. Sums over nothing are null: an agent that measured nothing
+   * did not spend nothing.
+   */
+  sessionTokens(sessionId) {
+    return { ...this.s.tokenSums.get(sessionId), ...this.s.subagentSums.get(sessionId) };
   }
 
   messages(sessionId) {

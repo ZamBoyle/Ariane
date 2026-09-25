@@ -38,6 +38,23 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### Ce qu'a coûté la conversation, en haut de la conversation
+
+**Demandé** : la ligne `↑ envoyés · ↓ reçus · cache relus` de la barre latérale est maintenant
+aussi au bout de la ligne sous le titre, les chiffres exacts au survol, avec le coût des
+sous-agents à part et, pour un sous-agent, le rappel que ses chiffres sont un plancher. Mêmes
+sommes que la barre latérale, calculées de la même façon : une copie compte là d'où elle vient, un
+agent qui n'a rien mesuré n'affiche rien, pas « 0 ».
+
+**Quand la ligne est trop longue, c'est son texte qui se coupe** — le dossier, la date —, jamais les
+jetons : la suite de mise en page le mesure sur une ligne huit fois trop longue, et échoue si on
+retire la règle. Sur cette conversation-ci : 7 403 messages, ↑ 11,1M · ↓ 2,2M · cache 1,1G.
+
+**Et par message, chez les autres ?** Lu dans le code de claude-code-history-viewer : une réponse
+montre ses jetons bruts dans une infobulle, un message de la personne n'en a pas — les fichiers
+n'en ont pas. Leur total de conversation, dans une carte à part, additionne tout, cache compris :
+le « milliard de jetons » qu'Ariane refuse d'écrire.
+
 ### L'historique des limites de Claude, grâce à Claude Desktop
 
 **Trouvé en lisant leur code**, comme demandé (« lire, jamais recopier ») : les documents de
