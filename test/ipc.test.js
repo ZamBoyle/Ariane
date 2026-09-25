@@ -123,7 +123,7 @@ test('registers exactly the documented channels', (t) => {
      'sessions:favorites', 'sessions:list',
      'settings:browse', 'settings:check', 'settings:get', 'settings:openFile', 'settings:save',
      'shell:openFolder', 'splash:close', 'splash:keep', 'splash:words',
-     'stats:get', 'update:check', 'update:open']
+     'stats:get', 'update:check', 'update:checkNow', 'update:open']
   );
 });
 
@@ -194,6 +194,9 @@ test.describe('hostile payloads are rejected, not executed', () => {
     ['settings:save', { commands: {}, language: 'xx' }],
     ['settings:save', { commands: {}, language: '../../etc/passwd' }],
     ['settings:save', { commands: {}, language: { toString: () => 'en' } }],
+    ['settings:save', { commands: {}, textSize: 150 }],
+    ['settings:save', { commands: {}, textSize: '120' }],
+    ['settings:save', { commands: {}, textSize: { valueOf: () => 120 } }],
     ['settings:save', { commands: {}, theme: 'sombre' }],
     ['settings:save', { commands: {}, theme: 'DARK' }],
     ['settings:save', { commands: {}, theme: 42 }],
@@ -609,6 +612,26 @@ test.describe('the language', () => {
 
     await invoke('settings:save', { commands: {}, theme: 'auto' });
     assert.equal(electronStub.nativeTheme.themeSource, 'system', 'back to the system’s');
+  });
+
+  test('the text size is applied at once to the window that asked, and kept', async (t) => {
+    const ctx = setupIpc();
+    t.after(ctx.teardown);
+    ctx.start();
+
+    const view = (await invoke('settings:get')).data;
+    assert.equal(view.textSize, 100, 'nothing chosen: the usual size');
+    assert.deepEqual(view.textSizes, [90, 100, 110, 120, 130]);
+
+    const zooms = [];
+    const sender = { isDestroyed: () => false, send() {}, setZoomFactor: (f) => zooms.push(f) };
+    await invoke('settings:save', { commands: {}, textSize: 120 }, sender);
+    assert.deepEqual(zooms, [1.2], 'seen now, with nothing to reload');
+    assert.equal(
+      JSON.parse(fs.readFileSync(path.join(ctx.userDataDir, 'settings.json'), 'utf8')).textSize,
+      120
+    );
+    assert.equal((await invoke('settings:get')).data.textSize, 120);
   });
 
   test('a theme written in the file is applied when the app starts', async (t) => {

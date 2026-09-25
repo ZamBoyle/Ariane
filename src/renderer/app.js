@@ -309,7 +309,10 @@ async function announceUpdate() {
   }
   // `call()` unwraps the envelope: what arrives is the decision itself.
   if (!answer || !answer.update) return;
+  showUpdate(answer);
+}
 
+function showUpdate(answer) {
   // A button rather than a message that fades. Ten seconds is the right life
   // for a failure someone can fix now; an available version is not urgent and
   // must still be there when they look up. It sits beside the gear that turned
@@ -332,7 +335,14 @@ async function loadLanguage() {
   document.documentElement.dir = l10n.direction;
   localize(document, l10n);
   view.emptyText = t('convo-empty');
-  settingsDialog = new SettingsDialog(el.settingsDialog, { api, toast, l10n, onLanguageChange: reloadInPlace });
+  settingsDialog = new SettingsDialog(el.settingsDialog, {
+    api,
+    toast,
+    l10n,
+    onLanguageChange: reloadInPlace,
+    // Found by "check now": the button beside the gear says so too.
+    onUpdateFound: showUpdate,
+  });
 }
 
 /**

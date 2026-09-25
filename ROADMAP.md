@@ -141,17 +141,13 @@ tout contenu, sont rangés comme bruit connu. Il ne reste que le fichier VS Code
 2,5 Ko de conversation dans 166 Mo de sorties d'outils, qu'on ne sait pas lire en flux. Voir le
 journal.
 
-### 2. Le confort de tous les jours, à petit prix — petit
+### 2. Le confort de tous les jours — fait le 25 septembre 2026
 
-- **La taille du texte.** Elle existe, mais cachée : c'est le menu par défaut d'Electron, masqué et
-  en anglais. Vérifié sur l'application : Ctrl+Maj+= agrandit, Ctrl − réduit, et le réglage survit
-  à un redémarrage ; mais **Ctrl+= et le pavé numérique ne font rien**, et ce sont les touches qu'on
-  essaie d'abord. À faire : un réglage 90–130 % dans les réglages (dans `settings.json`), ces
-  touches-là, et un menu minimal à la place du menu par défaut — qui expose aussi « Toggle Developer
-  Tools » et « Force Reload » dans les paquets publiés. Ctrl+R, lui, réindexe bien sans recharger.
-- **Vérifier maintenant.** Le réglage des mises à jour dit « au lancement » ou « jamais » ; rien ne
-  permet de demander sur-le-champ, précisément là où l'on vient d'allumer l'option. Un bouton et un
-  appel, le canal existe déjà.
+La taille du texte (90 à 130 %) se règle dans les Réglages ou au clavier — Ctrl+=, Ctrl+Maj+=, le
+pavé numérique, Ctrl+0 —, et un zoom réglé avant est repris. Le menu par défaut d'Electron, caché
+et en anglais, a disparu sous Linux et Windows, et les outils de développement ne sont plus dans
+les paquets publiés. « Vérifier maintenant » est à côté du réglage des mises à jour. Voir le
+journal.
 
 ### 3. Les quotas : sur le disque, montrés nulle part — moyen
 

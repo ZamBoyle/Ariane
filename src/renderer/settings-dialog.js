@@ -62,12 +62,20 @@ export class SettingsDialog {
    * @param {() => void} [options.onLanguageChange] Called once a new language
    *   is saved: every word on screen has to be written again.
    */
-  constructor(dialog, { api, toast, l10n, onLanguageChange = () => {} }) {
+  constructor(dialog, { api, toast, l10n, onLanguageChange = () => {}, onUpdateFound = () => {} }) {
     this.dialog = dialog;
     this.api = api;
     this.toast = toast;
     this.l10n = l10n;
     this.onLanguageChange = onLanguageChange;
+    this.onUpdateFound = onUpdateFound;
+    this.textSizeSelect = dialog.querySelector('#settings-text-size');
+    this.updateNowButton = dialog.querySelector('.settings-update-now');
+    this.updateStatus = dialog.querySelector('.settings-update-status');
+    this.updateText = dialog.querySelector('.settings-update-text');
+    this.updateOpen = dialog.querySelector('.settings-update-open');
+    this.updateNowButton.addEventListener('click', () => this.checkNow());
+    this.updateOpen.addEventListener('click', () => this.api.openRelease());
     this.languageSelect = dialog.querySelector('#settings-language');
     this.themeSelect = dialog.querySelector('#settings-theme');
     this.updatesSelect = dialog.querySelector('#settings-updates');
@@ -151,7 +159,51 @@ export class SettingsDialog {
     this.addButton.disabled = locked;
     this.paintLanguages(view.language, locked);
     this.paintTheme(view.theme, locked);
+    this.paintTextSize(view.textSize, view.textSizes, locked);
     this.paintUpdates(view.updateCheck, locked);
+    this.updateStatus.hidden = true;
+  }
+
+  /** The offered sizes, each said as a percentage in the reader's language. */
+  paintTextSize(size, sizes = [], locked) {
+    this.textSizeSelect.replaceChildren(
+      ...sizes.map((value) => {
+        const option = node('option', '', this.l10n.percent(value / 100));
+        option.value = String(value);
+        return option;
+      })
+    );
+    this.textSizeSelect.value = String(size);
+    this.textSizeSelect.disabled = locked;
+  }
+
+  /**
+   * Ask GitHub now, because the person clicked: whatever the setting says,
+   * this once they are asking. The answer stays in the window — up to date,
+   * a version waiting with the way to it, or no answer at all.
+   */
+  async checkNow() {
+    const { t } = this.l10n;
+    this.updateStatus.hidden = false;
+    this.updateOpen.hidden = true;
+    this.updateText.textContent = t('update-now-checking');
+    this.updateNowButton.disabled = true;
+    let answer = null;
+    try {
+      answer = await this.api.checkUpdateNow();
+    } catch {
+      answer = null;
+    }
+    this.updateNowButton.disabled = false;
+    if (answer && answer.update) {
+      this.updateText.textContent = t('update-available', { version: answer.version });
+      this.updateOpen.hidden = false;
+      this.onUpdateFound(answer);
+    } else if (answer && answer.reason === 'up-to-date') {
+      this.updateText.textContent = t('update-now-current', { version: answer.current });
+    } else {
+      this.updateText.textContent = t('update-now-failed');
+    }
   }
 
   /** Automatic — the system's language, named — then every language that has a file, in itself. */
@@ -355,6 +407,7 @@ export class SettingsDialog {
     if (this.languageSelect.value !== this.view.language.setting) return true;
     if (this.themeSelect.value !== this.view.theme) return true;
     if (this.updatesSelect.value !== this.view.updateCheck) return true;
+    if (this.textSizeSelect.value !== String(this.view.textSize)) return true;
     return Object.entries(this.commands()).some(([id, value]) => value !== (this.loaded.get(id) ?? ''));
   }
 
@@ -371,12 +424,15 @@ export class SettingsDialog {
     const themeChanged = theme !== this.view.theme;
     const updates = this.updatesSelect.value;
     const updatesChanged = updates !== this.view.updateCheck;
+    const size = Number(this.textSizeSelect.value);
+    const sizeChanged = size !== this.view.textSize;
     try {
       const view = await this.api.saveSettings(
         this.commands(),
         languageChanged ? language : undefined,
         themeChanged ? theme : undefined,
-        updatesChanged ? updates : undefined
+        updatesChanged ? updates : undefined,
+        sizeChanged ? size : undefined
       );
       if (languageChanged) {
         this.close();

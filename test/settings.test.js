@@ -208,6 +208,43 @@ test.describe('reading the person’s choice', () => {
   });
 });
 
+test.describe('the size of the text', () => {
+  test('absent until chosen — an earlier zoom is then taken up, not undone', (t) => {
+    const settings = setup(t);
+    settings.record({});
+    assert.equal(settings.textSize(), null);
+    assert.equal(
+      'textSize' in readBack(settings),
+      false,
+      'nothing written for a choice nobody made'
+    );
+  });
+
+  test('chosen, it is kept through every later write', (t) => {
+    const settings = setup(t);
+    settings.setTextSize(120, {});
+    settings.record({ claude: '/usr/bin/claude' });
+    assert.equal(settings.textSize(), 120);
+    assert.equal(readBack(settings).textSize, 120);
+  });
+
+  test('only the offered sizes are followed; another value is kept, not obeyed', (t) => {
+    const settings = setup(t);
+    assert.throws(() => settings.setTextSize(150, {}), /textSize/);
+    assert.throws(() => settings.save({ textSize: '120' }, {}), /textSize/);
+    write(settings, { textSize: 150 });
+    settings.record({});
+    assert.equal(settings.textSize(), null);
+    assert.equal(readBack(settings).textSize, 150, 'the person’s value, left where they wrote it');
+  });
+
+  test('the settings window saves it like the rest', (t) => {
+    const settings = setup(t);
+    settings.save({ textSize: 110 }, {});
+    assert.equal(settings.textSize(), 110);
+  });
+});
+
 test.describe('saving from the settings window', () => {
   test('writes exactly what was typed, trimmed, for the assistants named', (t) => {
     const settings = setup(t);

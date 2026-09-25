@@ -290,7 +290,10 @@ copy left. The rules, each held up by a test:
   always denies the window and hands the url to `shell.openExternal` only if the main process reads
   `http:` or `https:`. `will-navigate` refuses anything that is not the app's own `file:`
   (`test/links.test.js`).
-- **One request exists, and only if the person asked for it.** `settings.json`'s `updateCheck` —
+- **One request exists, and only if the person asked for it** — at launch when `updateCheck` says
+  so, or once when they click "Check now" in the settings, whatever the setting says: then they are
+  asking.
+- **The launch-time check**: `settings.json`'s `updateCheck` —
   `never` unless turned on — lets the MAIN process ask GitHub once per launch whether a newer
   version exists (`src/main/update-check.js`). It is read before anything leaves the machine, so a
   refusal makes no request at all rather than hiding its result. What comes back is a version and a
@@ -332,8 +335,18 @@ split between them **is** the design:
   settings window.
 
 The app’s preferences live there too: `language` (`auto` or a language tag), `theme` (`auto`,
-`light`, `dark`), `hiddenAgents` (assistants hidden from the sidebar) and `splash` (show the splash
-screen or not). A file that cannot be read is **never rewritten**, and unknown keys are kept: it is
+`light`, `dark`), `textSize` (90 to 130, absent until chosen), `hiddenAgents` (assistants hidden
+from the sidebar) and `splash` (show the splash screen or not).
+
+**The text size** (`src/main/text-size.js`, pure and tested) is applied by the main process as the
+page's zoom. It is changed in the settings window or with the keys, read in `before-input-event`
+so the page never sees them: Ctrl (Cmd) with `=`, `+`, `-`, `0` or the keypad — the physical key
+counts too, since an AZERTY Ctrl+0 arrives as `Digit0`. An absent `textSize` means "as it was": a
+zoom set before the setting existed is taken up once, not undone. There is no application menu on
+Linux and Windows any more (Electron's default one, hidden and in English, carried the zoom — but
+not on Ctrl+= nor the keypad — and the developer tools in every package); Ctrl+Q, Ctrl+W and F11
+are kept by the same key handler. macOS keeps the App, Edit and Window menus it needs for copy and
+paste. The developer tools exist only outside a published package. A file that cannot be read is **never rewritten**, and unknown keys are kept: it is
 someone’s work.
 
 The window’s geometry is **not** here: it lives in `<userData>/window.json`
@@ -577,6 +590,7 @@ the output of `git status` — passed every unit test of `speakerOf()` while the
 | add an assistant | a module under `src/core/agents/`, then `agents/index.js`; read `contract.js` first |
 | change what gets indexed | `extract.js` or the agent’s `*-extract.js`, **and raise `SCHEMA_VERSION`** |
 | add a column to `messages` | `schema.sql`, the `INSERT` in `db.js`, **and both archive constants** — see § 4 |
+| touch the text size or the keys | `src/main/text-size.js` (the rules), `main.js` (applying them), `textSize` in `settings.js` |
 | touch what a reply shows it cost | `groupMessages` / `sumUsage` in `format.js` (the grouping), `replyCost` in `app.js` (the display), `usagePerSession` on the adapter |
 | touch subagents | discovery in `claude.js` (`discoverSubagents`) and `codex.js` (the header), `parentId` in the contract, `LISTED` and `Index.subagents` in `db.js`, `paintSubagents` in `app.js` |
 | touch what counts as a copy | `Index.markCopies` in `db.js` (the rule), `globalIds` on the adapter (who it applies to), `OWN_MESSAGES` (what is listed) |

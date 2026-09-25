@@ -27,6 +27,7 @@ const { pathToFileURL } = require('url');
 const { openInTerminal, findExecutable, checkCommand } = require('./terminal');
 const { Settings, CLI_AGENTS, THEMES, UPDATE_CHECKS } = require('./settings');
 const { checkForUpdate } = require('./update-check');
+const { TEXT_SIZES, DEFAULT_TEXT_SIZE } = require('./text-size');
 const { Locale } = require('./locale');
 const { exportSession, printHtmlToPdf, FORMATS } = require('./export');
 
@@ -81,6 +82,7 @@ const CHANNELS = [
   'settings:browse',
   'settings:openFile',
   'update:check',
+  'update:checkNow',
   'update:open',
 ];
 
@@ -507,10 +509,18 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
     const language = payload.language === undefined ? undefined : asLanguage(payload.language);
     const theme = payload.theme === undefined ? undefined : asTheme(payload.theme);
     const updateCheck = payload.updateCheck === undefined ? undefined : asUpdateCheck(payload.updateCheck);
+    const textSize = payload.textSize === undefined ? undefined : asTextSize(payload.textSize);
 
     await state.localeReady;
-    const saved = state.settings.save({ commands: clean, language, theme, updateCheck }, detectAll());
+    const saved = state.settings.save(
+      { commands: clean, language, theme, updateCheck, textSize },
+      detectAll()
+    );
     if (!saved.ok) throw new Error(t('error-settings-unreadable', { error: saved.error }));
+    // Seen at once, in the window that asked: nothing to reload.
+    if (textSize !== undefined && _event.sender && _event.sender.setZoomFactor) {
+      _event.sender.setZoomFactor(textSize / 100);
+    }
     // Nothing to reload: the stylesheet paints both palettes from
     // prefers-color-scheme, and this makes that question answer differently.
     if (theme !== undefined) applyTheme(theme);
@@ -558,6 +568,20 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
   handle('update:check', async () => {
     const answer = await checkForUpdate({ settings: state.settings, version: app.getVersion() });
     return answer.ok ? answer.data : { update: false, reason: answer.error };
+  });
+
+  /**
+   * The same question, asked now because the person clicked "check now" — the
+   * one case where the setting does not decide: they are asking, this time.
+   * The answer carries the running version, so "up to date" can say which.
+   */
+  handle('update:checkNow', async () => {
+    const version = app.getVersion();
+    const answer = await checkForUpdate({ settings: state.settings, version, asked: true });
+    return {
+      current: version,
+      ...(answer.ok ? answer.data : { update: false, reason: answer.error }),
+    };
   });
 
   /**
@@ -658,6 +682,8 @@ function settingsView() {
     },
     theme: state.settings.theme(),
     updateCheck: state.settings.updateCheck(),
+    textSize: state.settings.textSize() ?? DEFAULT_TEXT_SIZE,
+    textSizes: TEXT_SIZES,
     agents: CLI_AGENTS.map(([id, name]) => {
       const entry = Object.hasOwn(theirs, id) ? theirs[id] : null;
       const command = entry && typeof entry.command === 'string' ? entry.command : '';
@@ -796,6 +822,22 @@ function asCommand(value) {
  * The window is untrusted like any other: a value that is not one of the two
  * would otherwise reach settings.json and be read back on the next launch.
  */
+function asTextSize(value) {
+  if (!TEXT_SIZES.includes(value)) throw new TypeError(`textSize must be one of ${TEXT_SIZES}`);
+  return value;
+}
+
+/** The size the person chose, or null if they never did (text-size.js); main.js asks. */
+function textSize() {
+  return state.settings ? state.settings.textSize() : null;
+}
+
+/** Keep a size chosen from the keyboard, as the settings window would. */
+function saveTextSize(size) {
+  if (!state.settings) return;
+  state.settings.setTextSize(asTextSize(size), detectAll());
+}
+
 function asUpdateCheck(value) {
   if (typeof value !== 'string' || !UPDATE_CHECKS.includes(value)) {
     throw new TypeError('updateCheck must be "never" or "startup"');
@@ -862,4 +904,14 @@ async function screenRules() {
   return formatModule;
 }
 
-module.exports = { registerIpc, disposeIpc, splashEnabled, CHANNELS, asInt, asId, clamp };
+module.exports = {
+  registerIpc,
+  disposeIpc,
+  splashEnabled,
+  textSize,
+  saveTextSize,
+  CHANNELS,
+  asInt,
+  asId,
+  clamp,
+};

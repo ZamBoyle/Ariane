@@ -56,6 +56,19 @@ test('sans réglage du tout, rien n’est demandé non plus', async () => {
   assert.equal(net.calls.length, 0);
 });
 
+test('« Vérifier maintenant » demande, même éteint : c’est la personne qui demande', async () => {
+  const net = fakeNet({ status: 302, location: TAG('v9.9.9') });
+  const answer = await checkForUpdate({
+    settings: never,
+    version: '0.2.0',
+    request: net.request,
+    pkg: PKG,
+    asked: true,
+  });
+  assert.equal(net.calls.length, 1, 'une seule fois, et parce qu’on a cliqué');
+  assert.deepEqual(answer.data, { update: true, version: '9.9.9', url: TAG('v9.9.9') });
+});
+
 // ── ce qu'on demande, et où ────────────────────────────────────────────────
 
 test('la redirection est interrogée, jamais l’API', async () => {

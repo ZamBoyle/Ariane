@@ -37,6 +37,31 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### La taille du texte, les bonnes touches, et « Vérifier maintenant »
+
+**Ce que ça change.** La taille du texte se règle de 90 à 130 %, dans les Réglages ou au clavier :
+Ctrl+= (avec ou sans Maj), Ctrl −, le + et le − du pavé numérique, Ctrl+0 pour revenir — Cmd sous
+macOS. Elle vaut pour toute l'application et se retrouve au lancement suivant. Et un bouton
+« Vérifier maintenant », à côté du réglage des mises à jour, demande tout de suite s'il existe une
+version plus récente : il dit « Ariane 0.5.1 est à jour », ou nomme la version qui attend, avec de
+quoi aller la voir.
+
+**Ce qui existait déjà, sans que personne le sache.** Mesuré sur l'application lancée, par de
+vraies frappes : le zoom venait du menu par défaut d'Electron, caché et en anglais. Ctrl+Maj+=
+agrandissait et Ctrl − réduisait, mais **Ctrl+= et le pavé numérique ne faisaient rien** — les
+touches qu'on essaie d'abord. Ce même menu offrait « Toggle Developer Tools » et « Force Reload »
+dans chaque paquet publié. Il n'y a plus de menu sous Linux et Windows (Ctrl+Q, Ctrl+W et F11
+restent) ; macOS garde le strict nécessaire, sans lequel copier-coller n'y marche pas ; les outils
+de développement n'existent plus que pour qui construit Ariane.
+
+**Un zoom réglé avant est repris**, pas défait : sans taille enregistrée, Ariane reprend celle que
+Chromium avait gardée. Vérifié : une page zoomée à 120 % par l'ancien raccourci rouvre à 120 %, et
+le réglage le dit.
+
+**« Vérifier maintenant » ne trahit pas la promesse** : aucune requête ne part sans que la personne
+la demande. Réglé sur « jamais », Ariane ne demande rien au lancement ; un clic sur le bouton est
+une demande, et c'est la seule fois où le réglage ne décide pas.
+
 ### Ce que coûte chaque message
 
 **Demandé pour une formation** : montrer le poids d'un message en jetons, en plus de celui de la

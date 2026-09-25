@@ -134,12 +134,19 @@ function electronRequest(url, timeoutMs = TIMEOUT_MS) {
  * @returns {Promise<{ok: true, data: object} | {ok: false, error: string}>}
  *   `error` is a CODE. The renderer says it; this file never writes a sentence.
  */
-async function checkForUpdate({ settings, version, request = electronRequest, pkg } = {}) {
+async function checkForUpdate({
+  settings,
+  version,
+  request = electronRequest,
+  pkg,
+  asked = false,
+} = {}) {
   // Read FIRST, and make no request at all when the answer is no. A setting
   // that merely hides the result would still have told GitHub we were here.
+  // `asked`: the person clicked "check now" — this once, they are asking.
   const when =
     settings && typeof settings.updateCheck === 'function' ? settings.updateCheck() : 'never';
-  if (when !== 'startup') return { ok: false, error: 'update-check-off' };
+  if (when !== 'startup' && !asked) return { ok: false, error: 'update-check-off' };
 
   const repository = repositoryUrl(pkg);
   if (!repository) return { ok: false, error: 'no-repository' };

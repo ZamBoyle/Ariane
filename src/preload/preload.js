@@ -53,9 +53,10 @@ contextBridge.exposeInMainWorld('api', {
    * @param {string} [language] "auto" or a language code; left out, the language stays.
    * @param {string} [theme] "auto", "light" or "dark"; left out, the theme stays.
    * @param {string} [updateCheck] "never" or "startup"; left out, it stays.
+   * @param {number} [textSize] 90 to 130, in percent; left out, it stays.
    */
-  saveSettings: (commands, language, theme, updateCheck) =>
-    call('settings:save', { commands, language, theme, updateCheck }),
+  saveSettings: (commands, language, theme, updateCheck, textSize) =>
+    call('settings:save', { commands, language, theme, updateCheck, textSize }),
 
   /**
    * Is there a newer Ariane? Answers `{update, version?, url?, reason?}`.
@@ -64,6 +65,12 @@ contextBridge.exposeInMainWorld('api', {
    * the main process, BEFORE any request leaves the machine.
    */
   checkUpdate: () => call('update:check'),
+
+  /**
+   * The same, asked by a click on "check now": the one time the setting does
+   * not decide, since the person is asking. Answers with `current` as well.
+   */
+  checkUpdateNow: () => call('update:checkNow'),
 
   /**
    * Open the release page in the browser. No url crosses the bridge — the main

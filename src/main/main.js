@@ -10,9 +10,19 @@
  */
 
 const path = require('path');
-const { app, BrowserWindow, shell, session, screen, nativeTheme, nativeImage } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  Menu,
+  shell,
+  session,
+  screen,
+  nativeTheme,
+  nativeImage,
+} = require('electron');
 
-const { registerIpc, disposeIpc, splashEnabled } = require('./ipc');
+const { registerIpc, disposeIpc, splashEnabled, textSize, saveTextSize } = require('./ipc');
+const { keyAction, menuTemplate, nearestSize, stepSize } = require('./text-size');
 const { WindowState } = require('./window-state');
 
 const isDev = process.argv.includes('--dev');
@@ -236,6 +246,34 @@ function createWindow() {
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   if (isDev) win.webContents.openDevTools({ mode: 'detach' });
 
+  // The size of the text, as the person set it (text-size.js). Chromium keeps
+  // a zoom of its own per page; one set through the old hidden menu is taken
+  // up once rather than undone.
+  win.webContents.on('did-finish-load', () => {
+    let size = textSize();
+    if (size === null) {
+      size = nearestSize(win.webContents.getZoomFactor() * 100);
+      if (size !== 100) saveTextSize(size);
+    }
+    win.webContents.setZoomFactor(size / 100);
+  });
+
+  // The keys that change it, and the few a menu used to carry.
+  win.webContents.on('before-input-event', (event, input) => {
+    const action = keyAction(input, { platform: process.platform, packaged: app.isPackaged });
+    if (!action) return;
+    event.preventDefault();
+    if (action.startsWith('text-')) {
+      const step = { 'text-bigger': 1, 'text-smaller': -1, 'text-reset': 0 }[action];
+      const size = stepSize(textSize() ?? 100, step);
+      saveTextSize(size);
+      win.webContents.setZoomFactor(size / 100);
+    } else if (action === 'quit') app.quit();
+    else if (action === 'close') win.close();
+    else if (action === 'fullscreen') win.setFullScreen(!win.isFullScreen());
+    else if (action === 'devtools') win.webContents.toggleDevTools();
+  });
+
   // External links open in the user's browser; nothing navigates in-app.
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:$/.test(safeProtocol(url))) shell.openExternal(url);
@@ -312,6 +350,9 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     applyCsp();
+    // No menu on Linux and Windows, a minimal one on macOS (text-size.js).
+    const template = menuTemplate({ platform: process.platform, packaged: app.isPackaged });
+    Menu.setApplicationMenu(template ? Menu.buildFromTemplate(template) : null);
     windowState = new WindowState(app.getPath('userData'));
     registerIpc({ userDataDir: app.getPath('userData'), onSplashClose: dismissSplash });
     createWindow();

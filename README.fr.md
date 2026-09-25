@@ -67,6 +67,8 @@ deux par cinq d'entre eux :
 - **Dans votre langue** : français, anglais, néerlandais, allemand, espagnol, italien, portugais
   (Brésil), japonais et chinois — celle du système par défaut, une autre au choix dans les
   Réglages. Ajouter une langue, c'est ajouter un fichier dans `src/locales/`.
+- **La taille du texte**, de 90 à 130 % : dans les Réglages, ou avec Ctrl + et Ctrl −, le pavé
+  numérique compris.
 - **Lecture confortable** : Markdown rendu, raisonnements repliés, et les rafales d'appels d'outils
   regroupées en un seul bandeau dépliable au lieu de vingt bulles.
 - **Attribution honnête** : l'outil qui répond n'est pas vous. Voir plus bas — c'est le point le

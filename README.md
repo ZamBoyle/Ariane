@@ -72,7 +72,8 @@ three busiest:
   by folder. It says how many conversations were actually measured, and estimates nothing: no
   dollar figure made up from a price list.
 - **Export** to Markdown or PDF, crediting each speaker exactly as the screen does.
-- **Nine languages**, chosen or following the system, and a light, dark or system theme.
+- **Nine languages**, chosen or following the system, a light, dark or system theme, and a text
+  size from 90 to 130 % — in the settings, or with Ctrl + and Ctrl −.
 - **Nothing is lost**: when an assistant deletes a transcript, Ariane keeps the only copy left.
 - **Told when a newer Ariane exists** — if you ask to be. Off unless you turn it on, one request
   at startup, a button that waits beside the gear: nothing is downloaded and nothing is run.

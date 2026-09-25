@@ -915,6 +915,41 @@ const SCRIPT = `(async () => {
   // La page reste claire pour la suite de la campagne.
   document.documentElement.dataset.theme = 'auto';
 
+  // La taille du texte, et « Vérifier maintenant ».
+  await openSettings();
+  const sizeSelect = dialog.querySelector('#settings-text-size');
+  settingsCheck.textSize = {
+    options: [...sizeSelect.options].map((o) => o.value + '=' + o.textContent),
+    value: sizeSelect.value,
+    label: dialog.querySelector('label[for="settings-text-size"]').textContent,
+  };
+  const updateNow = dialog.querySelector('.settings-update-now');
+  const updateStatus = dialog.querySelector('.settings-update-status');
+  const updateOpen = dialog.querySelector('.settings-update-open');
+  settingsCheck.updateNowFirst = { button: updateNow.textContent, statusHidden: updateStatus.hidden };
+  updateNow.click();
+  await sleep(150);
+  settingsCheck.upToDate = {
+    text: dialog.querySelector('.settings-update-text').textContent,
+    open: !updateOpen.hidden,
+  };
+  updateNow.click();
+  await sleep(150);
+  settingsCheck.available = {
+    text: dialog.querySelector('.settings-update-text').textContent,
+    open: !updateOpen.hidden,
+    header: !document.getElementById('update').hidden,
+  };
+  updateOpen.click();
+  await sleep(50);
+  settingsCheck.available.opened = await window.api.releaseOpens();
+  sizeSelect.value = '120';
+  dialog.querySelector('.settings-save').click();
+  await sleep(150);
+  settingsCheck.textSizeSaved = window.mock.textSizeSaves();
+  // La suite de la campagne ne s'attend pas à un bouton de mise à jour.
+  document.getElementById('update').hidden = true;
+
   // A file that cannot be read: said, and nothing offered that would write it.
   window.mock.settingsUnreadable('Unexpected token } in JSON at position 42');
   await openSettings();
@@ -1997,6 +2032,20 @@ async function run() {
   check('choosing a theme saves it, without reloading the window',
     st.themeSaved.closed && st.themeSaved.saved.join(',') === 'dark',
     JSON.stringify(st.themeSaved));
+  check('the text size offers five sizes, said as percentages, the one in force selected',
+    st.textSize.options.length === 5 && st.textSize.value === '100'
+      && st.textSize.options.every((o) => /^\d+=\d+\s%$/.test(o)) && st.textSize.label === 'Taille du texte',
+    JSON.stringify(st.textSize));
+  check('choosing a size saves it', st.textSizeSaved.join(',') === '120', JSON.stringify(st.textSizeSaved));
+  check('« check now » is there, and says nothing before it is clicked',
+    st.updateNowFirst.button === 'Vérifier maintenant' && st.updateNowFirst.statusHidden,
+    JSON.stringify(st.updateNowFirst));
+  check('clicked, it says the version is up to date, and names it',
+    st.upToDate.text === 'Ariane 0.5.1 est à jour.' && !st.upToDate.open, JSON.stringify(st.upToDate));
+  check('a version waiting is named, with the way to it — and the button by the gear appears too',
+    st.available.text.includes('9.9.9') && st.available.open && st.available.header
+      && st.available.opened === 1,
+    JSON.stringify(st.available));
   check('an unreadable file is said, and nothing offered would write it',
     st.unreadable.banner.includes('illisible') && st.unreadable.inputsLocked && st.unreadable.saveLocked
       && st.unreadable.jsonOpen,

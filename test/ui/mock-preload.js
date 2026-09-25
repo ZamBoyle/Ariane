@@ -191,6 +191,8 @@ const SETTINGS = {
     available: [{ code: 'en', name: 'English' }, { code: 'fr', name: 'Français' }],
   },
   theme: 'auto',
+  textSize: 100,
+  textSizes: [90, 100, 110, 120, 130],
   agents: [
     { id: 'claude', name: 'claude', label: 'Claude Code', command: '', detected: '/home/zam/.local/bin/claude',
       sessions: 3, check: { ok: true, executable: '/home/zam/.local/bin/claude', chosen: false } },
@@ -202,6 +204,12 @@ const SETTINGS = {
 };
 const settingsSaves = [];
 const themeSaves = [];
+const textSizeSaves = [];
+// « Vérifier maintenant » : d'abord à jour, puis une version qui attend.
+const updateNowAnswers = [
+  { current: '0.5.1', update: false, reason: 'up-to-date' },
+  { current: '0.5.1', update: true, version: '9.9.9', url: 'https://exemple.invalide/releases/tag/v9.9.9' },
+];
 let settingsFileOpened = 0;
 const copyOf = (value) => JSON.parse(JSON.stringify(value));
 
@@ -629,6 +637,7 @@ contextBridge.exposeInMainWorld('api', {
     return { opened: true };
   },
   releaseOpens: async () => releaseOpens,
+  checkUpdateNow: async () => updateNowAnswers.shift() || { update: false, reason: 'unreachable' },
   checkCommand: async (id, command) => {
     const agent = SETTINGS.agents.find((a) => a.id === id);
     if (!command.trim()) return agent.check;
@@ -636,8 +645,12 @@ contextBridge.exposeInMainWorld('api', {
     if (command.includes('absent')) return { ok: false, reason: 'setting-unusable', detail: command };
     return { ok: true, executable: command.trim(), chosen: true };
   },
-  saveSettings: async (commands, language, theme) => {
+  saveSettings: async (commands, language, theme, updateCheck, textSize) => {
     if (SETTINGS.unreadable) throw new Error('Réglages illisibles, rien n’a été écrit');
+    if (textSize !== undefined) {
+      textSizeSaves.push(textSize);
+      SETTINGS.textSize = textSize;
+    }
     if (theme !== undefined) {
       themeSaves.push(theme);
       SETTINGS.theme = theme;
@@ -706,6 +719,7 @@ contextBridge.exposeInMainWorld('mock', {
   settingsFileOpened: () => settingsFileOpened,
   languageSaves: () => languageSaves.slice(),
   themeSaves: () => themeSaves.slice(),
+  textSizeSaves: () => textSizeSaves.slice(),
   hiddenAgents: () => [...hiddenAgents],
   marks: () => JSON.parse(JSON.stringify(MARKS)),
   settingsUnreadable(message) {

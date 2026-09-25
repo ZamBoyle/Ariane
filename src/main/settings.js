@@ -57,6 +57,9 @@ const THEMES = ['auto', 'light', 'dark'];
  */
 const UPDATE_CHECKS = ['never', 'startup'];
 
+/** What `textSize` may hold, in percent (text-size.js). */
+const { TEXT_SIZES } = require('./text-size');
+
 /** An agent id, as the registry spells them. */
 const AGENT_ID = /^[a-z][a-z0-9-]*$/;
 
@@ -155,6 +158,22 @@ class Settings {
     return this.#update(detected, {}, { updateCheck: value });
   }
 
+  /**
+   * The size of the text, in percent — or null when nobody ever chose one, so
+   * that a zoom set before this setting existed is taken up rather than undone.
+   */
+  textSize() {
+    const read = this.read();
+    const value = read.ok ? read.data.textSize : undefined;
+    return TEXT_SIZES.includes(value) ? value : null;
+  }
+
+  /** @param {number} value @param {Record<string, string|null>} detected */
+  setTextSize(value, detected = {}) {
+    if (!TEXT_SIZES.includes(value)) throw new TypeError(`textSize must be one of ${TEXT_SIZES}`);
+    return this.#update(detected, {}, { textSize: value });
+  }
+
   /** The theme the person chose: "auto" — the system's — unless they set one. */
   theme() {
     const read = this.read();
@@ -228,14 +247,14 @@ class Settings {
    * beside the detection, and without touching anything else in the file.
    *
    * @param {{commands?: Record<string, string>, language?: string, theme?: string,
-   *          updateCheck?: string}} choices
+   *          updateCheck?: string, textSize?: number}} choices
    *   commands: agentId -> path, '' to search again. language: "auto" or a tag.
    *   theme: "auto", "light" or "dark". updateCheck: "never" or "startup".
    * @param {Record<string, string|null>} detected
    * @throws {TypeError} For an assistant with no CLI, a command that is not
    *   text, a language that is not a tag, or a theme that is not one of three.
    */
-  save({ commands = {}, language, theme, updateCheck } = {}, detected = {}) {
+  save({ commands = {}, language, theme, updateCheck, textSize } = {}, detected = {}) {
     for (const [id, command] of Object.entries(commands)) {
       if (!CLI_AGENTS.some(([known]) => known === id)) throw new TypeError(`unknown assistant: ${id}`);
       if (typeof command !== 'string') throw new TypeError(`command for ${id} must be text`);
@@ -249,10 +268,13 @@ class Settings {
     if (updateCheck !== undefined && (typeof updateCheck !== 'string' || !UPDATE_CHECKS.includes(updateCheck))) {
       throw new TypeError('updateCheck must be "never" or "startup"');
     }
-    return this.#update(detected, commands, { language, theme, updateCheck });
+    if (textSize !== undefined && !TEXT_SIZES.includes(textSize)) {
+      throw new TypeError(`textSize must be one of ${TEXT_SIZES}`);
+    }
+    return this.#update(detected, commands, { language, theme, updateCheck, textSize });
   }
 
-  #update(detected, commands, { language, theme, hidden, splash, updateCheck }) {
+  #update(detected, commands, { language, theme, hidden, splash, updateCheck, textSize }) {
     const read = this.#load();
     if (!read.ok) return { ok: false, error: read.error }; // theirs to fix, not ours to replace
 
@@ -291,6 +313,11 @@ class Settings {
         ? rest.updateCheck
         : 'never');
     delete rest.updateCheck;
+    // Written only once chosen: an absent size means "as it was" (textSize()).
+    // A value that is not one of the sizes is kept as written, like any other
+    // of the person's words, and simply not followed.
+    const chosenSize = textSize ?? rest.textSize;
+    delete rest.textSize;
     const help = this.help ? this.help(EXAMPLES[this.platform] || EXAMPLES.linux, this.platform) : null;
     const next = {
       ...(help ? { _aide: help } : {}),
@@ -299,6 +326,7 @@ class Settings {
       hiddenAgents: chosenHidden,
       splash: chosenSplash,
       updateCheck: chosenUpdate,
+      ...(chosenSize === undefined ? {} : { textSize: chosenSize }),
       agents,
       ...rest,
     };

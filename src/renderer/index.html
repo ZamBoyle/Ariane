@@ -206,10 +206,19 @@
           <select id="settings-theme" class="settings-select" data-l10n-id="settings-theme-select"></select>
         </div>
         <div class="settings-choice">
+          <label for="settings-text-size" data-l10n-id="settings-text-size"></label>
+          <select id="settings-text-size" class="settings-select" data-l10n-id="settings-text-size-select"></select>
+        </div>
+        <div class="settings-choice">
           <label for="settings-updates" data-l10n-id="settings-updates"></label>
           <select id="settings-updates" class="settings-select" data-l10n-id="settings-updates-select"></select>
+          <button type="button" class="ghost-btn settings-update-now" data-l10n-id="settings-update-now"></button>
         </div>
       </div>
+      <p class="settings-update-status" aria-live="polite" hidden>
+        <span class="settings-update-text"></span>
+        <button type="button" class="ghost-btn settings-update-open" data-l10n-id="update-open" hidden></button>
+      </p>
       <p class="settings-lead" data-l10n-id="settings-lead"></p>
       <div class="settings-rows"></div>
       <div class="settings-add">
