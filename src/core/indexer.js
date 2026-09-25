@@ -121,16 +121,27 @@ class Indexer {
       }
     }
 
+    // Each step reports its own failure and lets the pass go on: a full disk
+    // or a file Windows holds used to fail the whole pass, and every pass
+    // after it, with nothing said.
     if (this.archive) {
-      this.#saveVanished(report, adapters, completed);
-      this.#reconcileArchive(report);
+      try {
+        this.#saveVanished(report, adapters, completed);
+        this.#reconcileArchive(report);
+      } catch (error) {
+        report.errors.push({ agent: 'archive', message: error.message });
+      }
     }
 
     // A resumed or forked conversation begins with a copy of another's history.
     // Sorted out once everything is in, since either side may have come first;
     // skipped when nothing changed, so an idle pass stays free.
     if (report.indexed || report.saved || report.restored) {
-      report.copies = this.index.markCopies({ since });
+      try {
+        report.copies = this.index.markCopies({ since });
+      } catch (error) {
+        report.errors.push({ agent: 'copies', message: error.message });
+      }
     }
     return completed;
   }
@@ -158,7 +169,12 @@ class Indexer {
 
     for (const { id, agentId, source } of this.index.sessionsBrief()) {
       if (source === 'archive' || this.seen.has(id) || !vouched(agentId)) continue;
-      this.#save(id, report);
+      try {
+        this.#save(id, report);
+      } catch (error) {
+        // Not saved, so still held by the index as it was: the next pass tries again.
+        report.errors.push({ agent: 'archive', key: id, message: error.message });
+      }
     }
   }
 
@@ -170,7 +186,12 @@ class Indexer {
   #reconcileArchive(report) {
     for (const { id, file } of this.archive.list()) {
       if (this.seenWhole.has(id)) {
-        this.archive.remove(id);
+        try {
+          this.archive.remove(id);
+        } catch (error) {
+          // Held open elsewhere (Windows): removed at a later pass.
+          report.errors.push({ agent: 'archive', key: file, message: error.message });
+        }
         continue;
       }
       const current = this.index.session(id);
@@ -198,23 +219,29 @@ class Indexer {
       seen += 1;
       const sessionId = globalSessionId(adapter.id, descriptor.sessionId);
       this.seen.add(sessionId);
-      if (descriptor.source !== 'history') this.seenWhole.add(sessionId);
       report.scanned += 1;
 
+      // One conversation, read all or nothing. A read cut short — a file that
+      // fails, the app closed in the middle of the pass — used to leave its
+      // first batches written while the cursor stayed behind them, and the next
+      // pass read them again; a file that came back unreadable had already
+      // emptied the only copy. Rolled back, the conversation is exactly what
+      // its stored cursor says (closing the database rolls back too).
+      this.index.begin();
       try {
         const result = await this.#indexSession(adapter, descriptor, report);
+        this.index.commit();
+        // Offered whole: its archived copy, if any, can go (#reconcileArchive)
+        // — but not for a file that came back empty.
+        if (descriptor.source !== 'history' && !result.empty) this.seenWhole.add(sessionId);
         if (result.skipped) report.skipped += 1;
         else report.indexed += 1;
         if (descriptor.source === 'history') report.orphans += 1;
         report.messages += result.messages;
         summary.messages += result.messages;
       } catch (error) {
+        this.index.rollback();
         report.errors.push({ agent: adapter.id, key: descriptor.key, message: error.message });
-        // The session row was created before reading began. Leaving it behind
-        // would list a conversation that opens onto nothing, for ever.
-        const id = globalSessionId(adapter.id, descriptor.sessionId);
-        this.index.finalizeSession(id);
-        this.index.dropIfEmpty(id);
       }
 
       this.onProgress({ phase: 'scanning', agent: adapter.id, done: seen });
@@ -445,7 +472,8 @@ class Indexer {
 
     // A session with nothing readable in it is not a conversation; listing it
     // would offer the reader a row that opens onto an empty pane.
-    if (this.index.dropIfEmpty(id)) report.empty += 1;
+    const empty = this.index.dropIfEmpty(id);
+    if (empty) report.empty += 1;
 
     this.index.saveSourceState({
       key: descriptor.key,
@@ -455,7 +483,7 @@ class Indexer {
       cursor: lastCursor,
     });
 
-    return { skipped: false, messages: count };
+    return { skipped: false, messages: count, empty };
   }
 }
 

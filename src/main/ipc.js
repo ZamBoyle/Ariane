@@ -356,10 +356,12 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
     // Interrupted between these two lines, the conversation would come back
     // from its archive file at the next pass, and could be forgotten again.
     // It reappears; it is never kept out of sight.
-    state.index.forgetSession(id);
-    state.archive.remove(id);
-    // Forgetting is forgetting: the star and the note go with the rest.
-    state.marks.remove(id);
+    // With its subagents: their copies and their marks go too.
+    for (const gone of state.index.forgetSession(id)) {
+      state.archive.remove(gone);
+      // Forgetting is forgetting: the star and the note go with the rest.
+      state.marks.remove(gone);
+    }
     return true;
   });
 

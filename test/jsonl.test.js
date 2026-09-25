@@ -71,6 +71,15 @@ test('yields a trailing unterminated line without advancing past it', async () =
   assert.equal(seen[1].endOffset, 8, 'offset must not advance past an incomplete line');
 });
 
+// Un lecteur qui reprend aux octets ne doit pas la lire du tout : il la stockerait
+// maintenant, puis la relirait finie à la passe suivante (voir indexer.test.js).
+test('leaves an unfinished trailing line to the next run when asked', async () => {
+  const file = tmpFile('{"a":1}\n{"a":2}');
+  const seen = [];
+  for await (const r of readRecords(file, { unfinished: false })) seen.push(r.value);
+  assert.deepEqual(seen, [{ a: 1 }]);
+});
+
 test('works across chunk boundaries', async () => {
   const rows = Array.from({ length: 500 }, (_, i) => JSON.stringify({ i, pad: 'x'.repeat(50) }));
   const file = tmpFile(rows.join('\n') + '\n');

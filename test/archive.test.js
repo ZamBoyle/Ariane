@@ -187,6 +187,28 @@ test.describe('a rebuild of the index', () => {
     assert.deepEqual(archive.list().map((a) => a.id), [`codex:${CODEX_ID}`]);
     assert.equal(report.errors.length, 0);
   });
+
+  // Une session connue seulement par history.jsonl n'avait pas de chemin : la
+  // reconstruction la sauvait comme introuvable, puis la rendait « sauvée par
+  // Ariane » pour toujours — l'étiquette « prompts seuls » perdue, « Oublier »
+  // offert pour ce que history.jsonl ramène (26 septembre 2026).
+  test('a prompts-only session survives a rebuild as what it is', async (t) => {
+    const { fx, archive, open, pass } = setup(t);
+    fx.history([{ display: 'un prompt dont la transcription est partie', project: '/p', sessionId: 'ghost', timestamp: 1765054827534 }]);
+    const file = path.join(fx.root, 'index.sqlite3');
+    const before = open(file);
+    await pass(before);
+    assert.equal(before.session('claude:ghost').source, 'history');
+    before.close();
+
+    const raw = new Database(file);
+    raw.pragma('user_version = 1');
+    raw.close();
+    const migrated = open(file);
+    assert.ok(!archive.has('claude:ghost'), 'history.jsonl la tient encore : aucune copie');
+    await pass(migrated);
+    assert.equal(migrated.session('claude:ghost').source, 'history');
+  });
 });
 
 // ── what the archive must NOT do ────────────────────────────────────────────
@@ -206,6 +228,68 @@ test.describe('the archive keeps only what exists nowhere else', () => {
     await pass(index);
     assert.equal(index.session(`codex:${CODEX_ID}`).source, 'transcript');
     assert.ok(!archive.has(`codex:${CODEX_ID}`));
+  });
+
+  // La seule copie : un fichier qui revient mais ne se lit pas — ou revient
+  // vide, comme l'écrit d'abord un client de synchronisation — la supprimait,
+  // et vidait la conversation (26 septembre 2026).
+  test('a file that comes back unreadable leaves the only copy alone', async (t) => {
+    const { fx, archive, open, pass } = setup(t);
+    const rollout = codexSession(fx);
+    const index = open();
+    await pass(index);
+    const bytes = fs.readFileSync(rollout);
+    fs.rmSync(rollout);
+    await pass(index);
+    const id = `codex:${CODEX_ID}`;
+
+    fs.writeFileSync(rollout, bytes);
+    const unreadable = {
+      ...codexAdapter,
+      // eslint-disable-next-line require-yield
+      async *read() {
+        throw new Error('EACCES');
+      },
+    };
+    const report = await pass(index, { adapters: [unreadable] });
+    assert.equal(report.errors.length, 1);
+    assert.ok(archive.has(id), 'la copie est toujours là');
+    assert.deepEqual(texts(index, id), ['bonjour codex', 'la réponse de codex'], 'et la conversation aussi');
+    assert.equal(index.session(id).source, 'archive');
+  });
+
+  test('a file that comes back empty leaves the only copy alone', async (t) => {
+    const { fx, archive, open, pass } = setup(t);
+    const transcript = claudeWithHistory(fx);
+    const index = open();
+    await pass(index);
+    fs.rmSync(transcript);
+    await pass(index);
+    assert.ok(archive.has('claude:s1'));
+
+    fs.writeFileSync(transcript, '');
+    await pass(index);
+    assert.ok(archive.has('claude:s1'), 'un fichier vide n’offre pas la conversation entière');
+    assert.equal(texts(index, 'claude:s1').length, 2);
+  });
+
+  // Un disque plein au moment de sauver : la passe continue, et le dit. Avant,
+  // elle échouait tout entière — sans copies triées, sans date de passe — et
+  // recommençait à chaque passe, jusqu'à ce que le disque se libère.
+  test('a copy that cannot be written is reported, and the pass goes on', async (t) => {
+    const { fx, archive, open, pass } = setup(t);
+    const rollout = codexSession(fx);
+    const index = open();
+    await pass(index);
+    fs.rmSync(rollout);
+
+    const full = Object.create(archive);
+    full.write = () => {
+      throw new Error('ENOSPC: plus de place');
+    };
+    const report = await pass(index, { archive: full });
+    assert.ok(report.errors.some((e) => /ENOSPC/.test(e.message)), JSON.stringify(report.errors));
+    assert.ok(index.meta('lastIndexedAt'), 'la passe est allée au bout');
   });
 
   test('a run told to index one agent does not judge the others vanished', async (t) => {

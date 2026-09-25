@@ -133,7 +133,9 @@ test('une passe qui échoue remet quand même la recherche en état', async (t) 
   const { open, run, project } = setup(t);
   project.session('s1', [records.userText('avant la panne')]);
   const index = open();
-  index.markCopies = () => {
+  // markCopies et l'archive rattrapent désormais leurs pannes (indexer.js) ;
+  // celle-ci vient après elles, et remonte toujours.
+  index.restoreCarriedQuotas = () => {
     throw new Error('panne simulée');
   };
   await assert.rejects(run(index), /panne simulée/);

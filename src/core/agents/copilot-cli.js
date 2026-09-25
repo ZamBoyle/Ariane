@@ -117,29 +117,26 @@ const adapter = {
     let model = resumed.model;
     // The last running total seen: a shutdown only adds what grew since.
     let total = resumed.total;
-    let last = cursor;
 
-    for await (const record of readRecords(descriptor.logFile, { start })) {
-      const complete = record.endOffset > record.offset;
+    // A line still being written is left to the next pass (jsonl.js).
+    for await (const record of readRecords(descriptor.logFile, { start, unfinished: false })) {
       const extracted = extractCopilotRecord(record.value);
 
       if (extracted.kind === 'usage') {
-        if (!complete) continue; // re-read whole next time, counted once
         const grown = difference(extracted.total, total);
         total = extracted.total;
-        last = makeCursor(record.endOffset, model, total);
+        const next = makeCursor(record.endOffset, model, total);
         yield grown
-          ? { item: { kind: 'usage', usage: usageOf(grown) }, cursor: last }
+          ? { item: { kind: 'usage', usage: usageOf(grown) }, cursor: next }
           : {
               item: { kind: 'ignored', reason: 'known-noise', detail: 'repeated shutdown' },
-              cursor: last,
+              cursor: next,
             };
         continue;
       }
 
       if (extracted.kind === 'meta' && extracted.model) model = extracted.model;
-      const next = complete ? makeCursor(record.endOffset, model, total) : last;
-      last = next;
+      const next = makeCursor(record.endOffset, model, total);
 
       const item = withModel(extracted, model);
       if (item.kind === 'meta') continue; // resolved during discovery

@@ -88,10 +88,11 @@
  *
  * @typedef {object} Chunk
  * @property {Item} item
- * @property {string|null} cursor  Resume point AFTER this item. An adapter that
- *                                 cannot guarantee the item is durably complete
- *                                 (a half-written trailing line) yields the
- *                                 PREVIOUS cursor, so the item is re-read later.
+ * @property {string|null} cursor  Resume point AFTER this item. A line whose
+ *                                 newline is not written yet is not read at
+ *                                 all (readRecords' `unfinished: false`): the
+ *                                 next pass reads it whole. Yielding it with the
+ *                                 previous cursor stored it now and again later.
  *
  * @typedef {object} Adapter
  * An adapter may also offer `quotas(ctx)`: the windows of its usage limits it

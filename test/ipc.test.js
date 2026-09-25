@@ -1019,6 +1019,41 @@ test.describe('end to end through the bridge', () => {
     assert.equal((await invoke('session:get', { id: SID })).data, null);
   });
 
+  // Le briefing d'un sous-agent, c'est la demande de la personne : oublier la
+  // conversation qui l'a lancé et le garder, c'était ne rien oublier
+  // (26 septembre 2026).
+  test('forgetting a conversation forgets its subagents: index, archive and marks', async (t) => {
+    const ctx = setupIpc();
+    t.after(ctx.teardown);
+
+    const project = ctx.fx.project('-p', { originalPath: '/p' });
+    project.session('s1', [records.userText('lance un agent'), records.assistantText('lancé')]);
+    const dir = path.join(project.dirPath, 's1', 'subagents');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'agent-a1.jsonl'),
+      JSON.stringify({ ...records.userText('consigne secrète'), sessionId: 's1', isSidechain: true }) + '\n'
+    );
+    ctx.start();
+    await invoke('index:refresh', { quiet: true });
+    await invoke('session:mark', { id: 'claude:agent-a1', favorite: true });
+
+    fs.rmSync(path.join(project.dirPath, 's1.jsonl'));
+    fs.rmSync(path.join(project.dirPath, 's1'), { recursive: true });
+    const saved = await invoke('index:refresh', { quiet: true });
+    assert.equal(saved.data.saved, 2, 'la conversation et son sous-agent sont sauvés');
+
+    assert.equal((await invoke('session:forget', { id: SID })).ok, true);
+    assert.deepEqual((await invoke('search:run', { query: 'secrète' })).data, [], 'la consigne n’est plus trouvée');
+    assert.equal((await invoke('session:get', { id: 'claude:agent-a1' })).data, null);
+    assert.equal(fs.existsSync(path.join(ctx.userDataDir, 'archive', 'claude', 'agent-a1.jsonl')), false);
+    const marks = JSON.parse(fs.readFileSync(path.join(ctx.userDataDir, 'marks.json'), 'utf8'));
+    assert.equal(marks.marks['claude:agent-a1'], undefined, 'ni son étoile');
+
+    await invoke('index:refresh', { quiet: true });
+    assert.deepEqual((await invoke('search:run', { query: 'secrète' })).data, [], 'et rien ne la ramène');
+  });
+
   test('exports a conversation to the file the dialog names, and copies a message', async (t) => {
     const ctx = setupIpc();
     t.after(() => {

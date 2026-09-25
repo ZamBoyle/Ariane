@@ -22,10 +22,17 @@ const DEFAULT_CHUNK = 1 << 20; // 1 MiB
  * @param {number} [options.start=0]     Byte offset to resume from.
  * @param {number} [options.chunkSize]
  * @param {(err: {offset: number, error: Error, raw: string}) => void} [options.onError]
+ * @param {boolean} [options.unfinished=true] Whether to yield a trailing line
+ *   whose newline is not written yet. A reader that resumes from the offsets
+ *   must say false: it would store the line now, then read it again, finished,
+ *   at the next pass — twice for a row with no id, and for a reply, its cost
+ *   put on the second reading, which the index refuses (26 September 2026).
+ *   Every transcript Ariane resumes ends with a newline once written: 608 of
+ *   608 measured that day.
  * @yields {{value: unknown, offset: number, endOffset: number}}
  */
 async function* readRecords(filePath, options = {}) {
-  const { start = 0, chunkSize = DEFAULT_CHUNK, onError } = options;
+  const { start = 0, chunkSize = DEFAULT_CHUNK, onError, unfinished = true } = options;
 
   const stream = fs.createReadStream(filePath, { start, highWaterMark: chunkSize });
 
@@ -52,7 +59,7 @@ async function* readRecords(filePath, options = {}) {
 
   // A trailing line with no newline means the writer is mid-append. Parse it,
   // but do NOT advance past it: the next run must re-read it once complete.
-  if (pending.length > 0) {
+  if (pending.length > 0 && unfinished) {
     const record = parseLine(pending, cursor, onError);
     if (record !== undefined) {
       yield { value: record, offset: cursor, endOffset: cursor };

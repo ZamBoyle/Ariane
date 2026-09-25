@@ -118,9 +118,9 @@ const adapter = {
     // delivery has not been read yet — in the cursor too, for a pass that
     // stops between the two.
     let sinceDequeue = resumed.sinceDequeue;
-    let last = cursor;
 
-    for await (const record of readRecords(descriptor.filePath, { start })) {
+    // A line still being written is left to the next pass (jsonl.js).
+    for await (const record of readRecords(descriptor.filePath, { start, unfinished: false })) {
       let item = extractRecord(record.value);
       ({ item, sinceDequeue } = markDelivery(record.value, item, sinceDequeue));
       const reply = replyIdOf(record.value);
@@ -134,14 +134,7 @@ const adapter = {
           item = { ...item, usage };
         }
       }
-      // A trailing line with no newline reports endOffset === offset; yielding
-      // the previous cursor makes the indexer re-read it once complete.
-      const next =
-        record.endOffset > record.offset
-          ? makeCursor(record.endOffset, counted, seen, sinceDequeue)
-          : last;
-      last = next;
-      yield { item, cursor: next };
+      yield { item, cursor: makeCursor(record.endOffset, counted, seen, sinceDequeue) };
     }
   },
 };
@@ -447,6 +440,10 @@ async function* discoverHistoryOnly(ctx) {
     yield {
       sessionId,
       key: `${historyFile}#${sessionId}`,
+      // Where its prompts live: a rebuild then knows history.jsonl still holds
+      // them, and does not save them as vanished — to bring them back labelled
+      // "saved by Ariane" for good (db.js, #saveBeforeRebuild).
+      filePath: historyFile,
       // The whole file is re-scanned when it changes; per-session state is not
       // worth tracking for a file this small.
       fingerprint: `${stat.size}:${Math.floor(stat.mtimeMs)}`,

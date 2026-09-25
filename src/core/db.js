@@ -195,8 +195,9 @@ const ELLIPSIS = '…';
  */
 /**
  * Is message `m` of session `s` a copy — does an EARLIER conversation of the
- * same agent hold it? Earlier by first line, then last, then id: the dates
- * count every line, copies included, so flagging never reorders anything. The
+ * same agent hold it? Earlier as the files declare it when they do (a resume,
+ * a fork), else by first line, then last, then id: the dates count every
+ * line, copies included, so flagging never reorders anything. The
  * lookup goes by uuid (`INDEXED BY`, and `o.uuid <> ''` so the partial index
  * applies): written plainly, SQLite walked every session of the agent for
  * every message — 272 s on the real corpus.
@@ -206,8 +207,17 @@ const IS_COPY_NOW = `EXISTS (
   JOIN sessions so ON so.id = o.session_id
   WHERE o.uuid = m.uuid AND o.uuid <> '' AND o.session_id <> m.session_id
     AND so.agent_id = s.agent_id
-    AND (COALESCE(so.first_at, ''), COALESCE(so.last_at, ''), so.id)
-      < (COALESCE(s.first_at, ''), COALESCE(s.last_at, ''), s.id))`;
+    AND CASE
+      -- What the files declare comes first: Claude writes continued-in into
+      -- the conversation it resumed, Codex names it in forked_from_id. A
+      -- resume copies with the same times, so both begin at the same instant,
+      -- and the dates alone let an original that went on after the resume —
+      -- or a tie — pass for the copy (26 September 2026).
+      WHEN so.continued_in = s.id OR s.continues_from = so.id THEN 1
+      WHEN s.continued_in = so.id OR so.continues_from = s.id THEN 0
+      ELSE (COALESCE(so.first_at, ''), COALESCE(so.last_at, ''), so.id)
+         < (COALESCE(s.first_at, ''), COALESCE(s.last_at, ''), s.id)
+    END)`;
 
 /**
  * A conversation is listed unless every message it holds is a copy: a fork
@@ -478,6 +488,8 @@ class Index {
           WHERE session_id = ? AND role = 'user' AND uuid IS NULL AND ts <> ''
             AND is_notice = 0 AND text = ?
           ORDER BY seq DESC LIMIT 1)`),
+      // The subagents a conversation launched (forgetSession).
+      childrenOf: db.prepare('SELECT id FROM sessions WHERE parent_id = ?'),
       dropSession: db.prepare('DELETE FROM sessions WHERE id = ?'),
       messageText: db.prepare('SELECT text FROM messages WHERE id = ?'),
       archiveSession: db.prepare(`${ARCHIVE_SESSION_SQL} WHERE s.id = ?`),
@@ -1086,6 +1098,28 @@ class Index {
   }
 
   /**
+   * One conversation's read, all or nothing (indexer.js). The writes made
+   * inside — batches included, which then become savepoints — land together
+   * at `commit`, or not at all.
+   */
+  begin() {
+    this.db.exec('BEGIN');
+  }
+
+  commit() {
+    if (this.db.inTransaction) this.db.exec('COMMIT');
+  }
+
+  /** Never throws: it runs on the way out of a failure, the database possibly closed. */
+  rollback() {
+    try {
+      if (this.db.open && this.db.inTransaction) this.db.exec('ROLLBACK');
+    } catch {
+      // Nothing more to undo.
+    }
+  }
+
+  /**
    * What one conversation cost, in the sidebar's own fields — the header shows
    * the same line. Sums over nothing are null: an agent that measured nothing
    * did not spend nothing.
@@ -1371,15 +1405,31 @@ class Index {
     this.db.pragma('wal_checkpoint(TRUNCATE)');
   }
 
+  /**
+   * Forget a conversation for good — and the subagents it launched, whose
+   * briefing is the person's own request: forgetting the one and keeping the
+   * others forgot nothing (26 September 2026).
+   *
+   * @returns {string[]} Every id forgotten, the conversation's first, so the
+   *   caller can remove their archived copies and their marks too.
+   */
   forgetSession(sessionId) {
+    const forgotten = [sessionId];
+    for (let i = 0; i < forgotten.length; i++) {
+      for (const { id } of this.s.childrenOf.all(forgotten[i])) {
+        if (!forgotten.includes(id)) forgotten.push(id);
+      }
+    }
     this.db.pragma('secure_delete = ON');
     try {
       this.db.transaction(() => {
-        this.s.deleteMessages.run(sessionId); // the FTS entries go with them, by trigger
-        this.s.clearSourcesOf.run(sessionId);
-        this.s.dropSession.run(sessionId);
-        // A limit's reading holds no words; only its link to the conversation goes.
-        this.s.quotaForget.run(sessionId);
+        for (const id of forgotten) {
+          this.s.deleteMessages.run(id); // the FTS entries go with them, by trigger
+          this.s.clearSourcesOf.run(id);
+          this.s.dropSession.run(id);
+          // A limit's reading holds no words; only its link to the conversation goes.
+          this.s.quotaForget.run(id);
+        }
       })();
       this.db.exec("INSERT INTO messages_fts(messages_fts) VALUES('optimize')");
     } finally {
@@ -1388,6 +1438,7 @@ class Index {
     this.db.pragma('wal_checkpoint(TRUNCATE)');
     // What a later conversation had copied from this one is its own again.
     this.markCopies();
+    return forgotten;
   }
 
   /**

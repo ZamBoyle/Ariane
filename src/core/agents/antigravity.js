@@ -165,12 +165,10 @@ const adapter = {
 
   async *read(descriptor, { cursor = null } = {}) {
     const start = cursor == null ? 0 : Number(cursor) || 0;
-    let last = cursor;
 
-    for await (const record of readRecords(descriptor.filePath, { start })) {
-      const next = record.endOffset > record.offset ? String(record.endOffset) : last;
-      last = next;
-      yield { item: extractAntigravityRecord(record.value), cursor: next };
+    // A line still being written is left to the next pass (jsonl.js).
+    for await (const record of readRecords(descriptor.filePath, { start, unfinished: false })) {
+      yield { item: extractAntigravityRecord(record.value), cursor: String(record.endOffset) };
     }
   },
 };

@@ -125,19 +125,15 @@ const adapter = {
     // The model of the turn in progress: Codex names it in turn_context only,
     // never on the reply itself, so every reply gets the one in force.
     let model = resumed.model;
-    let last = cursor;
 
-    for await (const record of readRecords(descriptor.filePath, { start })) {
-      const complete = record.endOffset > record.offset;
+    // A line still being written is left to the next pass (jsonl.js).
+    for await (const record of readRecords(descriptor.filePath, { start, unfinished: false })) {
       const item = extractCodexRecord(record.value);
 
       if (item.kind === 'usage') {
-        // A half-written line is re-read on the next pass: counting it now
-        // would count it twice.
-        if (!complete) continue;
         const repeat = total !== null && sameCounts(item.total, total);
         total = item.total;
-        last = makeCursor(record.endOffset, total, model);
+        const next = makeCursor(record.endOffset, total, model);
         // A repeated count is not counted again; its limits are still read.
         const reading = item.quota ? { quota: item.quota } : {};
         yield repeat
@@ -148,15 +144,14 @@ const adapter = {
                 detail: 'repeated token_count',
                 ...reading,
               },
-              cursor: last,
+              cursor: next,
             }
-          : { item: { kind: 'usage', usage: usageOfCodex(item.last), ...reading }, cursor: last };
+          : { item: { kind: 'usage', usage: usageOfCodex(item.last), ...reading }, cursor: next };
         continue;
       }
 
-      if (item.kind === 'meta' && item.model && complete) model = item.model;
-      const next = complete ? makeCursor(record.endOffset, total, model) : last;
-      last = next;
+      if (item.kind === 'meta' && item.model) model = item.model;
+      const next = makeCursor(record.endOffset, total, model);
 
       if (item.kind === 'meta') continue; // cwd was resolved during discovery
 

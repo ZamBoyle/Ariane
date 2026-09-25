@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
 const { Index } = require('../src/core/db');
-const { Indexer } = require('../src/core/indexer');
+const { Indexer, BATCH_SIZE } = require('../src/core/indexer');
 const { createFixture, isolatedEnv, records, cdx, resetCounters } = require('./helpers/fixture');
 
 /** Session ids are namespaced by agent; see agents/contract.js. */
@@ -192,6 +192,89 @@ test.describe('incremental indexing', () => {
 
     const texts = index.messages(SID).map((m) => m.text);
     assert.deepEqual(texts, ['complet', 'tronque']);
+  });
+
+  // Une ligne ENTIÈRE, mais dont le retour à la ligne n'est pas encore écrit :
+  // la passe tombe entre les deux. Elle était stockée tout de suite, puis relue
+  // à la passe suivante — deux fois pour une ligne sans identifiant, et, pour une
+  // réponse, son coût posé sur la relecture que l'index refusait (26 septembre 2026).
+  const codexPass = (fx, index) => () =>
+    new Indexer(index, { env: fx.env, adapters: [require('../src/core/agents/codex')] }).run();
+  const codexId = (index) => index.sessions(index.folders()[0].id)[0].id;
+  const total = { input_tokens: 100, cached_input_tokens: 60, output_tokens: 50, reasoning_output_tokens: 0, total_tokens: 150 };
+
+  test('a whole line whose newline is not written yet is stored once, when it is', async (t) => {
+    const { fx, index, teardown } = setup();
+    t.after(teardown);
+    const run = codexPass(fx, index);
+    const tree = fx.codex();
+    const file = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    tree.session(file, [cdx.meta('/p', file), cdx.message('assistant', 'bonjour')]);
+    // Une question de la personne, sans identifiant, comme Codex les écrit.
+    fs.appendFileSync(tree.file(file), JSON.stringify(cdx.message('user', 'la question', { id: undefined })));
+    await run();
+
+    fs.appendFileSync(tree.file(file), `\n${JSON.stringify(cdx.message('assistant', 'la réponse'))}\n`);
+    await run();
+    assert.deepEqual(
+      index.messages(codexId(index)).map((m) => m.text),
+      ['bonjour', 'la question', 'la réponse'],
+      'chaque ligne une fois'
+    );
+  });
+
+  // Une passe coupée après un premier lot de 500 lignes — l'app fermée pendant
+  // la passe de lancement, un disque qui lâche — gardait ces lignes sans
+  // avancer le curseur : la passe suivante les relisait (26 septembre 2026).
+  test('a pass cut short leaves the conversation exactly as its cursor says', async (t) => {
+    const { fx, index, teardown } = setup();
+    t.after(teardown);
+    const codex = require('../src/core/agents/codex');
+    const run = (adapter = codex) => new Indexer(index, { env: fx.env, adapters: [adapter] }).run();
+    const tree = fx.codex();
+    const file = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+    const questions = (from, n) =>
+      Array.from({ length: n }, (_, i) => cdx.message('user', `question ${from + i}`, { id: undefined }));
+    tree.session(file, [cdx.meta('/p', file), ...questions(0, 600)]);
+    await run();
+    const id = codexId(index);
+
+    fs.appendFileSync(tree.file(file), questions(600, 600).map((r) => `${JSON.stringify(r)}\n`).join(''));
+    const cut = {
+      ...codex,
+      async *read(descriptor, options) {
+        let n = 0;
+        for await (const chunk of codex.read(descriptor, options)) {
+          if (++n > BATCH_SIZE + 20) throw new Error('coupé');
+          yield chunk;
+        }
+      },
+    };
+    const report = await run(cut);
+    assert.equal(report.errors.length, 1);
+    assert.equal(index.messages(id).length, 600, 'rien de la lecture coupée ne reste');
+
+    await run();
+    const texts = index.messages(id).map((m) => m.text);
+    assert.equal(texts.length, 1200, 'chaque question une fois');
+    assert.equal(new Set(texts).size, 1200);
+  });
+
+  test('a reply read before its newline keeps the cost that follows it', async (t) => {
+    const { fx, index, teardown } = setup();
+    t.after(teardown);
+    const run = codexPass(fx, index);
+    const tree = fx.codex();
+    const file = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    tree.session(file, [cdx.meta('/p', file), cdx.message('user', 'la question')]);
+    fs.appendFileSync(tree.file(file), JSON.stringify(cdx.message('assistant', 'la réponse')));
+    await run();
+
+    fs.appendFileSync(tree.file(file), `\n${JSON.stringify(cdx.tokenCount(total))}\n`);
+    await run();
+    const [, reply] = index.messages(codexId(index));
+    assert.equal(reply.text, 'la réponse');
+    assert.equal(reply.usage && reply.usage.output, 50, 'le coût de la réponse n’est pas perdu');
   });
 });
 

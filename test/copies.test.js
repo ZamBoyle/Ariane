@@ -267,6 +267,45 @@ test('le premier prompt d’une reprise est le sien, pas celui qu’elle a recop
   assert.equal(index.session('claude:B').firstPrompt, 'la question de la reprise');
 });
 
+// Une reprise recopie avec les mêmes heures : les deux conversations commencent
+// au même instant, et c'était la fin qui départageait. L'original qui continue
+// après la reprise (deux terminaux ouverts) devenait « la copie » ; à égalité
+// parfaite, l'identifiant décidait. Le fichier dit qui reprend qui : c'est lui
+// qui décide désormais (26 septembre 2026).
+test('ce que le fichier déclare décide de l’original, pas les dates', (t) => {
+  const index = new Index(':memory:');
+  t.after(() => index.close());
+  index.upsertAgent('claude', 'Claude Code', '/root');
+  const folder = index.folderId('/home/ada/projets/tardis');
+  const at = (minute) => `2026-09-19T18:${String(minute).padStart(2, '0')}:00.000Z`;
+  const add = (id, messages) => {
+    index.upsertSession({ id, agent_id: 'claude', folder_id: folder });
+    index.addMessages(id, messages.map(([uuid, minute]) => ({ role: 'user', uuid, text: uuid, parts: [], timestamp: at(minute) })));
+    index.finalizeSession(id);
+  };
+  const flags = (id) => index.messages(id).length;
+
+  add('claude:zz-original', [['u1', 1], ['u2', 2], ['u3', 3]]);
+  add('claude:aa-reprise', [['u1', 1], ['u2', 2], ['u3', 3], ['u4', 10]]);
+  // Claude écrit « continued-in » dans l'ancienne transcription.
+  index.setContinuedIn('claude:zz-original', 'claude:aa-reprise');
+  index.markCopies();
+  assert.equal(flags('claude:zz-original'), 3, 'l’original garde ses trois messages');
+  assert.equal(flags('claude:aa-reprise'), 1, 'la reprise ne montre que le sien');
+
+  // L'original continue après la reprise : sa fin passe après celle de la reprise.
+  const since = index.lastMessageId();
+  index.addMessages('claude:zz-original', [{ role: 'user', uuid: 'u5', text: 'u5', parts: [], timestamp: at(20) }]);
+  index.finalizeSession('claude:zz-original');
+  index.markCopies({ since });
+  assert.equal(flags('claude:zz-original'), 4, 'une passe qui ne relit que le neuf ne renverse rien');
+  assert.equal(flags('claude:aa-reprise'), 1);
+  assert.equal(index.stats().messages, 5, 'rien n’est compté deux fois');
+  index.markCopies();
+  assert.equal(flags('claude:zz-original'), 4, 'ni une passe complète');
+  assert.equal(index.copiedFrom('claude:zz-original'), null);
+});
+
 test('une reprise commence à son premier message, pas à celui qu’elle a recopié', (t) => {
   const index = new Index(':memory:');
   t.after(() => index.close());
