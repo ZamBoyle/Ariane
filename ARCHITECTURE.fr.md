@@ -447,9 +447,9 @@ trois totaux différents.
 
 | | Unitaires | Rendu | Mise en page | Accueil | Réseau |
 |---|---|---|---|---|---|
-| linux | 847 / 847 | 198 | 28 | 7 | 7 |
-| macos | 847 / 847 | 198 | 28 | 7 | 7 |
-| windows | 831 / 832 | 198 | 28 | 7 | 7 |
+| linux | 853 / 853 | 198 | 28 | 7 | 7 |
+| macos | 853 / 853 | 198 | 28 | 7 | 7 |
+| windows | 837 / 838 | 198 | 28 | 7 | 7 |
 
 Windows en exécute quinze de moins et en compte un sans le passer : ce sont les `POSIX_ONLY` de
 `terminal.test.js`, déclarés avec leur raison — bits d'exécution, shebangs, exécutables sans
@@ -460,7 +460,7 @@ c'est précisément ce que cette section existe pour empêcher.
 
 ### Couverture, 25 septembre 2026
 
-`npm run test:coverage` — **96,90 % des lignes, 88,22 % des branches, 95,24 % des fonctions.**
+`npm run test:coverage` — **96,92 % des lignes, 88,27 % des branches, 95,27 % des fonctions.**
 
 **Elle a un plancher, et la CI le fait respecter** : le script lui-même porte
 `--test-coverage-lines=96`, `--test-coverage-branches=87` et `--test-coverage-functions=94`, et

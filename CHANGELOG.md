@@ -18,6 +18,7 @@ Voici à quelle version chacune appartient.
 
 | Version | Date | Ce qu'elle apporte |
 |---|---|---|
+| [0.5.1](https://github.com/ZamBoyle/Ariane/releases/tag/v0.5.1) | 25 sept. 2026 | une indexation complète deux fois plus rapide : 13 s au lieu de 30 |
 | [0.5.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.5.0) | 25 sept. 2026 | les sous-agents de Claude et de Codex, rattachés à leur conversation ; une conversation reprise ne répète plus celle qu'elle reprend |
 | [0.4.2](https://github.com/ZamBoyle/Ariane/releases/tag/v0.4.2) | 25 sept. 2026 | les jetons de Gemini et de Copilot ; la couverture du code visible sur GitHub |
 | [0.4.1](https://github.com/ZamBoyle/Ariane/releases/tag/v0.4.1) | 24 sept. 2026 | les appels d'outils d'Antigravity ; le raisonnement masqué de Claude nommé dans les statistiques |
