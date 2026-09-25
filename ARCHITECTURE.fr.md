@@ -112,8 +112,8 @@ trois fichiers ne doivent donc jamais toucher `window` ni `document`.
    conversation plus ancienne du même agent contient déjà (§ 4). En dernier, parce que l'une ou
    l'autre a pu être lue d'abord.
 
-Le point 2 est ce qui rend l'app utilisable : passe complète sur 342 conversations ≈ 10 s, passe
-sans changement ≈ 60 ms tant que l'app tourne.
+Le point 2 est ce qui rend l'app utilisable : passe complète sur 74 802 lignes en 13 s le 25
+septembre 2026, passe sans changement ≈ 80 ms tant que l'app tourne (§ 12).
 
 ### 3.2 La sélectivité : pourquoi l'index fait ~1 % de l'entrée
 
@@ -191,7 +191,10 @@ sous-agents chez Claude (122 Mo, 24 000 messages) et 7 chez Codex.
 | `sources` | l'état d'incrémentalité | `fingerprint` et `cursor`, opaques |
 
 Trois déclencheurs tiennent l'index plein texte à jour à l'insertion, la suppression et au
-changement de texte. Le tokeniseur est `unicode61 remove_diacritics 2` : « mathematiques » trouve
+changement de texte — sauf quand un index **vide** se remplit d'un coup (la première passe, celle
+qui suit un changement de schéma) : ils sont mis de côté et l'index est construit une seule fois à
+la fin, 0,3 s au lieu de 4 s pour Claude seul (`suspendSearchIndex`). Un drapeau dans `meta` est
+posé avant, si bien qu'une passe interrompue est rattrapée à la prochaine ouverture de l'index. Le tokeniseur est `unicode61 remove_diacritics 2` : « mathematiques » trouve
 « Mathématiques ».
 
 **La compaction.** Claude Code compactait en ouvrant un **nouveau fichier** : la personne avait
@@ -498,6 +501,15 @@ et 38 691 messages.
 | part de conversation dans l'entrée | 2,7 Mo sur 213 Mo | `extract.js` |
 | plus grosse conversation | 6 642 messages | ouverture : 840 ms → **13 ms** par tranches |
 | export PDF | 400 messages → 51 pages A4 en 0,8 s | sans figer l'app |
+
+**Le 25 septembre 2026**, l'index comptait 74 802 lignes — 48 660 dans les conversations que la
+barre latérale liste, 24 172 venues des sous-agents, 2 086 copies — et une passe complète prenait
+**30 s**, puis **13 s**. Lire et interpréter les fichiers n'a jamais été le coût (2,6 s sur les
+17,8 de Claude) : le journal de SQLite l'était. Il était recopié dans la base, et le disque
+attendu, tous les 4 Mo — une centaine de fois par reconstruction, puisque chaque page est écrite
+quelque quatre fois (475 Mo passent par le journal pour un index de 117 Mo). Désormais : tous les
+64 Mo (journal au plus à 68 Mo), vidé après chaque passe qui a écrit, et l'index plein texte
+construit d'un coup quand un index vide se remplit. La passe sans changement est restée vers 80 ms.
 | couverture de `terminal.js` | 95,5 % des lignes | le seul fichier qui lance un processus |
 
 Ces chiffres viennent de mesures, pas d'estimations. Les remesurer plutôt que les recopier.

@@ -74,7 +74,26 @@ class Indexer {
     this.onProgress({ phase: 'start', agents: adapters.map((a) => a.id) });
     // Whatever this pass writes has a higher id: copies are looked for there.
     const since = this.index.lastMessageId();
+    // An empty index is filled whole: its full-text index is built once, at
+    // the end, rather than row by row (Index.suspendSearchIndex).
+    const filling = since === 0;
+    if (filling) this.index.suspendSearchIndex();
+    try {
+      await this.#pass(report, adapters, since);
+    } finally {
+      if (filling) this.index.resumeSearchIndex();
+    }
+    this.index.setMeta('lastIndexedAt', new Date().toISOString());
+    // What the pass wrote goes from the journal into the database now, rather
+    // than sitting in a journal allowed to reach 64 MB. Last, so nothing is
+    // written after it.
+    if (report.indexed || report.saved || report.restored) this.index.settle();
+    this.onProgress({ phase: 'done', ...report });
+    return report;
+  }
 
+  /** Read every adapter, then settle the archive and the copies. */
+  async #pass(report, adapters, since) {
     // Every session some source still offers, and those offered WHOLE — not
     // reduced to the prompts history.jsonl keeps of them.
     this.seen = new Set();
@@ -102,10 +121,6 @@ class Indexer {
     if (report.indexed || report.saved || report.restored) {
       report.copies = this.index.markCopies({ since });
     }
-
-    this.index.setMeta('lastIndexedAt', new Date().toISOString());
-    this.onProgress({ phase: 'done', ...report });
-    return report;
   }
 
   /** Copy a session to the archive and mark it as living there. */

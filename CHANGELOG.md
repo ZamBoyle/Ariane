@@ -36,6 +36,31 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### Une indexation complète deux fois plus rapide
+
+**Signalé à l'usage** : « ça reste quand même fort lent à indexer par rapport au début du
+projet ». Et à raison de corriger ma première explication : les messages des conversations n'ont
+augmenté que d'un quart depuis le 19 septembre (38 691 → 48 660). Ce qui a presque doublé, c'est ce
+qu'Ariane écrit — 74 802 lignes, avec les 24 172 des sous-agents et 2 086 copies gardées.
+
+**Mesuré, assistant par assistant puis au profileur** : lire et interpréter les fichiers ne coûte
+presque rien (2,6 s sur les 17,8 de Claude). Le temps partait dans l'écriture, et surtout dans les
+pauses du journal de SQLite : tous les 4 Mo, il était recopié dans la base et le disque attendu.
+Une reconstruction réécrit chaque page environ quatre fois — 475 Mo passent par le journal pour un
+index de 117 Mo —, soit une centaine de pauses : la moitié de la passe. L'index plein texte, tenu
+ligne à ligne, en prenait encore 4 s.
+
+**Ce que ça change.** Le journal n'est plus recopié que tous les 64 Mo (au plus 68 Mo sur le
+disque, vidé à la fin de chaque passe qui a écrit), et quand un index vide se remplit — au premier
+lancement, ou après une mise à jour qui le reconstruit —, l'index de recherche est construit une
+seule fois à la fin, en 0,3 s. Une indexation complète passe de **30 s à 13 s**, sur le même
+corpus, deux fois de suite ; la passe de fond reste vers 80 ms. Ne jamais vider le journal pendant
+la passe aurait gagné 2 s de plus pour un fichier temporaire de 475 Mo : écarté.
+
+**Et si l'application est quittée pendant une reconstruction**, rien n'échappe à la recherche :
+un drapeau posé avant de suspendre l'index plein texte le fait reconstruire à l'ouverture suivante.
+Un test coupe une reconstruction en route et vérifie que la recherche retrouve ce qui a été écrit.
+
 ### Les sous-agents, lus et rattachés à leur conversation
 
 **Ce que ça change.** Les transcriptions que Claude Code écrit pour chaque sous-agent — et celles

@@ -207,11 +207,22 @@ class Index {
     if (dbPath !== ':memory:') fs.mkdirSync(path.dirname(dbPath), { recursive: true });
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
+    // SQLite copies its journal into the database, and waits for the disk,
+    // every 1 000 pages by default — about 4 MB. A rebuild writes each page some
+    // four times (475 MB through the journal for a 117 MB index), so that was a
+    // hundred pauses: half of a 30-second pass. Every 16 384 pages (64 MB) it
+    // took 16 s, the journal peaking at 68 MB; and it is emptied after each
+    // pass that wrote anything (settle). Never checkpointing at all saved 2 s
+    // more for a 475 MB journal: not worth it.
+    this.db.pragma(`wal_autocheckpoint = ${CHECKPOINT_PAGES}`);
     this.db.pragma('foreign_keys = ON');
     this.#migrate();
+    // Recreates the full-text triggers too, should a rebuild have been cut
+    // short while they were off (suspendSearchIndex).
     this.db.exec(SCHEMA_SQL);
     this.db.pragma(`user_version = ${SCHEMA_VERSION}`);
     this.#prepare();
+    if (this.meta(SEARCH_PENDING) === '1') this.resumeSearchIndex();
   }
 
   /**
@@ -997,6 +1008,35 @@ class Index {
    * mode keeps old pages in the main file until a checkpoint. All three are
    * dealt with here, and a test reads the file's bytes afterwards to prove it.
    */
+  /**
+   * An empty index is about to be filled whole — the first pass, or the one
+   * after a schema change. The full-text triggers are set aside and the index
+   * built once at the end (resumeSearchIndex): 0.3 s, where keeping it row by
+   * row cost 4 s of Claude's 17. The flag is written first, so a pass cut short
+   * is caught up the next time the index is opened.
+   */
+  suspendSearchIndex() {
+    this.setMeta(SEARCH_PENDING, '1');
+    this.db.exec(
+      'DROP TRIGGER IF EXISTS messages_ai; DROP TRIGGER IF EXISTS messages_ad; ' +
+        'DROP TRIGGER IF EXISTS messages_au;'
+    );
+  }
+
+  /** Build the full-text index from the rows, and let the triggers keep it again. */
+  resumeSearchIndex() {
+    this.db.transaction(() => {
+      this.db.exec("INSERT INTO messages_fts(messages_fts) VALUES('rebuild')");
+      this.db.exec(SEARCH_TRIGGERS_SQL);
+      this.setMeta(SEARCH_PENDING, '0');
+    })();
+  }
+
+  /** Empty the journal into the database, and the journal file with it. */
+  settle() {
+    this.db.pragma('wal_checkpoint(TRUNCATE)');
+  }
+
   forgetSession(sessionId) {
     this.db.pragma('secure_delete = ON');
     try {
@@ -1075,6 +1115,17 @@ class Index {
     this.db.close();
   }
 }
+
+/** Pages between two automatic checkpoints: 64 MB of 4 KB pages (see the constructor). */
+const CHECKPOINT_PAGES = 16384;
+
+/** Set while the full-text index waits to be rebuilt (suspendSearchIndex). */
+const SEARCH_PENDING = 'searchIndexPending';
+
+/** The three full-text triggers, as schema.sql states them — the one description. */
+const SEARCH_TRIGGERS_SQL = SCHEMA_SQL.match(/CREATE TRIGGER IF NOT EXISTS[\s\S]*?END;/g).join(
+  '\n'
+);
 
 /** The agents whose message ids mean the same message wherever they appear. */
 function copyAgentIds() {

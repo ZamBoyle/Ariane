@@ -110,8 +110,8 @@ therefore never touch `window` or `document`.
    conversation of the same agent already holds (§ 4). Last, because either side may have been
    read first.
 
-Step 2 is what makes the app usable: a full pass over 342 conversations takes about 10 s, a pass
-with nothing changed about 60 ms while the app is running.
+Step 2 is what makes the app usable: a full pass over 74,802 rows took 13 s on 25 September 2026,
+a pass with nothing changed about 80 ms while the app is running (§ 12).
 
 ### 3.2 Selectivity: why the index is ~1 % of the input
 
@@ -185,7 +185,11 @@ briefing, never the person's. A subagent is not listed; it is opened from its pa
 | `messages_fts` | full-text index | FTS5 as _external content_: only `text` goes in, the rows stay in `messages` |
 | `sources` | the incrementality state | `fingerprint` and `cursor`, both opaque |
 
-Three triggers keep the full-text index current on insert, delete and a change of text. The tokeniser is
+Three triggers keep the full-text index current on insert, delete and a change of text — except
+while an **empty** index is filled whole (the first pass, the one after a schema change): they are
+set aside and the index is built once at the end, 0.3 s instead of 4 s for Claude alone
+(`suspendSearchIndex`). A flag in `meta` is set first, so a pass cut short is caught up when the
+index is next opened. The tokeniser is
 `unicode61 remove_diacritics 2`: “mathematiques” finds “Mathématiques”.
 
 **Compaction.** Claude Code used to compact by opening a **new file**: the person lived through one
@@ -478,6 +482,14 @@ The timings below date from **19 September 2026**, when the corpus held 342 conv
 | share of the input that is conversation | 2.7 MB out of 213 MB | `extract.js` |
 | largest conversation | 6,642 messages | opening: 840 ms → **13 ms** in slices |
 | PDF export | 400 messages → 51 A4 pages in 0.8 s | without freezing the app |
+
+**On 25 September 2026** the index held 74,802 rows — 48,660 in the conversations the sidebar lists,
+24,172 from subagents, 2,086 copies — and a full pass took **30 s**, then **13 s**. Reading and
+interpreting the files was never the cost (2.6 s of Claude's 17.8): SQLite's journal was. It was
+copied into the database, and the disk waited on, every 4 MB — about a hundred times per rebuild,
+since each page is written some four times (475 MB through the journal for a 117 MB index). Now:
+every 64 MB (journal peak 68 MB), emptied after each pass that wrote, and the full-text index built
+once when an empty index is filled. The pass with nothing changed stayed at about 80 ms.
 | coverage of `terminal.js` | 95.5 % of lines | the only file that starts a process |
 
 These figures come from measurements, not estimates. Measure them again rather than copying them.
