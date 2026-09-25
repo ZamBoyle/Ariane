@@ -426,7 +426,9 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
   handle('stats:get', async (_event, payload) => {
     const since = periodStart(payload && payload.period != null ? payload.period : 'all');
     const rows = state.index.statisticsRows({ hidden: state.hidden, since });
-    return summarize(rows, await screenRules());
+    const figures = summarize(rows, await screenRules());
+    // The usage limits, as the assistants wrote them: readings, never summed.
+    return { ...figures, quotas: state.index.quotas({ hidden: state.hidden, since }) };
   });
 
   /** What, if anything, this session can be reopened with. No side effect. */

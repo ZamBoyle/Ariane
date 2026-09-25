@@ -128,6 +128,7 @@ export function createLocalizer({ language, sources, pseudo = false, onProblem =
   }
 
   const dates = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short', year: 'numeric' });
+  const days = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short' });
   const dateTimes = new Intl.DateTimeFormat(language, {
     day: 'numeric',
     month: 'short',
@@ -183,6 +184,12 @@ export function createLocalizer({ language, sources, pseudo = false, onProblem =
     date(iso) {
       const value = toDate(iso);
       return value ? wrap(dates.format(value)) : '';
+    },
+
+    /** "19 Sept", "19 sept.", "9月19日": a day on an axis, where the year goes without saying. */
+    day(iso) {
+      const value = toDate(iso);
+      return value ? wrap(days.format(value)) : '';
     },
 
     dateTime(iso) {

@@ -150,6 +150,28 @@ CREATE TABLE IF NOT EXISTS sources (
   indexed_at  TEXT
 );
 
+-- What the assistants' usage limits stood at (src/core/quota.js): one row per
+-- window of one limit — five hours, a week — holding its HIGHEST reading,
+-- dated the first time it was seen. A percentage is a reading: never summed.
+-- A window is found again by its end give or take WINDOW_SLACK, since that end
+-- moves by a second or two between readings — hence no uniqueness on it.
+CREATE TABLE IF NOT EXISTS quota_windows (
+  id         INTEGER PRIMARY KEY,
+  agent_id   TEXT NOT NULL,
+  limit_id   TEXT NOT NULL,
+  minutes    INTEGER NOT NULL,
+  resets_at  INTEGER NOT NULL,   -- epoch seconds
+  used       REAL,               -- percent; NULL when the agent never says (Claude)
+  reached    INTEGER NOT NULL DEFAULT 0,
+  seen_at    TEXT NOT NULL,      -- that highest level, first seen
+  last_at    TEXT NOT NULL,      -- and last seen, the reading plan and credits come from
+  plan       TEXT,
+  credits    TEXT,               -- JSON {has, unlimited, balance}
+  session_id TEXT
+);
+CREATE INDEX IF NOT EXISTS quota_windows_find
+  ON quota_windows(agent_id, limit_id, minutes, resets_at);
+
 CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,
   value TEXT

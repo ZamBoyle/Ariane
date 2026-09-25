@@ -431,3 +431,32 @@ stats-col-messages = 消息
 stats-others = 其他 { $count } 个模型
 stats-not-measured = 未记录
 stats-folder-note = 你的消息和回复；工具输出不计入。
+stats-quotas = 使用限额
+stats-quota-window = { $minutes ->
+        [300] 5 小时窗口
+        [10080] 周
+       *[other] { $hours } 小时窗口
+    }
+stats-quota-refused = 已达上限
+stats-quota-resets = { $date } 重置
+stats-quota-reset-since = 已于 { $date } 重置
+stats-quota-read = 读取于 { $date }
+stats-quota-plan = 方案“{ $plan }”
+stats-quota-limit = 限额“{ $limit }”
+stats-quota-credits = 剩余 { $balance } 点数
+stats-quota-no-credits = 无点数
+stats-quota-unlimited = 点数无限
+stats-quota-reached = { $minutes ->
+        [300] 5 小时限额
+        [10080] 每周限额
+       *[other] { $hours } 小时限额
+    }已达到 { $count } 次，最近一次在 { $date }。
+stats-quota-history = { $minutes ->
+        [300] 已读取的每个 5 小时窗口，各取最高读数
+        [10080] 已读取的每一周，各取最高读数
+       *[other] 已读取的每个 { $hours } 小时窗口，各取最高读数
+    }
+stats-quota-ending = 窗口结束于 { $date }
+stats-quota-col-end = 窗口结束
+stats-quota-col-used = 最高读数
+stats-quota-note = 百分比是读数，不是累计：每个窗口显示其最高读数及读取日期。Ariane 不询问任何服务器，只读取助手写下的内容：Codex 在每次回复时记录，Claude 则记录在其保存的最后一次读数中，以及每次被限额拒绝的请求里。

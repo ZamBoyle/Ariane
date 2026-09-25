@@ -79,7 +79,12 @@
  *              in an earlier pass. Yielding the same usage twice counts it
  *              twice: telling a new reply from a repeat is the adapter's job.
  *   'ignored'  {reason} — counted, so format drift is visible rather than silent
+ * Any item, whatever its kind, may also carry `quota`: the windows of the
+ * agent's usage limits as the record read them (src/core/quota.js). Codex
+ * writes them beside its token counts, Claude on the request they refused. The
+ * indexer keeps each window's highest reading; a reading is never summed.
  * @property {'message'|'title'|'summary'|'continuation'|'usage'|'ignored'} kind
+ * @property {import('../quota').QuotaWindow[]} [quota]
  *
  * @typedef {object} Chunk
  * @property {Item} item
@@ -89,6 +94,9 @@
  *                                 PREVIOUS cursor, so the item is re-read later.
  *
  * @typedef {object} Adapter
+ * An adapter may also offer `quotas(ctx)`: the windows of its usage limits it
+ * keeps OUTSIDE any conversation (Claude's cached reading in ~/.claude.json),
+ * as QuotaWindow[] — memoised on the file's stamp, since it runs every pass.
  * @property {string} id      Stable slug, stored in the database. Never rename.
  * @property {string} label   Display name.
  * @property {string[]} [envKeys]

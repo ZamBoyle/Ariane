@@ -480,3 +480,35 @@ stats-others = { $count ->
     }
 stats-not-measured = nicht aufgezeichnet
 stats-folder-note = Ihre Nachrichten und die Antworten; Werkzeugausgaben zählen nicht.
+stats-quotas = Nutzungslimits
+stats-quota-window = { $minutes ->
+        [300] 5-Stunden-Fenster
+        [10080] Woche
+       *[other] { $hours }-Stunden-Fenster
+    }
+stats-quota-refused = Erreicht
+stats-quota-resets = wird am { $date } zurückgesetzt
+stats-quota-reset-since = seit { $date } zurückgesetzt
+stats-quota-read = Gelesen am { $date }
+stats-quota-plan = Tarif „{ $plan }“
+stats-quota-limit = Limit „{ $limit }“
+stats-quota-credits = { $balance } Credits übrig
+stats-quota-no-credits = keine Credits
+stats-quota-unlimited = unbegrenzte Credits
+stats-quota-reached = { $minutes ->
+        [300] 5-Stunden-Limit
+        [10080] Wochenlimit
+       *[other] { $hours }-Stunden-Limit
+    } { $count ->
+        [one] einmal
+       *[other] { $count }-mal
+    } erreicht, zuletzt am { $date }.
+stats-quota-history = { $minutes ->
+        [300] Die gelesenen 5-Stunden-Fenster, jedes mit seinem Höchstwert
+        [10080] Die gelesenen Wochen, jede mit ihrem Höchstwert
+       *[other] Die gelesenen { $hours }-Stunden-Fenster, jedes mit seinem Höchstwert
+    }
+stats-quota-ending = Fenster endet am { $date }
+stats-quota-col-end = Fensterende
+stats-quota-col-used = Höchster Wert
+stats-quota-note = Ein Prozentwert ist eine Momentaufnahme, keine Summe: Jedes Fenster zeigt seinen höchsten Wert mit dem Datum, an dem er gelesen wurde. Ariane fragt keinen Server – sie liest, was die Assistenten geschrieben haben: Codex bei jeder Antwort, Claude in der letzten Messung, die es gespeichert hat, und bei jeder Anfrage, die seine Limits abgelehnt haben.

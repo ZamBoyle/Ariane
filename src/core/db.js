@@ -15,6 +15,7 @@ const Database = require('better-sqlite3');
 const { toMatchQuery } = require('./query');
 const { USAGE_FIELDS } = require('./agents/contract');
 const { withoutRepeatedUsage, withoutEchoedPrompts, flattenPrompt, echoOf } = require('./archive');
+const { WINDOW_SLACK, keeper } = require('./quota');
 
 /**
  * Bumped for a schema change OR a change in what the adapters extract.
@@ -24,6 +25,7 @@ const { withoutRepeatedUsage, withoutEchoedPrompts, flattenPrompt, echoOf } = re
  * already stored. Raising this version drops the index and rebuilds it, which
  * takes about ten seconds.
  *
+ * 19: usage limits read (Codex's windows and credits, Claude's refused requests)
  * 18: the person's words once: a delivered queued message, a cut last-prompt
  * 17: a resumed or forked conversation linked to the one it continues
  * 16: subagents read, each attached to the conversation that launched it
@@ -43,7 +45,7 @@ const { withoutRepeatedUsage, withoutEchoedPrompts, flattenPrompt, echoOf } = re
  * 2: multi-agent schema
  * 1: initial
  */
-const SCHEMA_VERSION = 18;
+const SCHEMA_VERSION = 19;
 /** The five token columns of one message, from the contract's shape. */
 function usageColumns(usage) {
   const u = usage || {};
@@ -429,6 +431,24 @@ class Index {
       textsContaining: db.prepare(
         "SELECT text FROM messages WHERE session_id = ? AND role = ? AND text <> '' AND instr(text, ?) > 0"
       ),
+      quotaNear: db.prepare(`
+        SELECT id, limit_id AS "limit", minutes, resets_at AS resetsAt, used, reached,
+               seen_at AS at, last_at AS lastAt, plan, credits, session_id AS session
+        FROM quota_windows
+        WHERE agent_id = ? AND limit_id = ? AND minutes = ? AND resets_at BETWEEN ? AND ?
+        ORDER BY abs(resets_at - ?) LIMIT 1`),
+      quotaInsert: db.prepare(`
+        INSERT INTO quota_windows
+          (agent_id, limit_id, minutes, resets_at, used, reached, seen_at, last_at, plan, credits,
+           session_id)
+        VALUES (@agent, @limit, @minutes, @resetsAt, @used, @reached, @at, @lastAt, @plan, @credits,
+                @session)`),
+      quotaUpdate: db.prepare(`
+        UPDATE quota_windows
+        SET used = @used, reached = @reached, seen_at = @at, last_at = @lastAt, plan = @plan,
+            credits = @credits, session_id = @session
+        WHERE id = @id`),
+      quotaForget: db.prepare('UPDATE quota_windows SET session_id = NULL WHERE session_id = ?'),
       dropQueuedCopy: db.prepare(`
         DELETE FROM messages WHERE id = (
           SELECT id FROM messages
@@ -717,6 +737,78 @@ class Index {
     return this.s.textsContaining
       .all(sessionId, role, word)
       .some(({ text: held }) => matches(flattenPrompt(held)));
+  }
+
+  /**
+   * Keep what one conversation read of its agent's limits: each window merged
+   * with the one already stored, if any (quota.js keeper) — so a pass that
+   * reads a file again, or a fork that copies old readings, changes nothing.
+   * One transaction per conversation, never one write per reading.
+   *
+   * @param {string} agentId
+   * @param {string} sessionId
+   * @param {import('./quota').QuotaWindow[]} windows
+   */
+  recordQuotas(agentId, sessionId, windows) {
+    if (!windows.length) return;
+    const row = (w) => ({
+      agent: agentId,
+      limit: w.limit,
+      minutes: w.minutes,
+      resetsAt: w.resetsAt,
+      used: w.used,
+      reached: w.reached ? 1 : 0,
+      at: w.at,
+      lastAt: w.lastAt,
+      plan: w.plan,
+      credits: w.credits ? JSON.stringify(w.credits) : null,
+      session: w.session,
+    });
+    this.db.transaction(() => {
+      for (const w of windows) {
+        const reading = { ...w, session: sessionId };
+        const held = this.s.quotaNear.get(
+          agentId,
+          w.limit,
+          w.minutes,
+          w.resetsAt - WINDOW_SLACK,
+          w.resetsAt + WINDOW_SLACK,
+          w.resetsAt
+        );
+        if (!held) {
+          this.s.quotaInsert.run(row(reading));
+          continue;
+        }
+        const stored = {
+          ...held,
+          reached: Boolean(held.reached),
+          credits: safeParse(held.credits, null),
+        };
+        const kept = keeper(stored, reading);
+        const changed = ['used', 'at', 'lastAt', 'reached'].some((k) => kept[k] !== stored[k]);
+        if (changed) {
+          this.s.quotaUpdate.run({ ...row(kept), id: held.id });
+        }
+      }
+    })();
+  }
+
+  /**
+   * Every window read, for the assistants shown and a period — the statistics
+   * view's quota block. Oldest first.
+   */
+  quotas({ hidden = [], since = null } = {}) {
+    const hiding = hidingOn('agent_id', hidden);
+    const sql = `
+      SELECT agent_id AS agentId, limit_id AS "limit", minutes, resets_at AS resetsAt, used,
+             reached, seen_at AS at, last_at AS lastAt, plan, credits
+      FROM quota_windows
+      WHERE 1 = 1${hiding.where}${since != null ? ' AND last_at >= ?' : ''}
+      ORDER BY agent_id, limit_id, minutes, resets_at`;
+    const params = since != null ? [...hiding.params, since] : hiding.params;
+    return this.#dynamic(`quotas:${hiding.params.length}:${since != null}`, sql)
+      .all(...params)
+      .map((w) => ({ ...w, reached: Boolean(w.reached), credits: safeParse(w.credits, null) }));
   }
 
   /**
@@ -1163,6 +1255,8 @@ class Index {
         this.s.deleteMessages.run(sessionId); // the FTS entries go with them, by trigger
         this.s.clearSourcesOf.run(sessionId);
         this.s.dropSession.run(sessionId);
+        // A limit's reading holds no words; only its link to the conversation goes.
+        this.s.quotaForget.run(sessionId);
       })();
       this.db.exec("INSERT INTO messages_fts(messages_fts) VALUES('optimize')");
     } finally {

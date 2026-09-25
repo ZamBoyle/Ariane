@@ -19,6 +19,18 @@ function configDir(env = process.env, home = os.homedir()) {
   return path.join(home, '.claude');
 }
 
+/**
+ * Claude Code's global state file: `~/.claude.json`, BESIDE the directory, not
+ * in it — or inside CLAUDE_CONFIG_DIR when that is set. Among much else, it
+ * caches the last reading of the usage limits Claude Code fetched
+ * (`cachedUsageUtilization`, quota.js). Read, never written.
+ */
+function globalStateFile(env = process.env, home = os.homedir()) {
+  const override = env.CLAUDE_CONFIG_DIR;
+  if (override && override.trim()) return path.join(path.resolve(override.trim()), '.claude.json');
+  return path.join(home, '.claude.json');
+}
+
 /** Directory holding one sub-directory per project, each with session transcripts. */
 function projectsDir(env, home) {
   return path.join(configDir(env, home), 'projects');
@@ -81,6 +93,7 @@ module.exports = {
   configDir,
   projectsDir,
   historyFile,
+  globalStateFile,
   sessionsIndexFile,
   decodeHint,
   isAvailable,

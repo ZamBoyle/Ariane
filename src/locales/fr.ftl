@@ -480,3 +480,35 @@ stats-others = { $count ->
     }
 stats-not-measured = non enregistré
 stats-folder-note = Vos messages et les réponses ; les sorties d’outils ne comptent pas.
+stats-quotas = Limites d’utilisation
+stats-quota-window = { $minutes ->
+        [300] Fenêtre de 5 heures
+        [10080] Semaine
+       *[other] Fenêtre de { $hours } heures
+    }
+stats-quota-refused = Atteinte
+stats-quota-resets = remise à zéro le { $date }
+stats-quota-reset-since = remise à zéro depuis, le { $date }
+stats-quota-read = Relevé le { $date }
+stats-quota-plan = offre « { $plan } »
+stats-quota-limit = limite « { $limit } »
+stats-quota-credits = { $balance } crédits restants
+stats-quota-no-credits = aucun crédit
+stats-quota-unlimited = crédits illimités
+stats-quota-reached = { $minutes ->
+        [300] Limite de 5 heures
+        [10080] Limite de la semaine
+       *[other] Limite de { $hours } heures
+    } atteinte { $count ->
+        [one] une fois
+       *[other] { $count } fois
+    }, la dernière le { $date }.
+stats-quota-history = { $minutes ->
+        [300] Les fenêtres de 5 heures relevées, chacune à son plus haut
+        [10080] Les semaines relevées, chacune à son plus haut
+       *[other] Les fenêtres de { $hours } heures relevées, chacune à son plus haut
+    }
+stats-quota-ending = Fenêtre finissant le { $date }
+stats-quota-col-end = Fin de la fenêtre
+stats-quota-col-used = Plus haut relevé
+stats-quota-note = Un pourcentage est un relevé, pas un compte : chaque fenêtre montre son plus haut, avec la date où il a été lu. Ariane ne demande rien à aucun serveur — elle lit ce que les assistants ont écrit : Codex à chaque réponse, Claude dans le dernier relevé qu’il a gardé et à chaque requête que ses limites ont refusée.

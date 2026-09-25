@@ -156,6 +156,13 @@ où qu'il apparaisse — Claude, Codex ; § 4, les copies), `usagePerSession` (l
 qu'a coûté une session entière — Copilot ; § 10) et, sur un descripteur, `parentId` /
 `continuesFrom` (un sous-agent, une duplication ; § 3.4, § 4).
 
+**Les limites d'utilisation** voyagent avec le reste plutôt que comme un élément à part : tout
+élément peut porter `quota`, les fenêtres que son enregistrement a lues (`src/core/quota.js`), et un
+adaptateur peut offrir `quotas(ctx)` pour les relevés gardés hors de toute conversation — le dernier
+de Claude, en cache dans `~/.claude.json`. L'indexeur garde une entrée par fenêtre en mémoire et
+écrit les fenêtres d'une conversation une seule fois, jamais une écriture par relevé (Codex en écrit
+7 133).
+
 ### 3.4 Les sept adaptateurs
 
 | Agent | Où | Forme | Particularité |
@@ -198,7 +205,7 @@ fois coûtait une demi-seconde d'une passe complète.
 
 ## 4. La base
 
-`src/core/schema.sql` — cinq tables et un index plein texte.
+`src/core/schema.sql` — six tables et un index plein texte.
 
 | Table | Contenu | À savoir |
 |---|---|---|
@@ -208,6 +215,7 @@ fois coûtait une demi-seconde d'une passe complète.
 | `messages` | un message | `parts` en JSON ; `is_notice` marque ce que personne n'a dit ; `is_copy` ce qu'une autre conversation contient déjà |
 | `messages_fts` | index plein texte | FTS5 en _external content_ : seul `text` y entre, les lignes restent dans `messages` |
 | `sources` | l'état d'incrémentalité | `fingerprint` et `cursor`, opaques |
+| `quota_windows` | une fenêtre d'une limite d'utilisation — cinq heures, une semaine | son relevé le PLUS HAUT, vu la première et la dernière fois ; retrouvée par sa fin à dix minutes près (§ 10). Reconstruite depuis les fichiers comme le reste |
 
 Trois déclencheurs tiennent l'index plein texte à jour à l'insertion, la suppression et au
 changement de texte — sauf quand un index **vide** se remplit d'un coup (la première passe, celle
@@ -472,6 +480,18 @@ route quand la personne reparle revient à la réponse d'avant. Rien ne s'affich
 déclare `usagePerSession` (Copilot) : le total d'une session sous une seule réponse passerait pour
 le coût de celle-ci. Les chiffres d'un sous-agent disent, au survol, qu'ils sont un minimum.
 
+**Rien ne compte le message de la personne seul.** Les fichiers comptent par appel au modèle,
+jamais par message : mesuré sur 627 prompts, le `↑` de l'appel qui suit l'un d'eux ne suit pas sa
+longueur (10 caractères → 1 779 envoyés, 1 331 caractères → 615) — c'est le contexte. Une
+estimation d'après le texte est possible ; aucune n'est montrée.
+
+**Les limites d'utilisation** ont leur bloc dans la vue Statistiques (`quotas` dans
+`stats-view.js`) : pour chaque assistant et chaque limite, la dernière fenêtre de chaque durée
+encore ouverte au dernier relevé — un relevé et sa date, jamais un total —, atténuée une fois
+finie ; combien de fois une limite a été atteinte ; et les semaines relevées en colonnes, une seule
+mesure, avec leur tableau. Les colonnes sont les fenêtres relevées, pas un calendrier : la légende
+le dit, puisque Codex n'a pas servi toutes les semaines.
+
 **Le mot cherché est surligné dans la conversation**, et pas seulement dans l'extrait : ouvrir un
 résultat emporte les mots de la recherche (`state.searchTerms`), qui sont marqués partout où ils
 apparaissent. Le piège est la peinture par tranches — un surlignage posé à l'ouverture ne toucherait
@@ -657,6 +677,7 @@ de `git status` — passait tous les tests unitaires de `speakerOf()` pendant qu
 | toucher à la recherche | `src/core/query.js` (expression), `db.search` (filtres), `app.js` (affichage) |
 | toucher à l'export | `src/renderer/export-document.js` (mise en page), `src/main/export.js` (fichier, PDF) |
 | changer la façon dont une CLI est trouvée | `src/main/terminal.js`, et se souvenir que les réglages priment |
+| toucher aux limites d'utilisation | `src/core/quota.js` (ce que dit un relevé, ce que garde une fenêtre), `recordQuotas` / `quotas` dans `db.js`, `quotas` dans `stats-view.js` |
 | changer les statistiques | `src/core/statistics.js` (le compte — il prend `speakerOf` à format.js, jamais le sien), `db.statisticsRows` (les lignes), `stats-view.js` (la mise en page) |
 | changer le rendu du Markdown | `renderMarkdown` dans `src/renderer/format.js`, son style dans `styles.css` **et** dans `export-document.js` (papier) ; comparer l'ancien et le nouveau sur tout le corpus |
 | toucher à la vérification de version | `src/core/update.js` (comparer), `src/main/update-check.js` (demander), `app.js` (le bouton) |

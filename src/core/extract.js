@@ -18,6 +18,7 @@
 
 /** Tool payloads are kept only as a preview; the full text is never stored. */
 const { usageOf } = require('./agents/contract');
+const { claudeQuota } = require('./quota');
 
 const TOOL_PREVIEW_LIMIT = 2000;
 
@@ -360,7 +361,7 @@ function extractMessage(raw) {
     SYNTHETIC_MARKER.test(joinedText) ||
     COMPACTION_OPENER.test(joinedText);
 
-  return {
+  const item = {
     kind: 'message',
     uuid: str(raw.uuid),
     parentUuid: raw.parentUuid == null ? null : str(raw.parentUuid),
@@ -383,6 +384,10 @@ function extractMessage(raw) {
     isCompactSummary: Boolean(raw.isCompactSummary),
     command,
   };
+  // The one place Claude writes its limits: the request they refused (quota.js).
+  const quota = claudeQuota(raw.quotaLimits, str(raw.timestamp));
+  if (quota.length) item.quota = quota;
+  return item;
 }
 
 function readBlock(block, parts, texts, thinkings) {

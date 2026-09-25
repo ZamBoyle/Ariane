@@ -431,3 +431,32 @@ stats-col-messages = メッセージ
 stats-others = ほか { $count } モデル
 stats-not-measured = 記録なし
 stats-folder-note = あなたのメッセージと返答。ツールの出力は数えません。
+stats-quotas = 利用上限
+stats-quota-window = { $minutes ->
+        [300] 5時間枠
+        [10080] 週
+       *[other] { $hours }時間枠
+    }
+stats-quota-refused = 上限に到達
+stats-quota-resets = { $date }にリセット
+stats-quota-reset-since = { $date }にリセット済み
+stats-quota-read = { $date }に読み取り
+stats-quota-plan = プラン「{ $plan }」
+stats-quota-limit = 上限「{ $limit }」
+stats-quota-credits = 残りクレジット { $balance }
+stats-quota-no-credits = クレジットなし
+stats-quota-unlimited = クレジット無制限
+stats-quota-reached = { $minutes ->
+        [300] 5時間の上限
+        [10080] 週の上限
+       *[other] { $hours }時間の上限
+    }に{ $count }回到達、最後は{ $date }。
+stats-quota-history = { $minutes ->
+        [300] 読み取った5時間枠ごとの最高値
+        [10080] 読み取った週ごとの最高値
+       *[other] 読み取った{ $hours }時間枠ごとの最高値
+    }
+stats-quota-ending = { $date }に終わる枠
+stats-quota-col-end = 枠の終わり
+stats-quota-col-used = 最高値
+stats-quota-note = 割合は読み取り値であり、合計ではありません。各枠には最高値とその読み取り日時を表示します。Ariane はどのサーバーにも問い合わせず、アシスタントが書いたものを読むだけです。Codex は返答のたびに、Claude は保存した最後の読み取り値と、上限で拒否されたリクエストのたびに記録します。

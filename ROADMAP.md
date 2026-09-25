@@ -149,13 +149,17 @@ et en anglais, a disparu sous Linux et Windows, et les outils de développement 
 les paquets publiés. « Vérifier maintenant » est à côté du réglage des mises à jour. Voir le
 journal.
 
-### 3. Les quotas : sur le disque, montrés nulle part — moyen
+### 3. Les quotas — fait le 25 septembre 2026
 
-Codex écrit à chaque tour ses fenêtres de quota — le pourcentage utilisé, la durée de la fenêtre
-(cinq heures, une semaine), l'heure de remise à zéro — et le solde de crédits : 3 267 relevés dans
-les 37 derniers fichiers. Agent Sessions et ccusage les montrent ; Ariane les lit déjà sans les
-garder. **Pour Claude, à vérifier avant de promettre quoi que ce soit.** Le piège : un pourcentage
-est une photo, pas un compte — on montre le dernier relevé et sa date, on ne l'additionne jamais.
+Un bloc « Limites d'utilisation » dans les Statistiques : pour Codex, la semaine (et les cinq heures
+tant qu'elles existaient), ses crédits et l'historique des semaines ; pour Claude, son dernier
+relevé gardé dans `~/.claude.json` et chaque requête que sa limite a refusée. Un relevé et sa date,
+jamais un total. Voir le journal.
+
+Restent deux suites possibles, chacune avec son piège : **ce qu'une conversation a consommé** d'une
+fenêtre (Agent Sessions le montre pour les sessions actives) — un écart entre deux relevés, que
+d'autres conversations menées en parallèle faussent ; et **le budget d'usage supplémentaire** de
+Claude (`extra_usage`, en euros), qui demanderait d'écrire une somme d'argent à l'écran.
 
 ### 4. Lire plus vite ce qui compte — moyen
 

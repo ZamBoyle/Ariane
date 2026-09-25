@@ -68,6 +68,7 @@ export function statisticsPane(data, ctx) {
   }
 
   pane.append(whoWrote(data, ctx), tokens(data, ctx));
+  if (data.quotas && data.quotas.length) pane.append(quotas(data, ctx));
   if (data.months.length) pane.append(months(data, ctx));
 
   const grid = el('div', 'stats-grid');
@@ -183,6 +184,161 @@ function tokens(data, { t, l10n, agentLabel }) {
   return section;
 }
 
+// ── usage limits ────────────────────────────────────────────────────────────
+
+/** The limits named after their assistant; any other is shown by its own name. */
+const OWN_LIMITS = new Set(['codex', 'claude']);
+
+/**
+ * What each assistant's limits stood at (src/core/quota.js). Forms: the latest
+ * window of each length as headline figures — a reading and its date, never a
+ * total — then how often a limit was reached, then the history of the longest
+ * window as columns, one measure, with its table.
+ */
+function quotas(data, ctx) {
+  const { t } = ctx;
+  const section = block(t('stats-quotas'));
+  const groups = new Map();
+  for (const w of data.quotas) {
+    const key = `${w.agentId}\u0000${w.limit}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(w);
+  }
+  // The most recently read first.
+  const ordered = [...groups.values()].sort((a, b) =>
+    newest(b).lastAt.localeCompare(newest(a).lastAt)
+  );
+  for (const windows of ordered) section.append(quotaGroup(windows, ctx));
+  section.append(el('p', 'stats-note', t('stats-quota-note')));
+  return section;
+}
+
+/** The window read last. */
+const newest = (windows) => windows.reduce((a, b) => (b.lastAt > a.lastAt ? b : a));
+/** A window's end, as a date l10n.js reads. */
+const endOf = (w) => new Date(w.resetsAt * 1000).toISOString();
+const hoursOf = (minutes) => Math.round(minutes / 60);
+
+function quotaGroup(windows, ctx) {
+  const { t, l10n, agentMark, agentLabel } = ctx;
+  const now = ctx.now ?? Date.now();
+  const group = el('div', 'stats-quota');
+  const { agentId, limit } = windows[0];
+
+  const title = el('h4', 'stats-quota-title');
+  title.append(agentMark(agentId), el('span', '', agentLabel(agentId)));
+  if (!OWN_LIMITS.has(limit))
+    title.append(el('span', 'stats-quota-limit', t('stats-quota-limit', { limit })));
+  group.append(title);
+
+  // The latest window of each length still open at the latest reading, the
+  // longest first (rows come oldest first). Codex's five-hour window went away
+  // in July 2026: its last one is history, not a figure of today.
+  const lengths = [...new Set(windows.map((w) => w.minutes))].sort((a, b) => b - a);
+  const readAt = Date.parse(newest(windows).lastAt) / 1000;
+  const current = lengths
+    .map((minutes) => windows.filter((x) => x.minutes === minutes).at(-1))
+    .filter((w) => w.resetsAt >= readAt);
+  const row = el('div', 'stat-tiles');
+  for (const w of current) {
+    const { minutes } = w;
+    const value =
+      w.used != null
+        ? l10n.percent(w.used / 100)
+        : t(w.reached ? 'stats-quota-refused' : 'stats-not-measured');
+    const box = figure(t('stats-quota-window', { minutes, hours: hoursOf(minutes) }), value);
+    // A window that has ended since is dimmed: its figure is not today's.
+    const ended = w.resetsAt * 1000 <= now;
+    box.classList.toggle('is-past', ended);
+    box.append(
+      el(
+        'span',
+        'stat-note',
+        t(ended ? 'stats-quota-reset-since' : 'stats-quota-resets', {
+          date: l10n.dateTime(endOf(w)),
+        })
+      )
+    );
+    row.append(box);
+  }
+  group.append(row);
+
+  // When it was read, and what that reading said of the plan and the credits.
+  const last = newest(windows);
+  const facts = [t('stats-quota-read', { date: l10n.dateTime(last.lastAt) })];
+  if (last.plan) facts.push(t('stats-quota-plan', { plan: last.plan }));
+  if (last.credits) facts.push(creditsOf(last.credits, ctx));
+  group.append(el('p', 'stats-note', facts.join(' · ')));
+
+  // How often a limit was reached — all Claude ever writes.
+  for (const minutes of lengths) {
+    const reached = windows.filter((w) => w.minutes === minutes && w.reached);
+    if (!reached.length) continue;
+    group.append(
+      el(
+        'p',
+        'stats-note',
+        t('stats-quota-reached', {
+          minutes,
+          hours: hoursOf(minutes),
+          count: reached.length,
+          date: l10n.date(reached.at(-1).at),
+        })
+      )
+    );
+  }
+
+  // The longest window read at least twice, as columns: each its highest reading.
+  const history = lengths
+    .map((minutes) => windows.filter((w) => w.minutes === minutes && w.used != null))
+    .find((ws) => ws.length >= 2);
+  if (history) group.append(quotaHistory(history, ctx));
+  return group;
+}
+
+function creditsOf(credits, { t, l10n }) {
+  if (credits.unlimited) return t('stats-quota-unlimited');
+  if (!credits.has || !credits.balance) return t('stats-quota-no-credits');
+  return t('stats-quota-credits', {
+    balance: l10n.number(Math.round(credits.balance * 100) / 100),
+  });
+}
+
+function quotaHistory(windows, ctx) {
+  const { t, l10n } = ctx;
+  const { minutes } = windows[0];
+  const caption = t('stats-quota-history', { minutes, hours: hoursOf(minutes) });
+  const percent = (v) => l10n.percent(v / 100);
+  const ending = (w) => t('stats-quota-ending', { date: l10n.dateTime(endOf(w)) });
+
+  const wrap = el('div', 'stats-quota-history');
+  const table = el('table', 'stats-table');
+  table.append(head([t('stats-quota-col-end'), t('stats-quota-col-used')], [false, true]));
+  const body = el('tbody', '');
+  for (const w of windows)
+    body.append(tr([l10n.dateTime(endOf(w)), percent(w.used)], [false, true]));
+  table.append(body);
+  const details = el('details', 'stats-table-view');
+  details.append(el('summary', '', t('stats-months-table')), table);
+
+  wrap.append(
+    el('p', 'stats-quota-caption', caption),
+    columnChart(windows, {
+      value: (w) => w.used,
+      tick: percent,
+      short: (w) => l10n.day(endOf(w)),
+      long: ending,
+      format: percent,
+      exact: percent,
+      aria: caption,
+      bar: (w, v) => t('stats-bar', { month: ending(w), value: percent(v) }),
+      top: Math.max(100, ...windows.map((w) => w.used)),
+    }),
+    details
+  );
+  return wrap;
+}
+
 // ── month by month ──────────────────────────────────────────────────────────
 
 function months(data, ctx) {
@@ -233,24 +389,45 @@ function scale(max) {
 
 function monthChart(rows, measure, { t, l10n }) {
   const format = (v) => (measure.compact ? l10n.compact(v) : l10n.number(v));
+  return columnChart(rows, {
+    value: (row) => row[measure.key] || 0,
+    tick: (v) => l10n.compact(v),
+    short: (row) => l10n.month(row.month),
+    long: (row) => l10n.month(row.month, { long: true }),
+    format,
+    exact: (v) => l10n.number(v),
+    aria: t('stats-chart', { measure: t(measure.label) }),
+    bar: (row, v) =>
+      t('stats-bar', { month: l10n.month(row.month, { long: true }), value: format(v) }),
+  });
+}
+
+/**
+ * Columns, one measure, one hue: the month chart, and the quota history. The
+ * caller says how to read a row and how to write its numbers.
+ */
+function columnChart(
+  rows,
+  { value, tick, short, long, format, exact, aria, bar: barLabel, top: fixedTop }
+) {
   const W = 720;
   const H = 210;
   const pad = { top: 26, right: 24, bottom: 24, left: 46 };
   const plotW = W - pad.left - pad.right;
   const plotH = H - pad.top - pad.bottom;
-  const values = rows.map((r) => r[measure.key] || 0);
-  const { top, ticks } = scale(Math.max(...values));
+  const values = rows.map(value);
+  const { top, ticks } = scale(fixedTop ?? Math.max(...values));
   const slot = plotW / rows.length;
   const barW = Math.max(2, Math.min(24, slot * 0.62));
   const y = (v) => pad.top + plotH - (v / top) * plotH;
 
   const wrap = el('figure', 'stats-figure');
   const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'stats-svg', role: 'group' });
-  svg.setAttribute('aria-label', t('stats-chart', { measure: t(measure.label) }));
+  svg.setAttribute('aria-label', aria);
 
   // Recessive furniture: hairline gridlines, ticks in muted ink.
-  for (const tick of ticks) {
-    const ty = y(tick);
+  for (const mark of ticks) {
+    const ty = y(mark);
     svg.append(
       svgEl('line', { x1: pad.left, x2: W - pad.right, y1: ty, y2: ty, class: 'stats-grid-line' })
     );
@@ -260,7 +437,7 @@ function monthChart(rows, measure, { t, l10n }) {
       class: 'stats-tick',
       'text-anchor': 'end',
     });
-    label.textContent = l10n.compact(tick);
+    label.textContent = tick(mark);
     svg.append(label);
   }
 
@@ -291,7 +468,7 @@ function monthChart(rows, measure, { t, l10n }) {
         class: 'stats-tick',
         'text-anchor': 'middle',
       });
-      label.textContent = l10n.month(row.month);
+      label.textContent = short(row);
       svg.append(label);
     }
 
@@ -303,7 +480,7 @@ function monthChart(rows, measure, { t, l10n }) {
         class: 'stats-direct',
         'text-anchor': 'middle',
       });
-      label.textContent = measure.compact ? l10n.compact(value) : l10n.number(value);
+      label.textContent = format(value);
       svg.append(label);
     }
 
@@ -317,14 +494,11 @@ function monthChart(rows, measure, { t, l10n }) {
     });
     hit.setAttribute('tabindex', '0');
     hit.setAttribute('role', 'img');
-    hit.setAttribute(
-      'aria-label',
-      t('stats-bar', { month: l10n.month(row.month, { long: true }), value: format(value) })
-    );
+    hit.setAttribute('aria-label', barLabel(row, value));
     const on = () => {
       bar.classList.add('is-hot');
-      tipValue.textContent = l10n.number(value);
-      tipMonth.textContent = l10n.month(row.month, { long: true });
+      tipValue.textContent = exact(value);
+      tipMonth.textContent = long(row);
       tip.hidden = false;
       const left = ((pad.left + i * slot + slot / 2) / W) * 100;
       tip.style.left = `${Math.min(88, Math.max(12, left))}%`;

@@ -479,3 +479,35 @@ stats-others = { $count ->
     }
 stats-not-measured = no registrado
 stats-folder-note = Tus mensajes y las respuestas; las salidas de herramientas no cuentan.
+stats-quotas = Límites de uso
+stats-quota-window = { $minutes ->
+        [300] Ventana de 5 horas
+        [10080] Semana
+       *[other] Ventana de { $hours } horas
+    }
+stats-quota-refused = Alcanzado
+stats-quota-resets = se reinicia el { $date }
+stats-quota-reset-since = reiniciado desde el { $date }
+stats-quota-read = Leído el { $date }
+stats-quota-plan = plan «{ $plan }»
+stats-quota-limit = límite «{ $limit }»
+stats-quota-credits = quedan { $balance } créditos
+stats-quota-no-credits = sin créditos
+stats-quota-unlimited = créditos ilimitados
+stats-quota-reached = { $minutes ->
+        [300] Límite de 5 horas alcanzado
+        [10080] Límite semanal alcanzado
+       *[other] Límite de { $hours } horas alcanzado
+    } { $count ->
+        [one] una vez
+       *[other] { $count } veces
+    }, la última el { $date }.
+stats-quota-history = { $minutes ->
+        [300] Las ventanas de 5 horas leídas, cada una en su valor más alto
+        [10080] Las semanas leídas, cada una en su valor más alto
+       *[other] Las ventanas de { $hours } horas leídas, cada una en su valor más alto
+    }
+stats-quota-ending = Ventana que termina el { $date }
+stats-quota-col-end = Fin de la ventana
+stats-quota-col-used = Lectura más alta
+stats-quota-note = Un porcentaje es una lectura, no un recuento: cada ventana muestra la más alta, con la fecha en que se leyó. Ariane no consulta ningún servidor; lee lo que escribieron los asistentes: Codex en cada respuesta, Claude en la última lectura que guardó y en cada solicitud que sus límites rechazaron.

@@ -479,3 +479,35 @@ stats-others = { $count ->
     }
 stats-not-measured = niet geregistreerd
 stats-folder-note = Jouw berichten en de antwoorden; uitvoer van tools telt niet mee.
+stats-quotas = Gebruikslimieten
+stats-quota-window = { $minutes ->
+        [300] Venster van 5 uur
+        [10080] Week
+       *[other] Venster van { $hours } uur
+    }
+stats-quota-refused = Bereikt
+stats-quota-resets = wordt gereset op { $date }
+stats-quota-reset-since = gereset sinds { $date }
+stats-quota-read = Gelezen op { $date }
+stats-quota-plan = abonnement ‘{ $plan }’
+stats-quota-limit = limiet ‘{ $limit }’
+stats-quota-credits = nog { $balance } credits
+stats-quota-no-credits = geen credits
+stats-quota-unlimited = onbeperkte credits
+stats-quota-reached = { $minutes ->
+        [300] Limiet van 5 uur
+        [10080] Weeklimiet
+       *[other] Limiet van { $hours } uur
+    } { $count ->
+        [one] één keer
+       *[other] { $count } keer
+    } bereikt, het laatst op { $date }.
+stats-quota-history = { $minutes ->
+        [300] De gelezen vensters van 5 uur, elk op hun hoogste
+        [10080] De gelezen weken, elk op hun hoogste
+       *[other] De gelezen vensters van { $hours } uur, elk op hun hoogste
+    }
+stats-quota-ending = Venster dat eindigt op { $date }
+stats-quota-col-end = Einde van het venster
+stats-quota-col-used = Hoogste meting
+stats-quota-note = Een percentage is een meting, geen telling: elk venster toont zijn hoogste, met de datum waarop die werd gelezen. Ariane vraagt niets aan een server — ze leest wat de assistenten schreven: Codex bij elk antwoord, Claude in de laatste meting die het bewaarde en bij elk verzoek dat zijn limieten weigerden.

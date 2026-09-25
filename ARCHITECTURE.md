@@ -151,6 +151,12 @@ declared: `globalIds` (a message id is the same message wherever it appears — 
 copies), `usagePerSession` (the agent only writes what a whole session cost — Copilot; § 10) and,
 on a descriptor, `parentId` / `continuesFrom` (a subagent, a fork; § 3.4, § 4).
 
+**Usage limits** ride along rather than being an item of their own: any item may carry `quota`,
+the windows its record read (`src/core/quota.js`), and an adapter may offer `quotas(ctx)` for
+readings kept outside any conversation — Claude's last one, cached in `~/.claude.json`. The indexer
+keeps one entry per window in memory and writes a conversation's windows once, never one write per
+reading (Codex writes 7 133).
+
 ### 3.4 The seven adapters
 
 | Agent | Where | Shape | What makes it different |
@@ -191,7 +197,7 @@ of a full pass.
 
 ## 4. The database
 
-`src/core/schema.sql` — five tables and a full-text index.
+`src/core/schema.sql` — six tables and a full-text index.
 
 | Table | Holds | Worth knowing |
 |---|---|---|
@@ -201,6 +207,7 @@ of a full pass.
 | `messages` | one message | `parts` as JSON; `is_notice` marks what nobody said; `is_copy` what another conversation already holds |
 | `messages_fts` | full-text index | FTS5 as _external content_: only `text` goes in, the rows stay in `messages` |
 | `sources` | the incrementality state | `fingerprint` and `cursor`, both opaque |
+| `quota_windows` | one window of one usage limit — five hours, a week | its HIGHEST reading, first and last seen; found again by its end give or take 10 minutes (§ 10). Rebuilt from the files like the rest |
 
 Three triggers keep the full-text index current on insert, delete and a change of text — except
 while an **empty** index is filled whole (the first pass, the one after a schema change): they are
@@ -447,6 +454,17 @@ count still pending when the person speaks again goes back to the reply before. 
 where the adapter declares `usagePerSession` (Copilot): a session's total under one reply would
 read as that reply's cost. A subagent's figures say, on hover, that they are a floor.
 
+**Nothing counts the person's own message.** The files count per call to the model, never per
+message: measured on 627 prompts, the `↑` of the call that follows one does not follow its length
+(10 characters → 1 779 sent, 1 331 characters → 615) — it is the context. An estimate from the text
+is possible; none is shown.
+
+**The usage limits** have their block in the statistics view (`quotas` in `stats-view.js`): for
+each assistant and limit, the latest window of each length that was still open at the latest
+reading — a reading and its date, never a total — dimmed once it has ended; how often a limit was
+reached; and the weeks read as columns, one measure, with their table. The columns are the windows
+read, not a calendar: the caption says so, since Codex was not used every week.
+
 **The searched word is highlighted in the conversation**, not only in the snippet: opening a result
 carries the search words along (`state.searchTerms`), and they are marked wherever they appear. The
 trap is the slicing — a highlight applied on opening would only ever touch the first 120 rows. The
@@ -627,6 +645,7 @@ the output of `git status` — passed every unit test of `speakerOf()` while the
 | touch search | `src/core/query.js` (the expression), `db.search` (the filters), `app.js` (the display) |
 | touch export | `src/renderer/export-document.js` (layout), `src/main/export.js` (file, PDF) |
 | change how a CLI is found | `src/main/terminal.js`, remembering that the settings win |
+| touch the usage limits | `src/core/quota.js` (what a reading says, what a window keeps), `recordQuotas` / `quotas` in `db.js`, `quotas` in `stats-view.js` |
 | change the statistics | `src/core/statistics.js` (counting — it takes `speakerOf` from format.js, never its own), `db.statisticsRows` (the rows), `stats-view.js` (the layout) |
 | change how Markdown renders | `renderMarkdown` in `src/renderer/format.js`, its style in `styles.css` **and** in `export-document.js` (paper); compare old and new on the whole corpus |
 | touch the update check | `src/core/update.js` (comparing), `src/main/update-check.js` (asking), `app.js` (the button) |

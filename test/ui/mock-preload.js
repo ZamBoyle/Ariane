@@ -140,6 +140,38 @@ const statisticsCalls = [];
  * figures from a real index. Codex measured nothing here, so the view must say
  * so; ten models, so the tail folds into one row.
  */
+/**
+ * The usage limits, shaped like Index.quotas answers them (oldest first within
+ * an assistant and a limit), dated from now so that the latest week has not
+ * ended yet and the five-hour window has. Six weeks of Codex, its credits
+ * running out past 100 %, a second Codex limit, and Claude's three refusals.
+ */
+function QUOTAS() {
+  const DAY = 86400;
+  const now = Math.floor(Date.now() / 1000);
+  const iso = (s) => new Date(s * 1000).toISOString();
+  const weeks = [37, 64, 100, 18, 95, 42].map((used, i) => {
+    const end = now + 3 * DAY - (5 - i) * 7 * DAY;
+    return {
+      agentId: 'codex', limit: 'codex', minutes: 10080, resetsAt: end, used, reached: used >= 100,
+      at: iso(end - 5 * DAY), lastAt: iso(end - 4 * DAY), plan: 'plus',
+      credits: { has: true, unlimited: false, balance: 123.26519 },
+    };
+  });
+  const claude = [18, 10, 9].map((daysAgo) => ({
+    agentId: 'claude', limit: 'claude', minutes: 300, resetsAt: now - daysAgo * DAY + 3600, used: null,
+    reached: true, at: iso(now - daysAgo * DAY), lastAt: iso(now - daysAgo * DAY), plan: null, credits: null,
+  }));
+  return [
+    ...claude,
+    { agentId: 'codex', limit: 'codex', minutes: 300, resetsAt: now - 30 * DAY, used: 33, reached: false,
+      at: iso(now - 30 * DAY - 3600), lastAt: iso(now - 30 * DAY - 1800), plan: 'plus', credits: null },
+    ...weeks,
+    { agentId: 'codex', limit: 'premium', minutes: 10080, resetsAt: now + 2 * DAY, used: 12, reached: false,
+      at: iso(now - 7200), lastAt: iso(now - 3600), plan: 'plus', credits: null },
+  ];
+}
+
 const STATISTICS = {
   records: 49411,
   sessions: 363,
@@ -172,6 +204,7 @@ const STATISTICS = {
     { path: '/home/zam/Documents/santé-debate', messages: 5556 },
     { path: '/home/zam/Programmation/c64/Arena64', messages: 4769 },
   ],
+  quotas: QUOTAS(),
 };
 /** What "Reprendre" answers, when made to fail. */
 let resumeReply = null;

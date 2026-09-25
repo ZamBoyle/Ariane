@@ -27,6 +27,7 @@ const paths = require('../paths');
 const { readRecords } = require('../jsonl');
 const { extractRecord } = require('../extract');
 const { remember, stampOf } = require('../memo');
+const { claudeCachedQuota } = require('../quota');
 const { USAGE_FIELDS } = require('./contract');
 
 const ID = 'claude';
@@ -66,6 +67,30 @@ const adapter = {
     if (descriptor.source === HISTORY_KEY) return false;
     const { offset } = parseCursor(cursor);
     return Number.isFinite(offset) && offset <= (descriptor.bytes ?? 0);
+  },
+
+  /**
+   * What Claude Code last fetched of its usage limits (quota.js), kept in its
+   * global state file rather than in any conversation. Read again only when
+   * that file changes — and it changes often: one stat per pass.
+   */
+  async quotas(ctx = {}) {
+    const file = paths.globalStateFile(ctx.env, ctx.home);
+    let stat;
+    try {
+      stat = await fsp.stat(file);
+    } catch {
+      return [];
+    }
+    return remember(ctx, `claude:usage:${file}`, stampOf(stat), async () => {
+      try {
+        return claudeCachedQuota(
+          JSON.parse(await fsp.readFile(file, 'utf8')).cachedUsageUtilization
+        );
+      } catch {
+        return [];
+      }
+    });
   },
 
   async *read(descriptor, { cursor = null, ctx = {} } = {}) {

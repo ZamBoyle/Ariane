@@ -70,7 +70,9 @@ three busiest:
 - **Statistics**: who wrote what — the messages you typed, the replies, the tool output — then the
   tokens sent, received and read back from the cache, month by month, by assistant, by model and
   by folder. It says how many conversations were actually measured, and estimates nothing: no
-  dollar figure made up from a price list.
+  dollar figure made up from a price list. And the **usage limits** as the assistants wrote them —
+  Codex's week and its credits, Claude's last reading and each time its limit refused a request —
+  read from their files, never asked of a server.
 - **Export** to Markdown or PDF, crediting each speaker exactly as the screen does.
 - **Nine languages**, chosen or following the system, a light, dark or system theme, and a text
   size from 90 to 130 % — in the settings, or with Ctrl + and Ctrl −.

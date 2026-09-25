@@ -38,6 +38,48 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### Les limites d'utilisation : lues, datées, jamais additionnées
+
+**Ce que ça change.** La vue Statistiques a un bloc « Limites d'utilisation ». Pour chaque
+assistant, la dernière fenêtre de chaque durée — cinq heures, une semaine — avec son pourcentage et
+sa remise à zéro, atténuée quand elle est finie ; la date du relevé, l'offre et les crédits ;
+combien de fois une limite a été atteinte ; et, pour Codex, les semaines relevées en colonnes.
+Ariane ne demande rien à aucun serveur : elle lit ce que les assistants ont écrit.
+
+**Où c'est écrit, mesuré.** Codex écrit un relevé à chaque `token_count` : 7 133 sur 7 541, dans
+122 fichiers sur 145 — y compris dans des `token_count` sans jetons, qui ne comptaient pour rien.
+Claude n'écrit ses limites dans ses conversations que sur une requête refusée (75 erreurs 429, sur
+trois jours, 69 dans des sous-agents) : le type de fenêtre et sa fin, pas de pourcentage. **La
+feuille de route disait « à vérifier » pour Claude, et avait raison** : c'est en regardant comment
+font les autres qu'on a trouvé le reste — `~/.claude.json` garde le dernier relevé que Claude Code
+a demandé (`cachedUsageUtilization`) : 16 % de la fenêtre de cinq heures, 11 % de la semaine, lu le
+23 septembre. Un relevé, pas un historique.
+
+**Quatre pièges, tous mesurés avant d'écrire une ligne.**
+- Les fenêtres de Codex ont changé en juillet 2026 : cinq heures et une semaine, puis la semaine
+  seule, passée de la case `secondary` à `primary`. Une fenêtre se reconnaît à sa durée.
+- La fin d'une même fenêtre bouge d'une seconde ou deux entre deux relevés (49 fins de cinq heures
+  sur 91 à moins de dix minutes d'une autre) : une fenêtre se retrouve par sa fin, à dix minutes
+  près.
+- Dans une fenêtre, l'usage ne fait que monter — et pourtant 16 relevés redescendent, chacun venu
+  d'une autre conversation : une duplication recopie de vieux relevés sous sa propre date (0 % pour
+  une semaine déjà à 95 %). Une fenêtre garde donc son plus haut relevé, daté de la première fois
+  qu'il a été vu : aucune copie ne peut le hausser, et une copie vient toujours après l'original.
+- Passé 100 %, Codex continue sur les crédits, et le solde baisse relevé après relevé : de 500 à
+  123,27 en une semaine. Le premier jet montrait 260,2, pris au premier relevé à 100 %. Les crédits
+  viennent maintenant du **dernier** relevé à ce niveau.
+
+**Vérifié** : les 70 fenêtres de Codex que garde l'index sont identiques, champ par champ, à un
+calcul indépendant fait sur les fichiers bruts. Une passe complète de Codex et Claude prend le même
+temps qu'avec la 0.6.0 (13,6 s contre 13,9), la passe à vide aussi (430 ms). Dix mutations, dix
+échecs de tests. `SCHEMA_VERSION` passe à 19.
+
+**Ce qu'on ne montre pas, exprès.** Aucune prévision d'épuisement, aucun montant d'argent. Et
+**rien sur les messages « Vous »** : demandé, mais aucun fichier ne compte les jetons d'un message
+seul, et le `↑` de l'appel qui le suit ne suit pas sa longueur — mesuré sur 627 messages, 10
+caractères donnent 1 779 jetons envoyés et 1 331 caractères 615. C'est le contexte qu'on envoie,
+pas le message.
+
 ### Tes mots une seule fois : l'écho du dernier message, et la file d'attente
 
 **Signalé depuis Windows** : dans une conversation Claude, « mon message initial est remis en

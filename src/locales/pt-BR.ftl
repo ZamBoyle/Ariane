@@ -479,3 +479,35 @@ stats-others = { $count ->
     }
 stats-not-measured = não registrado
 stats-folder-note = Suas mensagens e as respostas; saídas de ferramentas não contam.
+stats-quotas = Limites de uso
+stats-quota-window = { $minutes ->
+        [300] Janela de 5 horas
+        [10080] Semana
+       *[other] Janela de { $hours } horas
+    }
+stats-quota-refused = Atingido
+stats-quota-resets = reinicia em { $date }
+stats-quota-reset-since = reiniciado desde { $date }
+stats-quota-read = Lido em { $date }
+stats-quota-plan = plano “{ $plan }”
+stats-quota-limit = limite “{ $limit }”
+stats-quota-credits = restam { $balance } créditos
+stats-quota-no-credits = sem créditos
+stats-quota-unlimited = créditos ilimitados
+stats-quota-reached = { $minutes ->
+        [300] Limite de 5 horas atingido
+        [10080] Limite semanal atingido
+       *[other] Limite de { $hours } horas atingido
+    } { $count ->
+        [one] uma vez
+       *[other] { $count } vezes
+    }, a última em { $date }.
+stats-quota-history = { $minutes ->
+        [300] As janelas de 5 horas lidas, cada uma em seu valor mais alto
+        [10080] As semanas lidas, cada uma em seu valor mais alto
+       *[other] As janelas de { $hours } horas lidas, cada uma em seu valor mais alto
+    }
+stats-quota-ending = Janela que termina em { $date }
+stats-quota-col-end = Fim da janela
+stats-quota-col-used = Leitura mais alta
+stats-quota-note = Uma porcentagem é uma leitura, não uma contagem: cada janela mostra a mais alta, com a data em que foi lida. O Ariane não consulta nenhum servidor — lê o que os assistentes escreveram: o Codex a cada resposta, o Claude na última leitura que guardou e em cada solicitação que seus limites recusaram.

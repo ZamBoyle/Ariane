@@ -509,3 +509,35 @@ stats-others = { $count ->
     }
 stats-not-measured = not recorded
 stats-folder-note = Your messages and the replies; tool output does not count.
+stats-quotas = Usage limits
+stats-quota-window = { $minutes ->
+        [300] 5-hour window
+        [10080] Week
+       *[other] { $hours }-hour window
+    }
+stats-quota-refused = Reached
+stats-quota-resets = resets { $date }
+stats-quota-reset-since = reset since { $date }
+stats-quota-read = Read { $date }
+stats-quota-plan = plan “{ $plan }”
+stats-quota-limit = limit “{ $limit }”
+stats-quota-credits = { $balance } credits left
+stats-quota-no-credits = no credits
+stats-quota-unlimited = unlimited credits
+stats-quota-reached = { $minutes ->
+        [300] 5-hour limit
+        [10080] Weekly limit
+       *[other] { $hours }-hour limit
+    } reached { $count ->
+        [one] once
+       *[other] { $count } times
+    }, the last on { $date }.
+stats-quota-history = { $minutes ->
+        [300] The 5-hour windows read, each at its highest
+        [10080] The weeks read, each at its highest
+       *[other] The { $hours }-hour windows read, each at its highest
+    }
+stats-quota-ending = Window ending { $date }
+stats-quota-col-end = Window ending
+stats-quota-col-used = Highest reading
+stats-quota-note = A percentage is a reading, not a count: each window shows its highest, with the date it was read. Ariane asks no server — it reads what the assistants wrote: Codex with every reply, Claude in the last reading it kept and on each request its limits refused.

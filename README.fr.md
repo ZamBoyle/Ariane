@@ -63,7 +63,10 @@ deux par cinq d'entre eux :
 - **Des statistiques** : qui a écrit quoi — les messages que vous avez tapés, les réponses, les
   sorties d'outils —, puis les jetons envoyés, reçus et relus depuis le cache, mois par mois, par
   assistant, par modèle et par dossier. Elles disent combien de conversations ont vraiment été
-  mesurées, et n'estiment rien : aucun montant en dollars tiré d'une grille de prix.
+  mesurées, et n'estiment rien : aucun montant en dollars tiré d'une grille de prix. Et les
+  **limites d'utilisation** telles que les assistants les ont écrites — la semaine de Codex et ses
+  crédits, le dernier relevé de Claude et chaque requête que sa limite a refusée —, lues dans leurs
+  fichiers, jamais demandées à un serveur.
 - **Dans votre langue** : français, anglais, néerlandais, allemand, espagnol, italien, portugais
   (Brésil), japonais et chinois — celle du système par défaut, une autre au choix dans les
   Réglages. Ajouter une langue, c'est ajouter un fichier dans `src/locales/`.

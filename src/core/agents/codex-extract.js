@@ -23,6 +23,8 @@
  *   oldest       the response item IS the top-level object, unwrapped
  */
 
+const { codexQuota } = require('../quota');
+
 /** Tool payloads are kept only as a preview; the full text is never stored. */
 const TOOL_PREVIEW_LIMIT = 2000;
 
@@ -118,12 +120,26 @@ function extractCodexRecord(raw) {
   // What a reply cost travels in the mirror stream, and only there. The raw
   // counts go to the reader, which alone can tell a new turn from a repeat
   // (see codex.js, usageOf): a record on its own cannot.
+  // The same record carries the usage limits as they stood (quota.js) — also
+  // when it carries no count.
   if (raw.type === 'event_msg' && raw.payload && raw.payload.type === 'token_count') {
+    const quota = codexQuota(raw.payload.rate_limits, str(raw.timestamp));
+    const reading = quota.length ? { quota } : {};
     const info = raw.payload.info;
     if (!info || !info.total_token_usage || !info.last_token_usage) {
-      return { kind: 'ignored', reason: 'known-noise', detail: 'token_count without info' };
+      return {
+        kind: 'ignored',
+        reason: 'known-noise',
+        detail: 'token_count without info',
+        ...reading,
+      };
     }
-    return { kind: 'usage', total: info.total_token_usage, last: info.last_token_usage };
+    return {
+      kind: 'usage',
+      total: info.total_token_usage,
+      last: info.last_token_usage,
+      ...reading,
+    };
   }
 
   if (IGNORED_TYPES.has(raw.type)) {
@@ -140,7 +156,11 @@ function extractCodexRecord(raw) {
     return fromResponseItem(raw, str(raw.timestamp));
   }
 
-  if (raw.type === 'function_call' || raw.type === 'function_call_output' || raw.type === 'reasoning') {
+  if (
+    raw.type === 'function_call' ||
+    raw.type === 'function_call_output' ||
+    raw.type === 'reasoning'
+  ) {
     return { kind: 'ignored', reason: 'known-noise', detail: 'bare tool record' };
   }
 
@@ -169,7 +189,8 @@ function fromResponseItem(payload, timestamp) {
   }
 
   const role = str(payload.role);
-  if (DROPPED_ROLES.has(role)) return { kind: 'ignored', reason: 'known-noise', detail: `role:${role}` };
+  if (DROPPED_ROLES.has(role))
+    return { kind: 'ignored', reason: 'known-noise', detail: `role:${role}` };
   if (role !== 'user' && role !== 'assistant') {
     return { kind: 'ignored', reason: role ? `role:${role}` : 'no-role' };
   }
@@ -247,7 +268,7 @@ function toolPart(type, payload) {
     id: str(payload.call_id) || str(payload.id),
     name: str(payload.name) || type.replace(/_call$/, ''),
     isError: false,
-    preview: preview(isOutput ? payload.output : payload.arguments ?? payload.input),
+    preview: preview(isOutput ? payload.output : (payload.arguments ?? payload.input)),
   };
 }
 

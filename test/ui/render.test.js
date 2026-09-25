@@ -1202,8 +1202,9 @@ const SCREENS_SCRIPT = `(async () => {
 
   document.getElementById('stats-open').click();
   for (let i = 0; i < 60 && !document.querySelector('.stats-view:not(.is-loading) .stats-block'); i++) await sleep(50);
-  document.querySelector('.stats-table-view').open = true;
-  document.querySelector('.stats-hit').dispatchEvent(new Event('focus'));
+  // Every table and one column of every chart: the months, and the quota history.
+  for (const d of document.querySelectorAll('.stats-table-view')) d.open = true;
+  for (const f of document.querySelectorAll('.stats-figure')) f.querySelector('.stats-hit').dispatchEvent(new Event('focus'));
   await sleep(100);
   scan('statistiques');
 
@@ -1235,6 +1236,8 @@ const STATS_SCRIPT = `(async () => {
   document.getElementById('stats-open').click();
   await ready();
   const view = transcript.querySelector('.stats-view');
+  // The month chart's own block: the quota history draws columns too.
+  const monthsBlock = [...view.querySelectorAll('.stats-block')].find((b) => b.querySelector('.stats-toggle'));
   const tiles = [...view.querySelectorAll('.stat-tile')].map((t) => ({
     label: t.querySelector('.stat-label').textContent,
     value: t.querySelector('.stat-value').textContent,
@@ -1242,23 +1245,23 @@ const STATS_SCRIPT = `(async () => {
     labelTitle: t.querySelector('.stat-label').title,
   }));
   const notes = [...view.querySelectorAll('.stats-note')].map((n) => n.textContent);
-  const hits = [...view.querySelectorAll('.stats-hit')];
-  const bars = [...view.querySelectorAll('.stats-bar-mark')].map((b) => b.getAttribute('d'));
-  const direct = [...view.querySelectorAll('.stats-direct')].map((d) => d.textContent);
+  const hits = [...monthsBlock.querySelectorAll('.stats-hit')];
+  const bars = [...monthsBlock.querySelectorAll('.stats-bar-mark')].map((b) => b.getAttribute('d'));
+  const direct = [...monthsBlock.querySelectorAll('.stats-direct')].map((d) => d.textContent);
   const pressed = [...view.querySelectorAll('.stats-seg')].map((b) => b.getAttribute('aria-pressed'));
 
   hits[4].dispatchEvent(new Event('pointerenter'));
-  const tip = view.querySelector('.stats-tip');
-  const tipShown = { hidden: tip.hidden, text: tip.textContent, hot: view.querySelectorAll('.stats-bar-mark.is-hot').length };
+  const tip = monthsBlock.querySelector('.stats-tip');
+  const tipShown = { hidden: tip.hidden, text: tip.textContent, hot: monthsBlock.querySelectorAll('.stats-bar-mark.is-hot').length };
   hits[4].dispatchEvent(new Event('pointerleave'));
   const tipAfter = tip.hidden;
 
   view.querySelectorAll('.stats-seg')[2].click();
   await sleep(50);
   const afterToggle = {
-    labels: [...view.querySelectorAll('.stats-hit')].map((h) => h.getAttribute('aria-label')),
-    direct: [...view.querySelectorAll('.stats-direct')].map((d) => d.textContent),
-    tableRows: view.querySelectorAll('.stats-table-view tbody tr').length,
+    labels: [...monthsBlock.querySelectorAll('.stats-hit')].map((h) => h.getAttribute('aria-label')),
+    direct: [...monthsBlock.querySelectorAll('.stats-direct')].map((d) => d.textContent),
+    tableRows: monthsBlock.querySelectorAll('.stats-table-view tbody tr').length,
   };
 
   const agentRows = [...view.querySelectorAll('.stats-grid .stats-table')[0].querySelectorAll('tbody tr')]
@@ -1267,6 +1270,25 @@ const STATS_SCRIPT = `(async () => {
     .map((r) => r.cells[0].textContent);
   const restTitle = (view.querySelector('.stats-rest td') || {}).title || '';
   const overflow = { scroll: transcript.scrollWidth, client: transcript.clientWidth };
+
+  // The usage limits: one group per assistant and limit.
+  const quota = [...view.querySelectorAll('.stats-quota')].map((g) => ({
+    title: g.querySelector('.stats-quota-title').textContent,
+    tiles: [...g.querySelectorAll('.stat-tile')].map((x) => [
+      x.querySelector('.stat-label').textContent,
+      x.querySelector('.stat-value').textContent,
+      x.querySelector('.stat-note').textContent,
+      x.classList.contains('is-past'),
+    ]),
+    caption: (g.querySelector('.stats-quota-caption') || {}).textContent || '',
+    notes: [...g.querySelectorAll('.stats-note')].map((n) => n.textContent),
+    columns: g.querySelectorAll('.stats-hit').length,
+    direct: [...g.querySelectorAll('.stats-direct')].map((d) => d.textContent),
+    ticks: [...g.querySelectorAll('.stats-tick')].map((d) => d.textContent),
+    tableRows: g.querySelectorAll('.stats-table-view tbody tr').length,
+  }));
+  const quotaBlock = view.querySelector('.stats-quota') && view.querySelector('.stats-quota').parentElement;
+  const quotaNote = quotaBlock ? quotaBlock.lastElementChild.textContent : '';
 
   // The period of the search bar scopes the statistics too.
   document.getElementById('period').value = '30d';
@@ -1290,7 +1312,7 @@ const STATS_SCRIPT = `(async () => {
 
   return {
     tiles, notes, hitCount: hits.length, bars, direct, pressed, tipShown, tipAfter, afterToggle,
-    agentRows, modelRows, restTitle, overflow, leftForConversation, footerTitle, backFromFooter,
+    agentRows, modelRows, restTitle, overflow, leftForConversation, footerTitle, backFromFooter, quota, quotaNote,
     calls: callsAfterPeriod,
     title: view.querySelector('.stats-title').textContent,
   };
@@ -1530,6 +1552,40 @@ async function run() {
   check('au-delà de huit modèles, le reste tient en une ligne, nommé au survol',
     sv.modelRows.length === 9 && sv.modelRows[8] === '2 autres modèles' && sv.restTitle === 'kimi-k3 et grok-4.6',
     `${sv.modelRows.join(', ')} / ${sv.restTitle}`);
+  // -- les limites d'utilisation ---------------------------------------------
+  const [premium, codexQuota, claudeQuota] = sv.quota;
+  check('les limites : un groupe par assistant et par limite, le dernier lu d’abord',
+    // La marque de l'assistant porte sa lettre : « XCodex ».
+    sv.quota.length === 3 && premium.title.includes('Codex') && premium.title.includes('limite « premium »')
+      && codexQuota.title.endsWith('Codex') && claudeQuota.title.includes('Claude'),
+    JSON.stringify(sv.quota.map((q) => q.title)));
+  check('la dernière fenêtre de chaque durée ouverte au dernier relevé : un relevé, pas une somme',
+    // La fenêtre de 5 heures de Codex a fini avant son dernier relevé : de l'histoire, pas un chiffre du jour.
+    codexQuota.tiles.length === 1 && codexQuota.tiles[0][0] === 'Semaine' && /^42\s%$/.test(codexQuota.tiles[0][1])
+      && !codexQuota.tiles[0][3],
+    JSON.stringify(codexQuota.tiles));
+  check('une fenêtre qui court dit quand elle se remet à zéro ; une fenêtre finie le dit, atténuée',
+    codexQuota.tiles[0][2].startsWith('remise à zéro le ')
+      && claudeQuota.tiles[0][2].startsWith('remise à zéro depuis, le ') && claudeQuota.tiles[0][3] === true,
+    JSON.stringify([codexQuota.tiles, claudeQuota.tiles]));
+  check('la date du relevé, l’offre, et les crédits du dernier relevé',
+    codexQuota.notes[0].startsWith('Relevé le ') && codexQuota.notes[0].includes('offre « plus »')
+      && codexQuota.notes[0].includes('123,27 crédits restants'),
+    codexQuota.notes[0]);
+  check('combien de fois une limite a été atteinte',
+    codexQuota.notes.some((n) => n.startsWith('Limite de la semaine atteinte une fois, la dernière le '))
+      && claudeQuota.notes.some((n) => n.startsWith('Limite de 5 heures atteinte 3 fois, la dernière le ')),
+    JSON.stringify([codexQuota.notes, claudeQuota.notes]));
+  check('Claude ne dit que « atteinte » : pas de pourcentage inventé, pas d’historique',
+    claudeQuota.tiles.length === 1 && claudeQuota.tiles[0][1] === 'Atteinte' && claudeQuota.columns === 0,
+    JSON.stringify(claudeQuota));
+  check('chaque semaine relevée en colonne, jusqu’à 100 %, seul le maximum porte son nombre, et son tableau',
+    codexQuota.caption === 'Les semaines relevées, chacune à son plus haut' && codexQuota.columns === 6 && codexQuota.direct.length === 1 && /^100\s%$/.test(codexQuota.direct[0])
+      && codexQuota.ticks.some((x) => /^100\s%$/.test(x)) && codexQuota.tableRows === 6,
+    JSON.stringify({ c: codexQuota.columns, d: codexQuota.direct, t: codexQuota.ticks, r: codexQuota.tableRows }));
+  check('et dit ce qu’est un pourcentage, et que rien n’a été demandé à un serveur',
+    sv.quotaNote.startsWith('Un pourcentage est un relevé, pas un compte') && sv.quotaNote.includes('aucun serveur'),
+    sv.quotaNote);
   check('la vue ne déborde pas de côté', sv.overflow.scroll <= sv.overflow.client, JSON.stringify(sv.overflow));
   check('la période de la barre de recherche s’applique aussi aux statistiques',
     JSON.stringify(sv.calls) === '[null,"30d"]', JSON.stringify(sv.calls));

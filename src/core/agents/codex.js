@@ -138,12 +138,19 @@ const adapter = {
         const repeat = total !== null && sameCounts(item.total, total);
         total = item.total;
         last = makeCursor(record.endOffset, total, model);
+        // A repeated count is not counted again; its limits are still read.
+        const reading = item.quota ? { quota: item.quota } : {};
         yield repeat
           ? {
-              item: { kind: 'ignored', reason: 'known-noise', detail: 'repeated token_count' },
+              item: {
+                kind: 'ignored',
+                reason: 'known-noise',
+                detail: 'repeated token_count',
+                ...reading,
+              },
               cursor: last,
             }
-          : { item: { kind: 'usage', usage: usageOfCodex(item.last) }, cursor: last };
+          : { item: { kind: 'usage', usage: usageOfCodex(item.last), ...reading }, cursor: last };
         continue;
       }
 
@@ -356,7 +363,9 @@ function sessionIdFromName(file) {
 
 /** The oldest files carry no per-message timestamp; the name is date-stamped. */
 function timestampFromName(file) {
-  const found = /rollout-(\d{4})-?(\d{2})-?(\d{2})T?(\d{2})?-?(\d{2})?-?(\d{2})?/.exec(path.basename(file));
+  const found = /rollout-(\d{4})-?(\d{2})-?(\d{2})T?(\d{2})?-?(\d{2})?-?(\d{2})?/.exec(
+    path.basename(file)
+  );
   if (!found) return '';
   const [, y, m, d, hh = '00', mm = '00', ss = '00'] = found;
   const iso = `${y}-${m}-${d}T${hh}:${mm}:${ss}.000Z`;

@@ -288,6 +288,7 @@ test('the statistics refuse a period they do not know', async (t) => {
     const reply = await invoke('stats:get', { period });
     assert.equal(reply.ok, true, String(period));
     assert.equal(typeof reply.data.records, 'number');
+    assert.ok(Array.isArray(reply.data.quotas), 'les limites voyagent avec les chiffres');
   }
 });
 

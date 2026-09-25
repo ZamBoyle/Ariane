@@ -21,6 +21,7 @@
 const registry = require('./agents');
 const { globalSessionId } = require('./agents/contract');
 const { echoOf, flattenPrompt } = require('./archive');
+const { addReadings } = require('./quota');
 
 /** A queued message as the queue wrote it: the person's words, a time, no id. */
 const isQueuedCopy = (m) => m.role === 'user' && !m.uuid && m.timestamp && !m.isNotice && m.text;
@@ -109,6 +110,10 @@ class Indexer {
         const summary = await this.#runAdapter(adapter, report);
         report.agents.push(summary);
         completed.add(adapter.id);
+        // Limits an agent keeps outside any conversation (Claude's cached reading).
+        if (adapter.quotas) {
+          this.index.recordQuotas(adapter.id, null, await adapter.quotas(this.ctx));
+        }
       } catch (error) {
         report.errors.push({ agent: adapter.id, message: error.message });
       }
@@ -302,6 +307,10 @@ class Indexer {
     const said = new Set();
     const queuedWritten = new Map();
 
+    // What the agent's limits stood at, one entry per window: thousands of
+    // readings in a long Codex conversation, a handful of windows, written once.
+    const quotaWindows = [];
+
     const flush = () => {
       if (buffer.length === 0) return;
       for (const m of buffer) {
@@ -316,6 +325,7 @@ class Indexer {
     for await (const chunk of adapter.read(descriptor, { cursor, ctx: this.ctx })) {
       const { item } = chunk;
       if (chunk.cursor !== undefined) lastCursor = chunk.cursor;
+      if (item.quota) addReadings(quotaWindows, item.quota);
 
       switch (item.kind) {
         case 'message':
@@ -410,6 +420,7 @@ class Indexer {
     }
     if (kept.length > 0) count += this.index.addMessages(id, kept);
     settleUsage();
+    this.index.recordQuotas(adapter.id, id, quotaWindows);
     // A cost with no reply anywhere in the session: reported, never guessed.
     if (pendingUsage.length) {
       report.unknownKinds['usage-without-reply'] =
