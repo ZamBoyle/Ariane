@@ -362,7 +362,8 @@ principal comme le zoom de la page. Elle se change dans la fenêtre Réglages ou
 existe est repris une fois, pas défait. Il n'y a plus de menu d'application sous Linux et Windows
 (celui d'Electron, caché et en anglais, portait le zoom — mais ni sur Ctrl+= ni sur le pavé — et
 les outils de développement dans chaque paquet) ; Ctrl+Q, Ctrl+W et F11 sont gardés par le même
-gestionnaire de touches. macOS garde les menus Application, Édition et Fenêtre, sans lesquels
+gestionnaire de touches. L'écran d'accueil lit les mêmes touches, pour quitter et fermer seulement :
+il a le clavier au lancement et pas de menu, et jusqu'au 25 septembre 2026 Ctrl+Q n'y faisait rien. macOS garde les menus Application, Édition et Fenêtre, sans lesquels
 copier-coller n'y marche pas. Les outils de développement n'existent que hors d'un paquet publié.
 
 **La taille s'applique une fois la fenêtre montrée**, dans `ready-to-show` juste après

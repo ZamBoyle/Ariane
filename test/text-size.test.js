@@ -149,3 +149,21 @@ test('main.js n’applique la taille du texte qu’une fois la fenêtre montrée
     /win\.once\('ready-to-show'[\s\S]{0,200}win\.show\(\)[\s\S]{0,1200}applyTextSize\(win\)/
   );
 });
+
+// Signalé depuis Windows le 25 septembre 2026 : au second lancement, Ctrl+Q ne
+// fermait rien. L'écran d'accueil prend le clavier à l'ouverture et n'a pas de
+// menu — Ctrl+Q n'y a jamais rien fait, sous Linux non plus (mesuré).
+test('Ctrl+Q quitte aussi depuis l’écran d’accueil, qui a le clavier au lancement', () => {
+  const source = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '..', 'src', 'main', 'main.js'),
+    'utf8'
+  );
+  const start = source.indexOf('function createSplash()');
+  const splash = source.slice(start, source.indexOf('\n}\n', start));
+  assert.match(
+    splash,
+    /splash\.webContents\.on\('before-input-event'[\s\S]{0,200}keyAction\([\s\S]{0,200}'quit'[\s\S]{0,100}app\.quit\(\)/,
+    'l’écran d’accueil lit les mêmes touches que l’application'
+  );
+  assert.doesNotMatch(splash, /text-/, 'la taille du texte ne s’applique pas à une image');
+});

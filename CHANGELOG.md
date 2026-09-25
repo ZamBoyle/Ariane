@@ -51,19 +51,39 @@ zoom au chargement, l'écran d'accueil et la fenêtre ; sans les nouvelles touch
 seul. Le coupable est le zoom posé sur la page cachée — ni le menu, ni les touches.
 
 **C'est un bogue d'Electron, déjà connu** :
-[#51972](https://github.com/electron/electron/issues/51972), ouvert en juin 2026 — « `ready-to-show`
-never emitted when `webContents.setZoomFactor()` is called on a hidden window before first
-paint », Windows, depuis Electron 40. Corrigé dans la 44.4.4 du 22 septembre ; Ariane est en
-44.4.3. La correction ci-dessous l'évite quelle que soit la version.
+[#51972](https://github.com/electron/electron/issues/51972), ouvert en juin 2026 — «
+`ready-to-show` never emitted when `webContents.setZoomFactor()` is called on a hidden window
+before first paint », Windows, depuis Electron 40. Corrigé dans la 44.4.4 du 22 septembre ;
+**Ariane passe de la 44.4.3 à la 44.4.5**, la dernière, qui y ajoute les correctifs de sécurité de
+Chromium. **Vérifié sous Windows** : avec l'ancien `main.js` et la 44.4.5, la fenêtre apparaît — la
+nouvelle version corrige le bogue à elle seule. La correction ci-dessous reste pourtant : elle
+l'évite quelle que soit la version, `ready-to-show` a déjà régressé ailleurs
+([#24855](https://github.com/electron/electron/issues/24855),
+[#54025](https://github.com/electron/electron/issues/54025)), et une page cachée n'a aucune raison
+d'être zoomée.
 
 **La correction** : la taille s'applique une fois la fenêtre montrée, dans `ready-to-show`, juste
-après `win.show()`. Vérifié sous Linux sur l'application lancée : 120 % enregistrés rouvrent à
-120 %, avec ou sans écran d'accueil, stables sur dix secondes ; Ctrl+= mène à 130, Ctrl − à 120
-puis 110, Ctrl+0 à 100, chaque fois enregistré ; un rechargement (changement de langue) garde la
-taille ; un ancien zoom de Chromium est toujours repris une fois. **Et sous Windows, sur la même machine**,
-avec l'écran d'accueil : la fenêtre apparaît à côté de lui, deux Ctrl + du pavé numérique mènent à
-120 % — la barre latérale passe d'environ 277 à 331 px —, et la relance garde 120 %. Un contrôle
-lit `main.js` et refuse un zoom au `did-finish-load` : il échoue sur le code publié.
+après `win.show()`. Vérifié sous Linux sur l'application lancée : 120 % enregistrés rouvrent à 120
+%, avec ou sans écran d'accueil, stables sur dix secondes ; Ctrl+= mène à 130, Ctrl − à 120 puis
+110, Ctrl+0 à 100, chaque fois enregistré ; un rechargement (changement de langue) garde la taille
+; un ancien zoom de Chromium est toujours repris une fois. **Et sous Windows, sur la même
+machine**, avec l'écran d'accueil : la fenêtre apparaît à côté de lui, deux Ctrl + du pavé
+numérique mènent à 120 % — la barre latérale passe d'environ 277 à 331 px —, et la relance garde
+120 %. Un contrôle lit `main.js` et refuse un zoom au `did-finish-load` : il échoue sur le code
+publié.
+
+### Ctrl+Q quitte aussi depuis l'écran d'accueil
+
+**Signalé depuis Windows, pendant l'essai de la correction ci-dessus** : au second lancement,
+Ctrl+Q ne fermait rien, et il a fallu arrêter les processus de force. L'écran d'accueil prend le
+clavier à l'ouverture, et il n'a ni menu ni gestionnaire de touches : Ctrl+Q n'y a jamais rien fait
+— mesuré sous Linux aussi, ce n'est pas le changement de menu qui l'a causé. Il lit maintenant les
+mêmes touches que l'application, pour quitter et fermer seulement : Ctrl+Q quitte, Ctrl+W le ferme
+— une quatrième sortie. Vérifié sur l'application lancée, en envoyant les touches à l'écran
+d'accueil : Ctrl+W le ferme et l'application reste, Ctrl+Q ne laisse aucun processus. **Et sous
+Windows** : l'écran d'accueil a bien le clavier au lancement, Ctrl+W le ferme en laissant
+l'application ouverte, et Ctrl+Q ne laisse aucun processus six secondes plus tard. Un contrôle lit
+`main.js` et échoue sans le gestionnaire.
 
 ### La taille du texte, les bonnes touches, et « Vérifier maintenant »
 

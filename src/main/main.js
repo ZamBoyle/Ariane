@@ -138,6 +138,20 @@ function createSplash() {
     },
   });
   splash.setMenu(null);
+  // It takes the keyboard when it opens, and has no menu: on Linux and Windows
+  // Ctrl+Q did nothing there, and the app seemed not to answer. Quitting works
+  // here as in the app, and Ctrl+W is one more way out; the text size has no
+  // business in a picture.
+  splash.webContents.on('before-input-event', (event, input) => {
+    const action = keyAction(input, { platform: process.platform, packaged: app.isPackaged });
+    if (action === 'quit') {
+      event.preventDefault();
+      app.quit();
+    } else if (action === 'close') {
+      event.preventDefault();
+      dismissSplash();
+    }
+  });
   splash.loadFile(path.join(__dirname, '..', 'renderer', 'splash.html'));
 
   let shown = false;

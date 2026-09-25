@@ -345,7 +345,8 @@ counts too, since an AZERTY Ctrl+0 arrives as `Digit0`. An absent `textSize` mea
 zoom set before the setting existed is taken up once, not undone. There is no application menu on
 Linux and Windows any more (Electron's default one, hidden and in English, carried the zoom — but
 not on Ctrl+= nor the keypad — and the developer tools in every package); Ctrl+Q, Ctrl+W and F11
-are kept by the same key handler. macOS keeps the App, Edit and Window menus it needs for copy and
+are kept by the same key handler. The splash reads the same keys, for quitting and closing only: it
+has the keyboard at launch and no menu, and until 25 September 2026 Ctrl+Q there did nothing. macOS keeps the App, Edit and Window menus it needs for copy and
 paste. The developer tools exist only outside a published package.
 
 **The size is applied once the window is shown**, in `ready-to-show` right after `win.show()` —
