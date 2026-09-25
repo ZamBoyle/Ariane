@@ -289,6 +289,8 @@ let slowClaudeSession = false;
  */
 const pending = { session: null, message: null };
 let lastRefresh = null;
+/** Whether the next counts fail, as they would against a busy database. */
+let failStatistics = false;
 
 const AGENTS = [
   { id: 'claude', label: 'Claude Code', root: '/fixture/.claude', sessionCount: 1, messageCount: 6, lastAt: '2026-09-17T23:06:00.000Z' },
@@ -614,6 +616,7 @@ contextBridge.exposeInMainWorld('api', {
   },
   statistics: async (period) => {
     statisticsCalls.push(period ?? null);
+    if (failStatistics) throw new Error('la base est occupée');
     return JSON.parse(JSON.stringify(STATISTICS));
   },
   search: async (query, options = {}) => {
@@ -621,6 +624,11 @@ contextBridge.exposeInMainWorld('api', {
     if (!query || !query.trim()) return [];
     // The fixture's hits are all older than a week: the empty case, worded.
     if (options.period === '7d') return [];
+    // Une recherche lente, pour qu'une plus récente la double.
+    if (query.includes('lentement')) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return SEARCH_HITS;
+    }
     // Le briefing d'un sous-agent : écrit par l'assistant parent, jamais par la personne.
     if (query.includes('consigne')) {
       return [{
@@ -750,10 +758,10 @@ contextBridge.exposeInMainWorld('mock', {
     };
   },
   /** A new message in the Claude conversation, found by the next pass. */
-  addMessageToOpen(text = 'message arrivé en direct', id = 99) {
+  addMessageToOpen(text = 'message arrivé en direct', id = 99, parts = []) {
     pending.message = {
       id, seq: id, role: 'assistant', ts: '2026-09-18T10:01:00.000Z',
-      text, thinking: '', parts: [],
+      text, thinking: '', parts,
       isMeta: false, isNotice: false, isSidechain: false, command: null,
     };
   },
@@ -770,6 +778,9 @@ contextBridge.exposeInMainWorld('mock', {
   exportCalls: () => exportCalls.slice(),
   searchCalls: () => searchCalls.slice(),
   statisticsCalls: () => statisticsCalls.slice(),
+  failStatistics: (on) => {
+    failStatistics = on;
+  },
   settingsSaves: () => copyOf(settingsSaves),
   settingsFileOpened: () => settingsFileOpened,
   languageSaves: () => languageSaves.slice(),

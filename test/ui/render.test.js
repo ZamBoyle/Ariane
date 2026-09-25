@@ -342,6 +342,23 @@ const SCRIPT = `(async () => {
     listed: firstFolderRow().querySelectorAll('.session-btn').length,
   };
 
+  // Un bandeau d'appels d'outils qui continue pendant qu'on le lit : il se
+  // repliait à chaque passe, le seul qu'on suit (26 septembre 2026).
+  const call = (id, name) => [{ type: 'tool_use', id: 'tl' + id, name, preview: '{"command":"ls"}' }];
+  window.mock.addMessageToOpen('', 101, call(101, 'Bash'));
+  document.getElementById('refresh').click();
+  await sleep(700);
+  const liveStrip = () => transcript.querySelector('.msg-toolrun[data-message-id="101"] > details');
+  if (liveStrip()) liveStrip().open = true;
+  window.mock.addMessageToOpen('', 102, call(102, 'Read'));
+  document.getElementById('refresh').click();
+  await sleep(700);
+  const stripKept = {
+    exists: Boolean(liveStrip()),
+    open: Boolean(liveStrip() && liveStrip().open),
+    calls: liveStrip() ? liveStrip().querySelectorAll('.tool-run-body > details.fold').length : 0,
+  };
+
   // The reading order: by default the latest message at the top; each
   // conversation can be flipped to its first message, on its own.
   const order = document.getElementById('order');
@@ -763,7 +780,7 @@ const SCRIPT = `(async () => {
   };
   const byId = (id) => transcript.querySelector('[data-message-id="' + id + '"]');
   const strip = [...transcript.querySelectorAll('.msg-toolrun')]
-    .find((a) => (a.querySelector('details') || {}).dataset?.messageIds?.includes('10'));
+    .find((a) => ((a.querySelector('details') || {}).dataset?.messageIds || '').split(' ').includes('10'));
   const costCheck = {
     reply: costOf(byId(2)),
     question: costOf(byId(1)),
@@ -1159,6 +1176,16 @@ const SCRIPT = `(async () => {
     search.dispatchEvent(new Event('input', { bubbles: true }));
     await sleep(400);
 
+    // Une réponse lente arrivée après que la boîte a été vidée : elle ne
+    // rouvre pas la liste pour une recherche qui n'existe plus.
+    search.value = 'lentement';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(250);
+    search.value = '';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(700);
+    highlightCheck.staleShown = !document.getElementById('results').hidden;
+
     // La consigne d'un sous-agent trouvée par la recherche : personne ne la
     // signe « Vous » — l'invariant 1, dans la liste des résultats aussi.
     search.value = 'consigne';
@@ -1191,6 +1218,7 @@ const SCRIPT = `(async () => {
     orderCheck: { byDefault, flipped, otherConversation, backOnFirst, restored, liveOnTop },
     afterAuto,
     afterManual,
+    stripKept,
     messages,
     sessionRows,
     sessionLists,
@@ -1416,9 +1444,22 @@ const STATS_SCRIPT = `(async () => {
   await ready();
   const backFromFooter = Boolean(transcript.querySelector('.stats-view'));
 
+  // Un recompte qui échoue : les chiffres d'avant restent, lisibles — la vue
+  // restait grisée pour de bon (26 septembre 2026).
+  window.mock.failStatistics(true);
+  document.getElementById('period').value = 'all';
+  document.getElementById('period').dispatchEvent(new Event('change', { bubbles: true }));
+  await sleep(400);
+  const afterFailure = {
+    view: Boolean(transcript.querySelector('.stats-view')),
+    dimmed: Boolean(transcript.querySelector('.stats-view.is-loading')),
+  };
+  window.mock.failStatistics(false);
+
   return {
     tiles, notes, hitCount: hits.length, bars, direct, pressed, tipShown, tipAfter, afterToggle,
     agentRows, modelRows, restTitle, overflow, leftForConversation, footerTitle, backFromFooter, quota, quotaNote,
+    afterFailure,
     calls: callsAfterPeriod,
     title: view.querySelector('.stats-title').textContent,
   };
@@ -1698,6 +1739,8 @@ async function run() {
   check('ouvrir une conversation quitte les statistiques ; le pied de la barre les rouvre',
     sv.leftForConversation && sv.backFromFooter && sv.footerTitle === 'Afficher les statistiques',
     JSON.stringify({ left: sv.leftForConversation, back: sv.backFromFooter, title: sv.footerTitle }));
+  check('un recompte qui échoue laisse les chiffres d’avant lisibles, pas grisés',
+    sv.afterFailure && sv.afterFailure.view && !sv.afterFailure.dimmed, JSON.stringify(sv.afterFailure));
 
   const english = await languageWindow('en', ENGLISH_SCRIPT);
   check('the app speaks English when asked, down to its numbers',
@@ -1985,6 +2028,8 @@ async function run() {
   check('a manual refresh no longer leaves open folders on "Chargement…"',
     r.afterManual.folderOpen === 'true' && !r.afterManual.loading && r.afterManual.listed > 0,
     `aria-expanded=${r.afterManual.folderOpen}, chargement=${r.afterManual.loading}, ${r.afterManual.listed} sessions`);
+  check('un bandeau d’outils qui continue pendant qu’on le lit reste déplié',
+    r.stripKept.exists && r.stripKept.open && r.stripKept.calls === 2, JSON.stringify(r.stripKept));
 
   // -- reading order ---------------------------------------------------------
   const o = r.orderCheck;
@@ -2191,6 +2236,8 @@ async function run() {
     hl.afterClearing === 0, `${hl.afterClearing} marque(s) restante(s)`);
   check('un résultat ouvert au clavier surligne les mots cherchés, comme au clic',
     hl.byKeyboard > 0, `${hl.byKeyboard} marque(s)`);
+  check('une réponse de recherche arrivée trop tard ne rouvre pas la liste',
+    hl.staleShown === false, JSON.stringify(hl.staleShown));
   check('la consigne d’un sous-agent trouvée par la recherche n’est signée par personne',
     hl.briefingSpeaker === '', JSON.stringify(hl.briefingSpeaker));
 

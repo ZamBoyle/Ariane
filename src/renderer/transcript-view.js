@@ -29,6 +29,24 @@ const idle = (fn) =>
 const idsOf = (group) =>
   group.type === 'toolRun' ? group.messages.map((m) => m.id) : [group.message.id];
 
+/**
+ * The row that replaces the last one keeps what the reader did to it: its
+ * unfolded strip and folds, and the ring of a search or a jump. A strip that
+ * goes on is exactly the one being followed, and it folded shut at every
+ * pass (26 September 2026). Folds are matched by position: a strip only
+ * grows at its end.
+ */
+function keepUnfolded(before, after) {
+  if (!before || !after) return;
+  const open = [...before.querySelectorAll('details')].map((d) => d.open);
+  [...after.querySelectorAll('details')].forEach((d, i) => {
+    if (open[i]) d.open = true;
+  });
+  for (const mark of ['is-hit', 'is-target']) {
+    if (before.classList.contains(mark)) after.classList.add(mark);
+  }
+}
+
 export class TranscriptView {
   /**
    * @param {HTMLElement} container
@@ -122,6 +140,7 @@ export class TranscriptView {
     if (!lastWasPainted) return; // still to come: the slices will paint the new tail
 
     const tail = groups.slice(keep).map((group) => this.renderGroup(group));
+    keepUnfolded(this.newestFirst ? this.container.firstElementChild : this.container.lastElementChild, tail[0]);
     if (this.newestFirst) {
       // The newest rows are at the top: the old last group is the first child.
       this.container.firstElementChild?.remove();

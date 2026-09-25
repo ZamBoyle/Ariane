@@ -648,7 +648,12 @@ async function openStatistics() {
   try {
     data = await api.statistics(state.period === 'all' ? null : state.period);
   } catch (error) {
-    if (token === state.openToken) toast(error.message, true);
+    if (token !== state.openToken) return;
+    toast(error.message, true);
+    // The figures already shown stay, readable — they stayed dimmed for good.
+    // With none to show yet, the welcome pane rather than "counting…" for ever.
+    if (previous) previous.classList.remove('is-loading');
+    else showWelcome();
     return;
   }
   // Another pane was asked for while this one was counting.
@@ -2496,18 +2501,28 @@ function termsOf(query) {
     .filter((word) => word.length > 1 && !/^(and|or|not)$/i.test(word));
 }
 
+/** Which search is the latest: an older reply that arrives after it is dropped. */
+let searchAsked = 0;
+
 async function runSearch() {
+  const asked = ++searchAsked;
   const query = el.search.value.trim();
   if (!query) {
     clearSearchTerms();
     return hideResults();
   }
 
+  let results;
   try {
-    state.results = await api.search(query, scopeFilters());
+    results = await api.search(query, scopeFilters());
   } catch (error) {
-    return toast(error.message, true);
+    if (asked === searchAsked) toast(error.message, true);
+    return;
   }
+  // Typed on, or emptied, meanwhile: this answer is to a question nobody is
+  // asking any more — it overwrote the newer one, or reopened the list.
+  if (asked !== searchAsked) return;
+  state.results = results;
   state.activeResult = state.results.length ? 0 : -1;
   renderResults();
 }

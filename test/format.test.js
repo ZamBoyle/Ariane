@@ -792,6 +792,37 @@ test.describe('grouping tool machinery', () => {
     assert.equal(groups[1].usage.output, 9, 'it goes on to the reply that follows');
   });
 
+  // Un compte appartient au tour où il a été écrit. Deux fautes trouvées le
+  // 26 septembre 2026 : un premier tour interrompu pendant la réflexion prêtait
+  // son compte à la réponse du tour suivant ; et le compte de la réponse EN
+  // COURS, après le dernier prompt, était posé sur la réponse précédente —
+  // puis, la réponse arrivée, dessiné deux fois (l'ancienne ligne n'est pas
+  // repeinte).
+  test('a count never lands on another turn’s reply', () => {
+    const notice = { ...prose(3, 'user', '[Request interrupted by user]'), isNotice: true };
+    const interrupted = F.groupMessages([
+      prose(1, 'user', 'première question'),
+      shell(2, cost(40)),
+      notice,
+      prose(4, 'user', 'autre chose'),
+      withCost(prose(5, 'assistant', 'la réponse'), cost(1)),
+    ]);
+    assert.equal(interrupted.at(-1).usage.output, 1, 'la réponse ne porte que son compte');
+
+    const live = F.groupMessages([
+      withCost(prose(1, 'assistant', 'une réponse'), cost(10)),
+      prose(2, 'user', 'et ensuite ?'),
+      shell(3, cost(7)),
+    ]);
+    assert.equal(live[0].usage.output, 10, 'le compte de la réponse en cours attend la sienne');
+
+    const trailing = F.groupMessages([
+      withCost(prose(1, 'assistant', 'une réponse'), cost(10)),
+      shell(2, cost(7)),
+    ]);
+    assert.equal(trailing[0].usage.output, 17, 'une ligne cachée du même tour, personne n’ayant reparlé, lui revient');
+  });
+
   test('sumUsage keeps an unmeasured field null, and a measured zero a zero', () => {
     assert.equal(F.sumUsage(null, null), null);
     assert.deepEqual(F.sumUsage({ input: null, output: 0 }, { input: null, output: 3 }), {

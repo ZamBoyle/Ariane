@@ -761,8 +761,12 @@ export function groupMessages(messages) {
   // the next thing the reply shows — its prose, or its strip of tool calls,
   // which adds up every call in it — and never lands on the person's words:
   // a count still carried when they speak again goes back to the reply before.
+  // Unless they had spoken since that reply: the count is then their turn's,
+  // whose reply showed nothing — or has not yet (the one being written). It
+  // lands nowhere rather than on another turn's reply (26 September 2026).
   let carried = null;
   let lastReply = null;
+  let spokeSince = false;
 
   for (const message of Array.isArray(messages) ? messages : []) {
     if (!hasContent(message)) {
@@ -788,12 +792,14 @@ export function groupMessages(messages) {
       group.usage = sumUsage(sumUsage(group.usage, carried), message.usage);
       carried = null;
       lastReply = group;
-    } else if (speakerOf(message) === 'you' && carried && lastReply) {
-      lastReply.usage = sumUsage(lastReply.usage, carried);
+      spokeSince = false;
+    } else if (speakerOf(message) === 'you') {
+      if (carried && lastReply && !spokeSince) lastReply.usage = sumUsage(lastReply.usage, carried);
       carried = null;
+      spokeSince = true;
     }
   }
-  if (carried && lastReply) lastReply.usage = sumUsage(lastReply.usage, carried);
+  if (carried && lastReply && !spokeSince) lastReply.usage = sumUsage(lastReply.usage, carried);
   return out;
 }
 
