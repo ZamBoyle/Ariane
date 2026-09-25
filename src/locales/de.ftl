@@ -511,4 +511,4 @@ stats-quota-history = { $minutes ->
 stats-quota-ending = Fenster endet am { $date }
 stats-quota-col-end = Fensterende
 stats-quota-col-used = Höchster Wert
-stats-quota-note = Ein Prozentwert ist eine Momentaufnahme, keine Summe: Jedes Fenster zeigt seinen höchsten Wert mit dem Datum, an dem er gelesen wurde. Ariane fragt keinen Server – sie liest, was die Assistenten geschrieben haben: Codex bei jeder Antwort, Claude in der letzten Messung, die es gespeichert hat, und bei jeder Anfrage, die seine Limits abgelehnt haben.
+stats-quota-note = Ein Prozentwert ist eine Momentaufnahme, keine Summe: Jedes Fenster zeigt seinen höchsten Wert mit dem Datum, an dem er gelesen wurde. Ariane fragt keinen Server – sie liest, was die Assistenten geschrieben haben: Codex bei jeder Antwort; Claude in der letzten gespeicherten Messung, im Verlauf von Claude Desktop, falls installiert, und bei jeder Anfrage, die seine Limits abgelehnt haben.

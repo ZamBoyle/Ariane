@@ -510,4 +510,4 @@ stats-quota-history = { $minutes ->
 stats-quota-ending = Janela que termina em { $date }
 stats-quota-col-end = Fim da janela
 stats-quota-col-used = Leitura mais alta
-stats-quota-note = Uma porcentagem é uma leitura, não uma contagem: cada janela mostra a mais alta, com a data em que foi lida. O Ariane não consulta nenhum servidor — lê o que os assistentes escreveram: o Codex a cada resposta, o Claude na última leitura que guardou e em cada solicitação que seus limites recusaram.
+stats-quota-note = Uma porcentagem é uma leitura, não uma contagem: cada janela mostra a mais alta, com a data em que foi lida. O Ariane não consulta nenhum servidor — lê o que os assistentes escreveram: o Codex a cada resposta; o Claude na última leitura que guardou, no histórico do Claude Desktop quando instalado e em cada solicitação que seus limites recusaram.

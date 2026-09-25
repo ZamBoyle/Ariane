@@ -152,9 +152,10 @@ journal.
 ### 3. Les quotas — fait le 25 septembre 2026
 
 Un bloc « Limites d'utilisation » dans les Statistiques : pour Codex, la semaine (et les cinq heures
-tant qu'elles existaient), ses crédits et l'historique des semaines ; pour Claude, son dernier
-relevé gardé dans `~/.claude.json` et chaque requête que sa limite a refusée. Un relevé et sa date,
-jamais un total. Voir le journal.
+tant qu'elles existaient), ses crédits et l'historique des semaines ; pour Claude, l'historique de
+ses semaines que tient Claude Desktop quand il est installé, son dernier relevé gardé dans
+`~/.claude.json` et chaque requête que sa limite a refusée. Un relevé et sa date, jamais un total ;
+les fenêtres déjà lues survivent à une reconstruction de l'index. Voir le journal.
 
 Restent deux suites possibles, chacune avec son piège : **ce qu'une conversation a consommé** d'une
 fenêtre (Agent Sessions le montre pour les sessions actives) — un écart entre deux relevés, que

@@ -24,9 +24,13 @@ const {
   codexQuota,
   claudeQuota,
   claudeCachedQuota,
+  claudeDesktopQuota,
+  claudeWeekAnchor,
   addReadings,
   WINDOW_SLACK,
 } = require('../src/core/quota');
+const paths = require('../src/core/paths');
+const Database = require('better-sqlite3');
 const claudeAdapter = require('../src/core/agents/claude');
 const codexAdapter = require('../src/core/agents/codex');
 const { createFixture, records, cdx, resetCounters } = require('./helpers/fixture');
@@ -322,4 +326,195 @@ test('oublier une conversation garde le relevé, qui ne contient aucun mot', (t)
     null,
     'seul le lien vers la conversation part'
   );
+});
+
+// ── l'historique de Claude Desktop ──────────────────────────────────────────
+
+const TUESDAY = Date.parse('2026-09-29T03:59:59.863Z') / 1000; // la fin de semaine du cache
+const ORG = '8cb13986-3579-4c77-a57e-beb7cd3b05eb';
+const sample = (iso, fh, sd, org = ORG) => ({ t: Date.parse(iso), org, u: { fh, sd } });
+
+test('Claude Desktop : chaque relevé va à la semaine que la frontière du cache découpe', () => {
+  const history = {
+    version: 2,
+    samples: [
+      sample('2026-09-21T22:49:00Z', 40, 73),
+      sample('2026-09-22T16:34:00Z', 5, 4), // la semaine a été remise à zéro mardi à 03:59
+      sample('2026-09-25T15:34:00Z', 25, 27),
+      sample('2026-09-25T15:49:00Z', 26, 27),
+    ],
+  };
+  const weeks = claudeDesktopQuota(history, { weekEnd: TUESDAY, org: ORG });
+  assert.deepEqual(
+    weeks.map((w) => [new Date(w.resetsAt * 1000).toISOString().slice(0, 10), w.used, w.minutes]),
+    [
+      ['2026-09-22', 73, WEEK],
+      ['2026-09-29', 27, WEEK],
+    ],
+    'deux semaines, chacune à son plus haut ; la fenêtre de 5 h n’est pas devinée'
+  );
+  assert.equal(weeks[1].at, '2026-09-25T15:34:00.000Z', 'le plus haut, vu la première fois');
+  assert.equal(weeks[1].lastAt, '2026-09-25T15:49:00.000Z');
+});
+
+test('Claude Desktop : sans frontière connue, sans bonne version, rien n’est deviné', () => {
+  const history = { version: 2, samples: [sample('2026-09-25T15:34:00Z', 25, 27)] };
+  assert.deepEqual(claudeDesktopQuota(history, { weekEnd: null }), []);
+  assert.deepEqual(claudeDesktopQuota({ ...history, version: 3 }, { weekEnd: TUESDAY }), []);
+  assert.deepEqual(claudeDesktopQuota(null, { weekEnd: TUESDAY }), []);
+});
+
+test('Claude Desktop : seulement le compte dans lequel Claude Code est connecté', () => {
+  const history = {
+    version: 2,
+    samples: [
+      sample('2026-09-25T15:34:00Z', 25, 27),
+      sample('2026-09-25T15:40:00Z', 90, 88, 'autre-org'),
+    ],
+  };
+  assert.deepEqual(
+    claudeDesktopQuota(history, { weekEnd: TUESDAY, org: ORG }).map((w) => w.used),
+    [27]
+  );
+  assert.deepEqual(
+    claudeWeekAnchor({
+      oauthAccount: { organizationUuid: ORG },
+      cachedUsageUtilization: {
+        utilization: {
+          seven_day: { utilization: 11, resets_at: '2026-09-29T03:59:59.863632+00:00' },
+        },
+      },
+    }),
+    { weekEnd: TUESDAY, org: ORG }
+  );
+});
+
+test('le dossier de Claude Desktop, sur chacun des trois systèmes', () => {
+  const home = '/home/ada';
+  assert.equal(paths.desktopDir({}, home, 'linux'), path.join(home, '.config', 'Claude'));
+  assert.equal(
+    paths.desktopDir({ XDG_CONFIG_HOME: '/x' }, home, 'linux'),
+    path.join('/x', 'Claude')
+  );
+  assert.equal(
+    paths.desktopDir({}, home, 'darwin'),
+    path.join(home, 'Library', 'Application Support', 'Claude')
+  );
+  assert.equal(
+    paths.desktopDir({ APPDATA: '/roaming' }, home, 'win32'),
+    path.join('/roaming', 'Claude')
+  );
+  assert.equal(
+    paths.desktopDir({ CLAUDE_DESKTOP_DIR: '/ailleurs' }, home, 'linux'),
+    path.resolve('/ailleurs')
+  );
+});
+
+test('Claude : les semaines de Claude Desktop, placées par la frontière du cache', async (t) => {
+  const { fx, index } = setup(t);
+  const desktop = path.join(fx.root, 'claude-desktop');
+  fs.mkdirSync(desktop);
+  fs.writeFileSync(
+    path.join(desktop, 'plan-usage-history.json'),
+    JSON.stringify({
+      version: 2,
+      samples: [sample('2026-09-21T22:49:00Z', 40, 73), sample('2026-09-25T15:34:00Z', 25, 27)],
+    })
+  );
+  fs.writeFileSync(
+    path.join(fx.root, '.claude.json'),
+    JSON.stringify({
+      oauthAccount: { organizationUuid: ORG },
+      cachedUsageUtilization: {
+        fetchedAtMs: Date.parse('2026-09-23T08:06:49.945Z'),
+        utilization: {
+          seven_day: { utilization: 11, resets_at: '2026-09-29T03:59:59.863632+00:00' },
+        },
+      },
+    })
+  );
+  const indexer = new Indexer(index, {
+    env: { ...fx.env, CLAUDE_DESKTOP_DIR: desktop },
+    adapters: [claudeAdapter],
+  });
+  await indexer.run();
+  assert.deepEqual(
+    index.quotas().map((w) => [new Date(w.resetsAt * 1000).toISOString().slice(0, 10), w.used]),
+    [
+      ['2026-09-22', 73],
+      ['2026-09-29', 27],
+    ],
+    'la semaine en cours prend le relevé du jour (27), pas celui du cache (11)'
+  );
+});
+
+// ── ce qu'une reconstruction de l'index garde ───────────────────────────────
+
+test('une reconstruction garde les fenêtres que les fichiers n’ont plus, et laisse les fichiers gagner', async (t) => {
+  resetCounters();
+  const fx = createFixture();
+  // Un seul `after` : les bases d'abord, le dossier ensuite (Windows refuse
+  // d'effacer un fichier ouvert).
+  const opened = [];
+  t.after(() => {
+    for (const i of opened) {
+      try {
+        i.close();
+      } catch {
+        /* déjà fermée */
+      }
+    }
+    fx.cleanup();
+  });
+  const open = (file) => {
+    const i = new Index(file);
+    opened.push(i);
+    return i;
+  };
+  const file = path.join(fx.root, 'index.sqlite3');
+  const id = '66666666-6666-4666-8666-666666666666';
+  fx.codex().session(id, [cdx.meta('/home/zam/demo', id), counted('2026-09-13T12:24:00.000Z', 64)]);
+
+  const before = open(file);
+  await new Indexer(before, { env: fx.env, adapters: [codexAdapter] }).run();
+  // Deux fenêtres qu'aucun fichier ne redonnera — un mois de Claude Desktop
+  // est tout ce qu'il garde — et une que le fichier contredit.
+  before.recordQuotas('claude', null, [
+    { ...reading(73, '2026-08-20T22:49:00Z'), limit: 'claude', resetsAt: END - 4 * 7 * 86400 },
+  ]);
+  before.db.prepare('UPDATE quota_windows SET used = 99 WHERE agent_id = ?').run('codex');
+  before.recordQuotas('codex', null, [
+    reading(12, '2026-08-01T00:00:00Z', { resetsAt: END - 8 * 7 * 86400 }),
+  ]);
+  before.close();
+
+  const raw = new Database(file);
+  raw.pragma('user_version = 18');
+  raw.close();
+
+  const after = open(file);
+  assert.equal(after.quotas().length, 0, 'les tables sont reconstruites');
+
+  await new Indexer(after, { env: fx.env, adapters: [codexAdapter] }).run();
+  const codexWindows = after.quotas().filter((w) => w.agentId === 'codex');
+  assert.deepEqual(
+    codexWindows.map((w) => w.used),
+    [12, 64],
+    'la semaine du 1er août revient ; celle que le fichier redonne dit 64, pas le 99 d’avant'
+  );
+  assert.equal(
+    after.quotas().filter((w) => w.agentId === 'claude').length,
+    0,
+    'Claude attend une passe qui lit Claude'
+  );
+
+  await new Indexer(after, { env: fx.env, adapters: [claudeAdapter] }).run();
+  assert.deepEqual(
+    after
+      .quotas()
+      .filter((w) => w.agentId === 'claude')
+      .map((w) => w.used),
+    [73]
+  );
+  assert.equal(after.meta('quotaWindowsCarried'), null, 'plus rien n’attend');
 });

@@ -510,4 +510,4 @@ stats-quota-history = { $minutes ->
 stats-quota-ending = Ventana que termina el { $date }
 stats-quota-col-end = Fin de la ventana
 stats-quota-col-used = Lectura más alta
-stats-quota-note = Un porcentaje es una lectura, no un recuento: cada ventana muestra la más alta, con la fecha en que se leyó. Ariane no consulta ningún servidor; lee lo que escribieron los asistentes: Codex en cada respuesta, Claude en la última lectura que guardó y en cada solicitud que sus límites rechazaron.
+stats-quota-note = Un porcentaje es una lectura, no un recuento: cada ventana muestra la más alta, con la fecha en que se leyó. Ariane no consulta ningún servidor; lee lo que escribieron los asistentes: Codex en cada respuesta; Claude en la última lectura que guardó, en el historial de Claude Desktop si está instalado y en cada solicitud que sus límites rechazaron.

@@ -153,7 +153,9 @@ on a descriptor, `parentId` / `continuesFrom` (a subagent, a fork; § 3.4, § 4)
 
 **Usage limits** ride along rather than being an item of their own: any item may carry `quota`,
 the windows its record read (`src/core/quota.js`), and an adapter may offer `quotas(ctx)` for
-readings kept outside any conversation — Claude's last one, cached in `~/.claude.json`. The indexer
+readings kept outside any conversation — Claude's last one, cached in `~/.claude.json`, and the
+weeks of Claude Desktop's `plan-usage-history.json` when it is installed, placed by the week's end
+that cached reading names (the week is a fixed block; its five-hour windows are not kept). The indexer
 keeps one entry per window in memory and writes a conversation's windows once, never one write per
 reading (Codex writes 7 133).
 
@@ -207,7 +209,7 @@ of a full pass.
 | `messages` | one message | `parts` as JSON; `is_notice` marks what nobody said; `is_copy` what another conversation already holds |
 | `messages_fts` | full-text index | FTS5 as _external content_: only `text` goes in, the rows stay in `messages` |
 | `sources` | the incrementality state | `fingerprint` and `cursor`, both opaque |
-| `quota_windows` | one window of one usage limit — five hours, a week | its HIGHEST reading, first and last seen; found again by its end give or take 10 minutes (§ 10). Rebuilt from the files like the rest |
+| `quota_windows` | one window of one usage limit — five hours, a week | its HIGHEST reading, first and last seen; found again by its end give or take 10 minutes (§ 10). Rebuilt from the files — and carried across that rebuild, since Claude Desktop keeps a month: the first pass puts back only the windows the files no longer give (`restoreCarriedQuotas`), so the files always win |
 
 Three triggers keep the full-text index current on insert, delete and a change of text — except
 while an **empty** index is filled whole (the first pass, the one after a schema change): they are

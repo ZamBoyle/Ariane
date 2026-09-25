@@ -459,4 +459,4 @@ stats-quota-history = { $minutes ->
 stats-quota-ending = { $date }に終わる枠
 stats-quota-col-end = 枠の終わり
 stats-quota-col-used = 最高値
-stats-quota-note = 割合は読み取り値であり、合計ではありません。各枠には最高値とその読み取り日時を表示します。Ariane はどのサーバーにも問い合わせず、アシスタントが書いたものを読むだけです。Codex は返答のたびに、Claude は保存した最後の読み取り値と、上限で拒否されたリクエストのたびに記録します。
+stats-quota-note = 割合は読み取り値であり、合計ではありません。各枠には最高値とその読み取り日時を表示します。Ariane はどのサーバーにも問い合わせず、アシスタントが書いたものを読むだけです。Codex は返答のたびに、Claude は保存した最後の読み取り値、インストールされていれば Claude Desktop の履歴、そして上限で拒否されたリクエストのたびに記録します。

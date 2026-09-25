@@ -256,12 +256,13 @@ class Index {
     // more for a 475 MB journal: not worth it.
     this.db.pragma(`wal_autocheckpoint = ${CHECKPOINT_PAGES}`);
     this.db.pragma('foreign_keys = ON');
-    this.#migrate();
+    const carried = this.#migrate();
     // Recreates the full-text triggers too, should a rebuild have been cut
     // short while they were off (suspendSearchIndex).
     this.db.exec(SCHEMA_SQL);
     this.db.pragma(`user_version = ${SCHEMA_VERSION}`);
     this.#prepare();
+    if (carried.length) this.setMeta(QUOTA_CARRY, JSON.stringify(carried));
     if (this.meta(SEARCH_PENDING) === '1') this.resumeSearchIndex();
   }
 
@@ -273,7 +274,7 @@ class Index {
    */
   #migrate() {
     const current = this.db.pragma('user_version', { simple: true });
-    if (current === SCHEMA_VERSION || current === 0) return;
+    if (current === SCHEMA_VERSION || current === 0) return [];
 
     const tables = this.db
       .prepare(
@@ -281,15 +282,36 @@ class Index {
       )
       .all()
       .map((r) => r.name);
-    if (tables.length === 0) return;
+    if (tables.length === 0) return [];
 
     // Rebuilt from the agents' files — except what they no longer have. That
     // goes to the archive BEFORE a single table is dropped.
     if (this.archive) this.#saveBeforeRebuild(current);
+    // And so do the usage limits a source no longer keeps: Claude Desktop's
+    // history holds a month. They wait for the first pass (restoreCarriedQuotas).
+    const carried = this.#quotasToCarry(tables);
 
     this.db.exec('PRAGMA foreign_keys = OFF');
     for (const name of tables) this.db.exec(`DROP TABLE IF EXISTS "${name}"`);
     this.db.exec('PRAGMA foreign_keys = ON');
+    return carried;
+  }
+
+  /** The windows an older index holds, in quota.js's shape; none if it has no such table. */
+  #quotasToCarry(tables) {
+    if (!tables.includes('quota_windows')) return [];
+    try {
+      return this.db
+        .prepare(
+          `SELECT agent_id AS agent, limit_id AS "limit", minutes, resets_at AS resetsAt, used,
+                  reached, seen_at AS at, last_at AS lastAt, plan, credits, session_id AS session
+           FROM quota_windows`
+        )
+        .all()
+        .map((w) => ({ ...w, reached: Boolean(w.reached), credits: safeParse(w.credits, null) }));
+    } catch {
+      return []; // a layout this code cannot read: rebuilt from the files alone
+    }
   }
 
   /**
@@ -449,6 +471,7 @@ class Index {
             credits = @credits, session_id = @session
         WHERE id = @id`),
       quotaForget: db.prepare('UPDATE quota_windows SET session_id = NULL WHERE session_id = ?'),
+      dropMeta: db.prepare('DELETE FROM meta WHERE key = ?'),
       dropQueuedCopy: db.prepare(`
         DELETE FROM messages WHERE id = (
           SELECT id FROM messages
@@ -791,6 +814,47 @@ class Index {
         }
       }
     })();
+  }
+
+  /**
+   * After a rebuild, once the pass has read these agents' files again: put back
+   * the windows it did NOT read again — Claude Desktop keeps a month, and what
+   * is older exists only here. A window the files still hold was just written
+   * from them and is left alone: what they say wins over what an older build
+   * computed. The other agents' windows wait for a pass that reads theirs.
+   *
+   * @param {string[]} agentIds  The agents whose discovery ran to the end.
+   * @returns {number} Windows put back.
+   */
+  restoreCarriedQuotas(agentIds) {
+    const raw = this.meta(QUOTA_CARRY);
+    if (!raw) return 0;
+    const carried = safeParse(raw, []);
+    const done = new Set(agentIds);
+    let restored = 0;
+    this.db.transaction(() => {
+      for (const w of carried.filter((x) => done.has(x.agent))) {
+        const held = this.s.quotaNear.get(
+          w.agent,
+          w.limit,
+          w.minutes,
+          w.resetsAt - WINDOW_SLACK,
+          w.resetsAt + WINDOW_SLACK,
+          w.resetsAt
+        );
+        if (held) continue;
+        this.s.quotaInsert.run({
+          ...w,
+          reached: w.reached ? 1 : 0,
+          credits: w.credits ? JSON.stringify(w.credits) : null,
+        });
+        restored += 1;
+      }
+      const waiting = carried.filter((x) => !done.has(x.agent));
+      if (waiting.length) this.setMeta(QUOTA_CARRY, JSON.stringify(waiting));
+      else this.s.dropMeta.run(QUOTA_CARRY);
+    })();
+    return restored;
   }
 
   /**
@@ -1334,6 +1398,9 @@ const CHECKPOINT_PAGES = 16384;
 
 /** Set while the full-text index waits to be rebuilt (suspendSearchIndex). */
 const SEARCH_PENDING = 'searchIndexPending';
+
+/** The usage-limit windows a rebuild carries over, until a pass puts them back. */
+const QUOTA_CARRY = 'quotaWindowsCarried';
 
 /** The three full-text triggers, as schema.sql states them — the one description. */
 const SEARCH_TRIGGERS_SQL = SCHEMA_SQL.match(/CREATE TRIGGER IF NOT EXISTS[\s\S]*?END;/g).join(

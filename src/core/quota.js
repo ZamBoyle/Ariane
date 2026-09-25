@@ -156,6 +156,63 @@ function claudeCachedQuota(cache) {
   return windows;
 }
 
+/** Where the cached reading says the current week ends, and whose account it is. */
+function claudeWeekAnchor(state) {
+  const cache = state && state.cachedUsageUtilization;
+  const week = cache && cache.utilization && cache.utilization.seven_day;
+  const end = week ? Date.parse(week.resets_at) / 1000 : NaN;
+  const org = state && state.oauthAccount && state.oauthAccount.organizationUuid;
+  return { weekEnd: Number.isFinite(end) ? end : null, org: typeof org === 'string' ? org : null };
+}
+
+/**
+ * @returns {QuotaWindow[]} Claude's WEEKS, from the history Claude Desktop keeps
+ * (`plan-usage-history.json`, version 2 — any other is refused rather than
+ * guessed): `{t, org, u: {fh, sd}}`, a reading every quarter of an hour while
+ * Desktop runs, a month kept. Measured on 25 September 2026: `fh` and `sd` are
+ * the five-hour and weekly percentages — the cache in ~/.claude.json read 16
+ * and 11 at 08:06, this file 16 and 11 at 08:04.
+ *
+ * The readings name no window end. The week is a fixed block: its four resets
+ * in a month fell on the boundary the cache names (Tuesday 03:59:59 UTC), so a
+ * reading goes to the week that boundary cuts, and without that boundary
+ * nothing is kept. The five-hour windows begin at first use — 56 resets at any
+ * hour — and cannot be told apart: they are not kept either. Two readings fell
+ * inside a week (4 then 0, 7 then 1); the week keeps its highest all the same.
+ */
+function claudeDesktopQuota(history, { weekEnd, org } = {}) {
+  if (!history || history.version !== 2 || !Array.isArray(history.samples)) return [];
+  if (!Number.isFinite(weekEnd)) return [];
+  const samples = history.samples.filter(
+    (s) => s && Number.isFinite(s.t) && s.u && Number.isFinite(Number(s.u.sd))
+  );
+  if (!samples.length) return [];
+  // One account: the one Claude Code is signed into, else the latest reading's.
+  const account = org || samples.reduce((a, b) => (b.t > a.t ? b : a)).org;
+  const WEEK_S = 7 * 86400;
+  const windows = [];
+  for (const s of samples) {
+    if (account && s.org && s.org !== account) continue;
+    const end = weekEnd + Math.ceil((s.t / 1000 - weekEnd) / WEEK_S) * WEEK_S;
+    const used = Number(s.u.sd);
+    const at = new Date(s.t).toISOString();
+    addReadings(windows, [
+      {
+        limit: 'claude',
+        minutes: 10080,
+        resetsAt: Math.round(end),
+        used,
+        reached: used >= 100,
+        at,
+        lastAt: at,
+        plan: null,
+        credits: null,
+      },
+    ]);
+  }
+  return windows;
+}
+
 /** Are these two readings of one and the same window? */
 function sameWindow(a, b) {
   return (
@@ -206,6 +263,8 @@ module.exports = {
   codexQuota,
   claudeQuota,
   claudeCachedQuota,
+  claudeWeekAnchor,
+  claudeDesktopQuota,
   sameWindow,
   keeper,
   addReadings,

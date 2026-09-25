@@ -159,7 +159,10 @@ qu'a coûté une session entière — Copilot ; § 10) et, sur un descripteur, `
 **Les limites d'utilisation** voyagent avec le reste plutôt que comme un élément à part : tout
 élément peut porter `quota`, les fenêtres que son enregistrement a lues (`src/core/quota.js`), et un
 adaptateur peut offrir `quotas(ctx)` pour les relevés gardés hors de toute conversation — le dernier
-de Claude, en cache dans `~/.claude.json`. L'indexeur garde une entrée par fenêtre en mémoire et
+de Claude, en cache dans `~/.claude.json`, et les semaines du `plan-usage-history.json` de Claude
+Desktop quand il est installé, placées par la fin de semaine que nomme ce relevé en cache (la
+semaine est un bloc fixe ; ses fenêtres de cinq heures ne sont pas gardées). L'indexeur garde une
+entrée par fenêtre en mémoire et
 écrit les fenêtres d'une conversation une seule fois, jamais une écriture par relevé (Codex en écrit
 7 133).
 
@@ -215,7 +218,7 @@ fois coûtait une demi-seconde d'une passe complète.
 | `messages` | un message | `parts` en JSON ; `is_notice` marque ce que personne n'a dit ; `is_copy` ce qu'une autre conversation contient déjà |
 | `messages_fts` | index plein texte | FTS5 en _external content_ : seul `text` y entre, les lignes restent dans `messages` |
 | `sources` | l'état d'incrémentalité | `fingerprint` et `cursor`, opaques |
-| `quota_windows` | une fenêtre d'une limite d'utilisation — cinq heures, une semaine | son relevé le PLUS HAUT, vu la première et la dernière fois ; retrouvée par sa fin à dix minutes près (§ 10). Reconstruite depuis les fichiers comme le reste |
+| `quota_windows` | une fenêtre d'une limite d'utilisation — cinq heures, une semaine | son relevé le PLUS HAUT, vu la première et la dernière fois ; retrouvée par sa fin à dix minutes près (§ 10). Reconstruite depuis les fichiers — et emportée à travers cette reconstruction, puisque Claude Desktop ne garde qu'un mois : la première passe ne remet que les fenêtres que les fichiers ne redonnent plus (`restoreCarriedQuotas`), les fichiers gagnent toujours |
 
 Trois déclencheurs tiennent l'index plein texte à jour à l'insertion, la suppression et au
 changement de texte — sauf quand un index **vide** se remplit d'un coup (la première passe, celle

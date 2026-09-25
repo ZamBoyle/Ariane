@@ -27,7 +27,7 @@ const paths = require('../paths');
 const { readRecords } = require('../jsonl');
 const { extractRecord } = require('../extract');
 const { remember, stampOf } = require('../memo');
-const { claudeCachedQuota } = require('../quota');
+const { claudeCachedQuota, claudeWeekAnchor, claudeDesktopQuota } = require('../quota');
 const { USAGE_FIELDS } = require('./contract');
 
 const ID = 'claude';
@@ -41,7 +41,7 @@ const PASTE_PREVIEW_LIMIT = 2000;
 const adapter = {
   id: ID,
   label: 'Claude Code',
-  envKeys: ['CLAUDE_CONFIG_DIR'],
+  envKeys: ['CLAUDE_CONFIG_DIR', 'CLAUDE_DESKTOP_DIR'],
   // A resumed session begins with a copy of the one it resumes, uuids and
   // times unchanged (contract.js).
   globalIds: true,
@@ -70,26 +70,34 @@ const adapter = {
   },
 
   /**
-   * What Claude Code last fetched of its usage limits (quota.js), kept in its
-   * global state file rather than in any conversation. Read again only when
-   * that file changes — and it changes often: one stat per pass.
+   * Claude's usage limits kept outside any conversation (quota.js): the last
+   * reading Claude Code fetched, in its global state file, and — when Claude
+   * Desktop is installed — the weeks of its usage history, placed by the week's
+   * end that reading names. Read again only when either file changes, and both
+   * change often: two stats per pass.
    */
   async quotas(ctx = {}) {
-    const file = paths.globalStateFile(ctx.env, ctx.home);
-    let stat;
-    try {
-      stat = await fsp.stat(file);
-    } catch {
-      return [];
-    }
-    return remember(ctx, `claude:usage:${file}`, stampOf(stat), async () => {
-      try {
-        return claudeCachedQuota(
-          JSON.parse(await fsp.readFile(file, 'utf8')).cachedUsageUtilization
-        );
-      } catch {
-        return [];
-      }
+    const stateFile = paths.globalStateFile(ctx.env, ctx.home);
+    const historyFile = path.join(paths.desktopDir(ctx.env, ctx.home), 'plan-usage-history.json');
+    const [state, history] = await Promise.all(
+      [stateFile, historyFile].map((f) => fsp.stat(f).catch(() => null))
+    );
+    if (!state && !history) return [];
+    const stamp = `${state ? stampOf(state) : '-'}|${history ? stampOf(history) : '-'}`;
+    return remember(ctx, `claude:usage:${stateFile}`, stamp, async () => {
+      const read = async (file) => {
+        try {
+          return JSON.parse(await fsp.readFile(file, 'utf8'));
+        } catch {
+          return null;
+        }
+      };
+      const global = state ? await read(stateFile) : null;
+      const cached = claudeCachedQuota(global && global.cachedUsageUtilization);
+      const weeks = history
+        ? claudeDesktopQuota(await read(historyFile), claudeWeekAnchor(global))
+        : [];
+      return [...cached, ...weeks];
     });
   },
 

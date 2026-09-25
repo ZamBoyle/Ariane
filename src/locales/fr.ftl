@@ -511,4 +511,4 @@ stats-quota-history = { $minutes ->
 stats-quota-ending = Fenêtre finissant le { $date }
 stats-quota-col-end = Fin de la fenêtre
 stats-quota-col-used = Plus haut relevé
-stats-quota-note = Un pourcentage est un relevé, pas un compte : chaque fenêtre montre son plus haut, avec la date où il a été lu. Ariane ne demande rien à aucun serveur — elle lit ce que les assistants ont écrit : Codex à chaque réponse, Claude dans le dernier relevé qu’il a gardé et à chaque requête que ses limites ont refusée.
+stats-quota-note = Un pourcentage est un relevé, pas un compte : chaque fenêtre montre son plus haut, avec la date où il a été lu. Ariane ne demande rien à aucun serveur — elle lit ce que les assistants ont écrit : Codex à chaque réponse ; Claude dans le dernier relevé qu’il a gardé, dans l’historique de Claude Desktop s’il est installé, et à chaque requête que ses limites ont refusée.

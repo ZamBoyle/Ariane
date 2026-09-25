@@ -38,6 +38,34 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### L'historique des limites de Claude, grâce à Claude Desktop
+
+**Trouvé en lisant leur code**, comme demandé (« lire, jamais recopier ») : les documents de
+conception d'Agent Sessions nomment un fichier que **Claude Desktop** tient à jour,
+`plan-usage-history.json`. Il est chez toi, dans `~/.config/Claude/` : un relevé tous les quarts
+d'heure tant que Claude Desktop tourne, 551 relevés sur un mois. Vérifié sur tes fichiers avant d'y
+croire : le 23 septembre à 08:04 il dit 16 et 11, le cache de `~/.claude.json` dit 16 et 11 deux
+minutes plus tard. Claude a donc maintenant sa semaine en cours — 27 %, lue aujourd'hui, au lieu
+du relevé du 23 — et l'historique de ses semaines : 31, 15, 65, 73 %.
+
+**Ce que le fichier ne dit pas, et comment on s'en passe.** Aucune fin de fenêtre. La semaine de
+Claude est un bloc fixe : ses quatre remises à zéro du mois sont tombées pile sur la frontière que
+nomme `~/.claude.json` (le mardi à 03:59 UTC), si bien qu'un relevé va à la semaine que cette
+frontière découpe — et sans elle, rien n'est gardé. Les fenêtres de cinq heures commencent au
+premier message (56 remises à zéro, à toute heure) : impossibles à séparer, elles ne sont pas
+lues. Seulement le compte connecté ; un fichier d'une autre version est refusé plutôt que deviné.
+
+**Il faut Claude Desktop, et il faut qu'il tourne.** Sans lui, rien ne change : le dernier relevé
+de `~/.claude.json` et les requêtes refusées restent. Et comme il ne garde qu'un mois, **une
+reconstruction de l'index ne perd plus les fenêtres déjà lues** : elles attendent la première
+passe, qui ne remet que celles que les fichiers ne redonnent plus — ce que disent les fichiers
+gagne toujours sur ce qu'une version plus ancienne a calculé. La logique de l'archive, appliquée
+aux limites.
+
+**Vérifié** : les cinq semaines sont exactement les niveaux atteints juste avant chaque remise à
+zéro ; huit mutations, huit échecs ; une passe complète et une passe à vide, même temps qu'avec la
+0.6.0.
+
 ### Les limites d'utilisation : lues, datées, jamais additionnées
 
 **Ce que ça change.** La vue Statistiques a un bloc « Limites d'utilisation ». Pour chaque

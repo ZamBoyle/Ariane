@@ -65,8 +65,9 @@ deux par cinq d'entre eux :
   assistant, par modèle et par dossier. Elles disent combien de conversations ont vraiment été
   mesurées, et n'estiment rien : aucun montant en dollars tiré d'une grille de prix. Et les
   **limites d'utilisation** telles que les assistants les ont écrites — la semaine de Codex et ses
-  crédits, le dernier relevé de Claude et chaque requête que sa limite a refusée —, lues dans leurs
-  fichiers, jamais demandées à un serveur.
+  crédits ; la semaine en cours de Claude et son historique — si Claude Desktop est installé —, son
+  dernier relevé et chaque requête que sa limite a refusée —, lues dans leurs fichiers, jamais
+  demandées à un serveur.
 - **Dans votre langue** : français, anglais, néerlandais, allemand, espagnol, italien, portugais
   (Brésil), japonais et chinois — celle du système par défaut, une autre au choix dans les
   Réglages. Ajouter une langue, c'est ajouter un fichier dans `src/locales/`.

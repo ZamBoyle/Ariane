@@ -459,4 +459,4 @@ stats-quota-history = { $minutes ->
 stats-quota-ending = 窗口结束于 { $date }
 stats-quota-col-end = 窗口结束
 stats-quota-col-used = 最高读数
-stats-quota-note = 百分比是读数，不是累计：每个窗口显示其最高读数及读取日期。Ariane 不询问任何服务器，只读取助手写下的内容：Codex 在每次回复时记录，Claude 则记录在其保存的最后一次读数中，以及每次被限额拒绝的请求里。
+stats-quota-note = 百分比是读数，不是累计：每个窗口显示其最高读数及读取日期。Ariane 不询问任何服务器，只读取助手写下的内容：Codex 在每次回复时记录；Claude 则记录在其保存的最后一次读数中、已安装时的 Claude Desktop 历史里，以及每次被限额拒绝的请求里。

@@ -510,4 +510,4 @@ stats-quota-history = { $minutes ->
 stats-quota-ending = Venster dat eindigt op { $date }
 stats-quota-col-end = Einde van het venster
 stats-quota-col-used = Hoogste meting
-stats-quota-note = Een percentage is een meting, geen telling: elk venster toont zijn hoogste, met de datum waarop die werd gelezen. Ariane vraagt niets aan een server — ze leest wat de assistenten schreven: Codex bij elk antwoord, Claude in de laatste meting die het bewaarde en bij elk verzoek dat zijn limieten weigerden.
+stats-quota-note = Een percentage is een meting, geen telling: elk venster toont zijn hoogste, met de datum waarop die werd gelezen. Ariane vraagt niets aan een server — ze leest wat de assistenten schreven: Codex bij elk antwoord; Claude in de laatste meting die het bewaarde, in de geschiedenis van Claude Desktop als dat geïnstalleerd is, en bij elk verzoek dat zijn limieten weigerden.

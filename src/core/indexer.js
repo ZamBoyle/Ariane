@@ -84,7 +84,9 @@ class Indexer {
     const filling = since === 0;
     if (filling) this.index.suspendSearchIndex();
     try {
-      await this.#pass(report, adapters, since);
+      const completed = await this.#pass(report, adapters, since);
+      // After a rebuild: the usage limits the files no longer hold.
+      this.index.restoreCarriedQuotas([...completed]);
     } finally {
       if (filling) this.index.resumeSearchIndex();
     }
@@ -130,6 +132,7 @@ class Indexer {
     if (report.indexed || report.saved || report.restored) {
       report.copies = this.index.markCopies({ since });
     }
+    return completed;
   }
 
   /** Copy a session to the archive and mark it as living there. */

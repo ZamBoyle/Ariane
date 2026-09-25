@@ -540,4 +540,4 @@ stats-quota-history = { $minutes ->
 stats-quota-ending = Window ending { $date }
 stats-quota-col-end = Window ending
 stats-quota-col-used = Highest reading
-stats-quota-note = A percentage is a reading, not a count: each window shows its highest, with the date it was read. Ariane asks no server — it reads what the assistants wrote: Codex with every reply, Claude in the last reading it kept and on each request its limits refused.
+stats-quota-note = A percentage is a reading, not a count: each window shows its highest, with the date it was read. Ariane asks no server — it reads what the assistants wrote: Codex with every reply; Claude in the last reading it kept, in Claude Desktop’s history when that is installed, and on each request its limits refused.

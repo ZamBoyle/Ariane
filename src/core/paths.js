@@ -31,6 +31,23 @@ function globalStateFile(env = process.env, home = os.homedir()) {
   return path.join(home, '.claude.json');
 }
 
+/**
+ * Claude Desktop's data directory — another program than Claude Code, installed
+ * or not. While it runs, its `plan-usage-history.json` keeps a reading of the
+ * usage limits every quarter of an hour, for a month (quota.js). Read, never
+ * written. CLAUDE_DESKTOP_DIR is Ariane's own override, not Anthropic's: the
+ * tests point it away from the real one.
+ */
+function desktopDir(env = process.env, home = os.homedir(), platform = process.platform) {
+  const override = env.CLAUDE_DESKTOP_DIR;
+  if (override && override.trim()) return path.resolve(override.trim());
+  if (platform === 'darwin') return path.join(home, 'Library', 'Application Support', 'Claude');
+  if (platform === 'win32') {
+    return path.join(env.APPDATA || path.join(home, 'AppData', 'Roaming'), 'Claude');
+  }
+  return path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'Claude');
+}
+
 /** Directory holding one sub-directory per project, each with session transcripts. */
 function projectsDir(env, home) {
   return path.join(configDir(env, home), 'projects');
@@ -94,6 +111,7 @@ module.exports = {
   projectsDir,
   historyFile,
   globalStateFile,
+  desktopDir,
   sessionsIndexFile,
   decodeHint,
   isAvailable,
