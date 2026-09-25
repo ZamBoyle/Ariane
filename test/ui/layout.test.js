@@ -385,8 +385,8 @@ async function run() {
     !narrow.overflow && narrow.labels > 0 && narrow.labelsShown === 0 && narrow.title > 100,
     `débordement=${narrow.overflow}, libellés affichés ${narrow.labelsShown}/${narrow.labels}, titre ${narrow.title} px`);
   for (const [lang, header] of Object.entries(others)) {
-    check(`a header in ${lang} keeps its actions to icons, and gives the room to the title`,
-      !header.wide.overflow && header.wide.labelsShown === 0 && header.wide.title > 500
+    check(`a header in ${lang} holds its labels, and steps aside when narrow`,
+      !header.wide.overflow && header.wide.labelsShown === header.wide.labels && header.wide.title > 200
         && !header.tight.overflow && header.tight.labelsShown === 0 && header.tight.title > 100,
       `large: débordement=${header.wide.overflow} libellés=${header.wide.labelsShown}/${header.wide.labels} titre=${header.wide.title}px`
         + ` · étroit: débordement=${header.tight.overflow} libellés=${header.tight.labelsShown} titre=${header.tight.title}px`);
@@ -397,11 +397,11 @@ async function run() {
   check('the conversation id at the top stays whole, narrow header or wide',
     narrow.idWhole && wide.idWhole && narrow.idAcross && wide.idAcross,
     JSON.stringify({ narrow: [narrow.idWhole, narrow.idAcross], wide: [wide.idWhole, wide.idAcross] }));
-  // Choice C, 25 September 2026: the labels made the facts under the title
-  // wrap to three lines; icons alone, named on hover, leave them two.
-  check('a wide header keeps its actions to icons and gives the room to the title',
-    !wide.overflow && wide.labelsShown === 0 && wide.title > 500,
-    `libellés affichés ${wide.labelsShown}/${wide.labels}, titre ${wide.title}px, en-tête ${wide.head}px`);
+  // Choice A, 25 September 2026: the labels stay, the facts under the title
+  // take three lines — C, icons alone, put too much on one.
+  check('a wide header shows each label beside its icon',
+    !wide.overflow && wide.labelsShown === wide.labels,
+    `libellés affichés ${wide.labelsShown}/${wide.labels}, fenêtre ${wide.window}px, en-tête ${wide.head}px`);
 
   // -- the search bar, with no conversation open ---------------------------
   // `grid-template-rows: auto 1fr auto` assumed three items. With the header

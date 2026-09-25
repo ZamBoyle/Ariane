@@ -1406,17 +1406,18 @@ mark {
 /* Six actions and their labels need ~635 px, and the title deserves room of its
    own: below that, the labels step aside and the icons speak alone. Each
    button keeps its name in aria-label (see icons.js), and its tooltip. */
-/* Les actions de l'en-tête en icônes seules, leur nom au survol : la place
-   va aux faits de la conversation. Seule la question d'« Oublier » se lit en
-   entier — le second clic efface pour de bon. */
-.convo-actions .ghost-btn .label {
-  display: none;
+@container convo (max-width: 920px) {
+  .convo-actions .ghost-btn .label {
+    display: none;
+  }
+
+  .convo-actions .ghost-btn {
+    padding: 5px 7px;
+  }
 }
 
-.convo-actions .ghost-btn {
-  padding: 5px 7px;
-}
-
+/* Même en icônes seules, la question d'« Oublier » se lit en entier : le
+   second clic efface pour de bon. */
 .convo-actions .ghost-btn.danger .label {
   display: inline;
 }

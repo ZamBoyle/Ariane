@@ -1068,10 +1068,10 @@ function tokenLine(usage) {
 
 /**
  * What the header says about a conversation, grouped by the question each fact
- * answers — who, where, when, how long — rather than eight facts in one string
- * of dots, where the eye had to read them all to find one (asked 25 September
- * 2026). A group wraps whole to the next line; none is ever cut. What it cost
- * has a line of its own.
+ * answers, one line per pair of questions — who and where, then when and how
+ * many, then what it cost — rather than eight facts in one string of dots,
+ * where the eye had to read them all to find one (asked 25 September 2026;
+ * choice A, after C put too much on one line). A group wraps whole.
  */
 function headerFacts(session, theme) {
   const group = (className, iconName, ...content) => {
@@ -1109,15 +1109,17 @@ function headerFacts(session, theme) {
     where.append(branchIcon, branch);
   }
 
-  const facts = node('span', 'meta-row');
-  facts.append(who, ' ', where);
-  if (session.lastAt) facts.append(' ', group('meta-when', 'clock', l10n.dateTime(session.lastAt)));
-  const count = t('convo-message-count', { n: session.messageCount });
-  facts.append(' ', group('meta-size', 'bubble', count));
-  if (session.source === 'history') facts.append(' ', text('meta-badge', t('convo-purged')));
-  if (session.source === 'archive') facts.append(' ', text('meta-badge', t('convo-saved')));
+  const context = node('span', 'meta-row');
+  context.append(who, ' ', where);
 
-  const rows = [facts];
+  const measure = node('span', 'meta-row');
+  if (session.lastAt) measure.append(group('meta-when', 'clock', l10n.dateTime(session.lastAt)), ' ');
+  const count = t('convo-message-count', { n: session.messageCount });
+  measure.append(group('meta-size', 'bubble', count));
+  if (session.source === 'history') measure.append(' ', text('meta-badge', t('convo-purged')));
+  if (session.source === 'archive') measure.append(' ', text('meta-badge', t('convo-saved')));
+
+  const rows = [context, measure];
   const cost = headerCost(session);
   if (cost) {
     const costRow = node('span', 'meta-row meta-cost-row');

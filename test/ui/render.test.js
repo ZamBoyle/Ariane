@@ -120,6 +120,8 @@ const SCRIPT = `(async () => {
     branchTitle: (document.querySelector('#convo-meta .meta-branch') || {}).title || null,
     groups: [...document.querySelectorAll('#convo-meta .meta-group')].map((g) => g.className.replace('meta-group ', '')),
     rows: document.querySelectorAll('#convo-meta .meta-row').length,
+    byRow: [...document.querySelectorAll('#convo-meta .meta-row')]
+      .map((row) => [...row.querySelectorAll('.meta-group')].map((g) => g.className.replace('meta-group ', ''))),
     costRow: (document.querySelector('#convo-meta .meta-cost-row') || {}).textContent || null,
     // Icons alone since choice C: each shown action still has a name, spoken and on hover.
     unnamed: [...document.querySelectorAll('.convo-actions button')].filter((b) => b.checkVisibility())
@@ -1683,8 +1685,9 @@ async function run() {
   check('the conversation header names the session', r.title === 'Session de test', r.title);
   check('the header names the folder, its whole path on hover',
     r.claudeChrome.folder === 'projet' && r.claudeChrome.folderTitle === '/home/zam/projet', JSON.stringify(r.claudeChrome));
-  check('l’en-tête range ses faits par question — qui, où, quand, combien — et le coût à part',
-    JSON.stringify(r.claudeChrome.groups) === '["meta-who","meta-where","meta-when","meta-size"]' && r.claudeChrome.rows === 2,
+  check('l’en-tête range ses faits par question, deux par ligne — qui et où, quand et combien — et le coût à part',
+    JSON.stringify(r.claudeChrome.groups) === '["meta-who","meta-where","meta-when","meta-size"]' && r.claudeChrome.rows === 3
+      && JSON.stringify(r.claudeChrome.byRow) === '[["meta-who","meta-where"],["meta-when","meta-size"],[]]',
     JSON.stringify(r.claudeChrome));
   check('chaque action de l’en-tête, en icône seule, a un nom : dit à un lecteur d’écran, et au survol',
     Array.isArray(r.claudeChrome.unnamed) && r.claudeChrome.unnamed.length === 0, JSON.stringify(r.claudeChrome.unnamed));

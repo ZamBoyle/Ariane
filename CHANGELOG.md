@@ -49,26 +49,27 @@ trouver un fait.
 
 **Choisi sur pièces.** Deux maquettes, faites dans l'application réelle sur la conversation de la
 capture et montrées en images : A garde les libellés des boutons, et les faits passent sur trois
-lignes ; C met les boutons en icônes, et les faits tiennent en deux. **C** a été retenue.
+lignes ; C met les boutons en icônes, et les faits tiennent en deux. C a été essayée pour de vrai,
+puis écartée — « trop d'infos sur une ligne » — : c'est **A**.
 
 **Ce qui se voit maintenant.** Sous le titre, les faits sont groupés par la question qu'ils
 règlent : **qui** (la marque de l'assistant, comme dans la barre latérale, son nom, les modèles),
 **où** (le dossier par son nom, le chemin entier au survol, la branche en étiquette), **quand**,
-**combien** de messages — chaque groupe annoncé par une icône. Sur une ligne à lui, **ce qu'a coûté
+**combien** de messages — chaque groupe annoncé par une icône, deux questions par ligne : qui et
+où, puis quand et combien. Sur une ligne à elle, **ce qu'a coûté
 la conversation**, ses chiffres nommés : « ↑ 756K envoyés · ↓ 477K reçus · 94,8M relus depuis le
 cache ». Un groupe passe entier à la ligne quand la place manque ; seul sur la sienne et encore trop
 long — un nom de dossier interminable —, son texte finit par « … » au lieu de déborder, le chemin
 entier au survol. La CI l'a appris : sous macOS et Windows, dont les polices sont plus larges, le
-premier jet débordait ; le test reproduit désormais le cas sous Linux aussi. Les actions de
-l'en-tête sont des icônes, nommées au survol et pour les lecteurs d'écran ; « Oublier » montre sa
-question en toutes lettres pendant qu'il attend le second clic — ce qu'il ne faisait pas quand la
-fenêtre était étroite.
+premier jet débordait ; le test reproduit désormais le cas sous Linux aussi. Les boutons gardent
+leurs libellés ; « Oublier » montre sa question en toutes lettres pendant qu'il attend le second
+clic, même quand la fenêtre étroite les réduit à des icônes — ce qu'il ne faisait pas.
 
-**Vérifié** : la suite de rendu contrôle les groupes, le chemin au survol, la branche nommée, le coût
-sur sa ligne, et que chaque action affichée a un nom — elle échoue si on retire l'infobulle
-d'« Ouvrir le dossier », ajoutée pour l'occasion dans les neuf langues. La suite de mise en page
-vérifie qu'un dossier au nom interminable fait passer des groupes à la ligne sans en couper aucun,
-et que le titre dispose maintenant de 766 px au lieu de 200 à 340.
+**Vérifié** : la suite de rendu contrôle les groupes et leur répartition par ligne, le chemin au
+survol, la branche nommée, le coût sur sa ligne, et que chaque action affichée a un nom — elle
+échoue si on retire l'infobulle d'« Ouvrir le dossier », ajoutée pour l'occasion dans les neuf
+langues, utile quand la fenêtre étroite ne montre que les icônes. La suite de mise en page vérifie
+qu'un dossier au nom interminable fait passer des groupes à la ligne sans que rien ne déborde.
 
 ### Des textes qu'on lit : le contraste, mesuré
 

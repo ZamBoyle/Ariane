@@ -461,14 +461,15 @@ column the action buttons cut it. As its assistant knows it — `bareId`, the ru
 resume uses, applied in `session:get` — selectable, its meaning on hover.
 
 **Under the title, the facts are grouped by the question they answer** (`headerFacts` in
-`app.js`, chosen on screenshots on 25 September 2026): who (the assistant's mark, its name, the
-models), where (the folder by its name, the whole path on hover, the git branch as a tag), when,
-how many messages — each group led by an icon, never a string of dots — and on a line of its own
-what the conversation cost, its figures named (`headerCost`, subagents apart; `session:get` adds
-`Index.sessionTokens`, the sidebar's definition). A group wraps whole; none is cut. For that room
-the header's actions are icons alone, each named on hover and for screen readers; only « Oublier »
+`app.js`, chosen on screenshots on 25 September 2026 — option A, after C, icons alone, put too
+much on one line): who and where on a line (the assistant's mark, its name, the models; the folder
+by its name, the whole path on hover, the git branch as a tag), when and how many messages on the
+next — each group led by an icon, never a string of dots — and on a line of its own what the
+conversation cost, its figures named (`headerCost`, subagents apart; `session:get` adds
+`Index.sessionTokens`, the sidebar's definition). A group wraps whole, and one still too wide on a
+line of its own ends in "…". The actions keep their labels, icons alone when narrow; « Oublier »
 shows its question while it waits for the second click. The layout suite measures the wrapping,
-the render suite that every shown action has a name.
+the render suite the rows and that every shown action has a name.
 
 **Nothing counts the person's own message.** The files count per call to the model, never per
 message: measured on 627 prompts, the `↑` of the call that follows one does not follow its length

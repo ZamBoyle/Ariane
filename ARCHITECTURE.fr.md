@@ -488,15 +488,16 @@ la colonne du titre, les boutons le coupaient. Tel que son assistant le connaît
 de la reprise en terminal, appliquée dans `session:get` —, sélectionnable, son sens au survol.
 
 **Sous le titre, les faits sont groupés par la question qu'ils règlent** (`headerFacts` dans
-`app.js`, choisi sur captures le 25 septembre 2026) : qui (la marque de l'assistant, son nom, les
-modèles), où (le dossier par son nom, le chemin entier au survol, la branche git en étiquette),
-quand, combien de messages — chaque groupe annoncé par une icône, jamais une chaîne de points —, et
-sur une ligne à lui ce qu'a coûté la conversation, ses chiffres nommés (`headerCost`, les
-sous-agents à part ; `session:get` ajoute `Index.sessionTokens`, la définition de la barre
-latérale). Un groupe passe entier à la ligne ; aucun n'est coupé. Pour cette place, les actions de
-l'en-tête sont des icônes seules, nommées au survol et pour les lecteurs d'écran ; seul « Oublier »
-montre sa question pendant qu'il attend le second clic. La suite de mise en page mesure le passage
-à la ligne, celle de rendu que chaque action affichée a un nom.
+`app.js`, choisi sur captures le 25 septembre 2026 — l'option A, après que C, en icônes seules, eut
+mis trop de choses sur une ligne) : qui et où sur une ligne (la marque de l'assistant, son nom, les
+modèles ; le dossier par son nom, le chemin entier au survol, la branche git en étiquette), quand
+et combien de messages sur la suivante — chaque groupe annoncé par une icône, jamais une chaîne de
+points —, et sur une ligne à elle ce qu'a coûté la conversation, ses chiffres nommés
+(`headerCost`, les sous-agents à part ; `session:get` ajoute `Index.sessionTokens`, la définition
+de la barre latérale). Un groupe passe entier à la ligne, et celui qui reste trop large seul sur la
+sienne finit par « … ». Les actions gardent leurs libellés, icônes seules quand c'est étroit ;
+« Oublier » montre sa question pendant qu'il attend le second clic. La suite de mise en page mesure
+le passage à la ligne, celle de rendu les lignes et que chaque action affichée a un nom.
 
 **Rien ne compte le message de la personne seul.** Les fichiers comptent par appel au modèle,
 jamais par message : mesuré sur 627 prompts, le `↑` de l'appel qui suit l'un d'eux ne suit pas sa
