@@ -497,10 +497,13 @@ class Index {
       // earlier transcript — never through a copy, or a resumed session that
       // copied it would pass for the transcript it came from and turn the
       // chain round —, a fork naming its origin, and a resume named by it.
+      // `m.uuid <> ''` lets SQLite use the partial uuid index: without it, each
+      // call read the whole message table — 46 ms for every conversation opened.
       parentOf: db.prepare(`
         SELECT id FROM (
           SELECT m.session_id AS id FROM sessions s
-          JOIN messages m ON m.uuid = s.continues_uuid AND m.is_copy = 0
+          JOIN messages m INDEXED BY messages_by_uuid
+            ON m.uuid = s.continues_uuid AND m.uuid <> '' AND m.is_copy = 0
           WHERE s.id = @id AND m.session_id <> s.id
           UNION ALL
           SELECT p.id FROM sessions me JOIN sessions p ON p.id = me.continues_from
@@ -554,13 +557,19 @@ class Index {
       `),
       lastMessageId: db.prepare('SELECT COALESCE(MAX(id), 0) AS id FROM messages'),
       // Where a conversation's copies come from: the one holding most of them.
+      // By uuid, through its index — which is partial, so `o.uuid <> ''` must be
+      // said for SQLite to use it. Without it, the planner walked every session
+      // of the agent and all their messages, once per copy: 31 s to open a
+      // conversation that began with 922 copied messages (25 September 2026),
+      // 5 ms with it. The same trap as markCopies (IS_COPY_NOW).
       copiedFrom: db.prepare(`
         SELECT o.session_id AS id, COUNT(*) AS n
         FROM messages m
         JOIN sessions s ON s.id = m.session_id
-        JOIN messages o ON o.uuid = m.uuid AND o.session_id <> m.session_id AND o.is_copy = 0
+        JOIN messages o INDEXED BY messages_by_uuid
+          ON o.uuid = m.uuid AND o.uuid <> '' AND o.session_id <> m.session_id AND o.is_copy = 0
         JOIN sessions so ON so.id = o.session_id AND so.agent_id = s.agent_id
-        WHERE m.session_id = ? AND m.is_copy = 1
+        WHERE m.session_id = ? AND m.is_copy = 1 AND m.uuid <> ''
         GROUP BY o.session_id ORDER BY n DESC, o.session_id LIMIT 1
       `),
       // The subagents a conversation launched, in the order they started.
@@ -1393,17 +1402,17 @@ class Index {
     return this.s.lastMessageId.get().id;
   }
 
+  /** The subagents a conversation launched, oldest first; [] for most. */
+  subagents(sessionId) {
+    return this.s.subagents.all(sessionId, sessionId);
+  }
+
   /**
    * How many of a conversation's messages are copies, and the conversation
    * holding most of them — so the reader can be sent there.
    *
    * @returns {{count: number, from: object|null}|null} null without copies.
    */
-  /** The subagents a conversation launched, oldest first; [] for most. */
-  subagents(sessionId) {
-    return this.s.subagents.all(sessionId, sessionId);
-  }
-
   copiedFrom(sessionId) {
     const { n } = this.s.countCopies.get(sessionId);
     if (!n) return null;

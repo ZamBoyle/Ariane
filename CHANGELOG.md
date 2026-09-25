@@ -38,6 +38,27 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### Une conversation qui mettait 31 secondes à s'ouvrir
+
+**Signalé** : « une conversation très difficile à ouvrir ». Mesuré étape par étape sur les plus
+grosses : pour « Historique des conversations et dossiers », tout le temps était dans une seule
+requête — celle qui cherche d'où une conversation reprise a recopié ses premiers messages, pour le
+bandeau « a commencé par recopier… ». **31 360 ms**, pour 922 messages recopiés.
+
+**Le piège, déjà payé une fois.** L'index des `uuid` est partiel (`WHERE uuid <> ''`) : SQLite ne
+s'en sert que si la requête redit cette condition. Celle-ci ne la redisait pas, et le moteur
+parcourait chaque conversation de l'assistant et tous ses messages, une fois par copie. C'était
+exactement l'erreur corrigée dans `markCopies` en 0.5.0 (272 s → 72 ms), restée dans sa voisine.
+Corrigée : **5 ms**. En cherchant la même faute ailleurs, une troisième : la chaîne des parties
+d'une conversation lisait toute la table des messages à chaque ouverture, **46 ms → 0,17 ms**.
+
+**Vérifié** : pour les 745 conversations de l'index, la chaîne et l'origine des copies sont
+identiques avant et après — 71 s pour toutes les parcourir avant, 0,12 s après. Dans l'application,
+les deux conversations les plus lourdes s'ouvrent maintenant en 180 à 420 ms, la plus grosse (7 484
+messages) en 390 ms. Et **un test lit désormais le plan de SQLite** pour les quatre requêtes qui
+cherchent par `uuid` : il échoue dès que l'une n'utilise plus l'index — c'est l'absence d'un tel
+test qui avait laissé la faute revenir.
+
 ### Ce qu'a coûté la conversation, en haut de la conversation
 
 **Demandé** : la ligne `↑ envoyés · ↓ reçus · cache relus` de la barre latérale est maintenant

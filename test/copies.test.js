@@ -303,3 +303,30 @@ test('ce qu’une passe écrit a toujours un identifiant plus haut, même après
   const [row] = index.db.prepare("SELECT id FROM messages WHERE uuid = 'neuf'").all();
   assert.ok(row.id > since, 'sans quoi la recherche des copies de cette passe ne la verrait pas');
 });
+
+// ── par son index, ou 31 secondes ───────────────────────────────────────────
+
+// L'index des uuid est partiel (`WHERE uuid <> ''`) : SQLite ne s'en sert que
+// si la requête le redit. Sans cela, il parcourait chaque conversation de
+// l'agent et tous ses messages, une fois par copie — 31 s pour ouvrir une
+// conversation qui commençait par 922 messages recopiés (25 septembre 2026),
+// 5 ms avec l'index. markCopies l'avait déjà payé ; copiedFrom l'a payé à
+// son tour, faute d'un test qui lise le plan.
+test('chaque recherche d’une copie passe par l’index des uuid', (t) => {
+  const index = new Index(':memory:');
+  t.after(() => index.close());
+  // parentOf aussi : sans l'index, chaque ouverture lisait toute la table (46 ms).
+  for (const name of ['copiedFrom', 'markCopies', 'markNewCopies', 'parentOf']) {
+    const statement = index.s[name];
+    // Nommés (@agents, @since) ou positionnels (?) : de quoi préparer le plan.
+    const params = statement.source.includes('@')
+      ? [{ agents: '["claude"]', since: 0, id: 'x' }]
+      : Array.from({ length: (statement.source.match(/\?/g) || []).length }, () => 'x');
+    const plan = index.db
+      .prepare(`EXPLAIN QUERY PLAN ${statement.source}`)
+      .all(...params)
+      .map((row) => row.detail)
+      .join(' | ');
+    assert.match(plan, /messages_by_uuid/, `${name} : ${plan}`);
+  }
+});
