@@ -125,35 +125,103 @@ réécrit — et le réglage qui va avec vit dans `settings.json`, **par défaut
 `theme` l'est. La requête vit dans le processus principal : le `connect-src 'none'` de la fenêtre ne
 bouge pas.
 
-## Ordre proposé
+## Ordre proposé — 25 septembre 2026
 
-Le huitième est fait depuis le 22 septembre 2026 : la CI tourne sur les trois systèmes, et la
-0.3.2 est publiée. Ce qui reste tient en un chantier et sept choses plus petites.
+Classé par une logique, pas par envie : d'abord ce qu'Ariane laisse de côté sans le savoir, puis ce
+qui gêne chaque jour et coûte peu, puis ce que les fichiers disent déjà et qu'Ariane tait, puis la
+lecture, puis la confiance qu'on peut faire à un paquet, et en dernier les chantiers qui demandent
+d'abord une décision. Chaque étape ne suppose que celles d'avant.
 
-**13.** À moitié fait : Ariane **prévient** depuis le 22 septembre 2026, sur les cinq paquets.
-Reste la mise à jour en place de l'AppImage, la seule cible qui le permette sans certificat.
+### 1. Ce que les fichiers disent et qu'Ariane ne lit pas — petit
 
-**Et sept choses plus petites, par ce qu'elles coûtent :**
+C'est la raison d'être d'Ariane : ne rien laisser de côté sans le savoir. Le compteur de formats
+inconnus signale, à chaque passe, cinq types d'enregistrements ; mesurés un par un :
 
-- **Le `.dmg` est arm64 uniquement.** Les runners macOS sont en Apple Silicon, donc un Mac Intel ne
-  peut pas l'ouvrir. Se règle par une cible universelle ou une seconde construction x64.
-- **Une vingtaine de mégaoctets encore inutiles** dans chaque paquet : 15 Mo de binaires pour
-  d'autres systèmes, 7 Mo de langues que l'application n'affiche pas. Les 9,9 Mo de sources C sont
-  partis le 23 septembre 2026 (0.3.1), mais les binaires sont un autre travail : c'est exactement le
-  genre de filtrage malin qui a déjà expédié un binaire faux ici, et il ne se fait qu'avec la
-  vérification octet par octet.
-- **Le lancement d'un terminal et l'ouverture d'un dossier** sous Windows et macOS : les deux seuls
-  endroits où Ariane sort d'elle-même, jamais essayés là-bas, et qu'aucun test ne peut atteindre
-  puisque aucun n'a le droit de toucher un vrai terminal.
-- **Vérifier maintenant.** Le réglage des mises à jour dit « au lancement » ou « jamais » ; rien
-  ne permet de demander sur-le-champ. C'est gênant précisément là où on se trouve quand on vient
-  d'allumer l'option : dans les réglages, à se demander si elle fonctionne. Un bouton et un appel
-  de plus, le canal existe déjà.
-- **Un lien direct de l'appel au sous-agent.** Depuis le 25 septembre 2026, un sous-agent se
-  rejoint par la liste dépliable sous l'en-tête de la conversation qui l'a lancé. Le lien depuis
-  l'appel `Agent` lui-même, dans la transcription, reste à faire : son résultat porte l'`agentId`
-  (24 sur 24 mesurés) ; les agents d'un workflow n'ont que l'identifiant `wf_…` de leur dossier.
-- **Les sous-agents de Copilot** : trois événements `subagent.deselected` arrivent comme format
-  inconnu. Rien n'a été lu de leur forme ; à mesurer avant tout.
-- **Le saut à une date** *dans* une conversation ouverte (reste du point 3) : les dates sont dans
-  l'infobulle de chaque trait du plan, mais rien ne permet d'y aller.
+- **`continued-in`** : quand on reprend une conversation, Claude Code écrit dans l'**ancienne** le
+  nom de la nouvelle (`continuedInSessionId` ; un cas, `64ffbe9a` → `d4c518b6`). Aujourd'hui la
+  reprise dit « a commencé par recopier 922 messages de … », mais l'original ne dit pas qu'il se
+  poursuit ailleurs. Le lire relie les deux dans les deux sens — là où la chaîne par
+  `continues_uuid` ne relie plus rien, Claude Code compactant désormais dans le même fichier.
+- **`agent-name` (308) et `agent-setting` (2)** : le premier répète le titre généré, le second vaut
+  `claude`. Rien à montrer ; à ranger comme bruit connu, pour que le compteur ne signale que du neuf.
+- **Les sous-agents de Copilot** (`subagent.deselected` ×3) : rien n'a été lu de leur forme ; à
+  mesurer avant tout.
+- Le cinquième, un fichier VS Code de 166 Mo ignoré, est voulu : 2,5 Ko de conversation dans
+  166 Mo de sorties d'outils, qu'on ne sait pas lire en flux.
+
+### 2. Le confort de tous les jours, à petit prix — petit
+
+- **La taille du texte.** Elle existe, mais cachée : c'est le menu par défaut d'Electron, masqué et
+  en anglais. Vérifié sur l'application : Ctrl+Maj+= agrandit, Ctrl − réduit, et le réglage survit
+  à un redémarrage ; mais **Ctrl+= et le pavé numérique ne font rien**, et ce sont les touches qu'on
+  essaie d'abord. À faire : un réglage 90–130 % dans les réglages (dans `settings.json`), ces
+  touches-là, et un menu minimal à la place du menu par défaut — qui expose aussi « Toggle Developer
+  Tools » et « Force Reload » dans les paquets publiés. Ctrl+R, lui, réindexe bien sans recharger.
+- **Vérifier maintenant.** Le réglage des mises à jour dit « au lancement » ou « jamais » ; rien ne
+  permet de demander sur-le-champ, précisément là où l'on vient d'allumer l'option. Un bouton et un
+  appel, le canal existe déjà.
+
+### 3. Les quotas : sur le disque, montrés nulle part — moyen
+
+Codex écrit à chaque tour ses fenêtres de quota — le pourcentage utilisé, la durée de la fenêtre
+(cinq heures, une semaine), l'heure de remise à zéro — et le solde de crédits : 3 267 relevés dans
+les 37 derniers fichiers. Agent Sessions et ccusage les montrent ; Ariane les lit déjà sans les
+garder. **Pour Claude, à vérifier avant de promettre quoi que ce soit.** Le piège : un pourcentage
+est une photo, pas un compte — on montre le dernier relevé et sa date, on ne l'additionne jamais.
+
+### 4. Lire plus vite ce qui compte — moyen
+
+- **Des filtres d'affichage retenus** : masquer les outils, les avis, ne garder que ses propres
+  messages, déplier les raisonnements. Le piège est l'en-tête, que la suite de mise en page mesure en
+  allemand, en japonais et en néerlandais : un menu « Affichage » plutôt que des boutons de plus.
+- **Un lien de l'appel au sous-agent.** Aujourd'hui un sous-agent se rejoint par la liste dépliable
+  sous l'en-tête ; le lien depuis l'appel `Agent` lui-même reste à faire. Son résultat porte
+  l'`agentId` (24 sur 24 mesurés) ; les agents d'un workflow n'ont que l'identifiant `wf_…` de leur
+  dossier.
+- **Le saut à une date** dans une conversation ouverte : les dates sont dans l'infobulle de chaque
+  trait du plan, mais rien ne permet d'y aller.
+
+### 5. Un paquet auquel on peut se fier — petit à moyen
+
+Aucun de ces points ne gêne qui utilise déjà Ariane ; tous comptent pour qui hésite à la télécharger.
+
+- **Un `CHECKSUMS.sha256`** attaché à chaque release, comme le fait claude-code-history-viewer.
+- **Le `.dmg` est arm64 uniquement** : les runners macOS sont en Apple Silicon, un Mac Intel ne peut
+  pas l'ouvrir. Une cible universelle, ou une seconde construction x64.
+- **La mise à jour en place de l'AppImage** : la seconde moitié du point 13, ci-dessus.
+- **Une vingtaine de mégaoctets inutiles** par paquet : 15 Mo de binaires pour d'autres systèmes,
+  7 Mo de langues que l'application n'affiche pas. C'est le genre de filtrage malin qui a déjà
+  expédié un binaire faux ici : il ne se fait qu'avec la vérification octet par octet.
+
+### 6. La solidité, entre deux chantiers
+
+- **La couverture, de 96,9 % vers 98 %** : les chemins de `ipc.js`, `terminal.js` et
+  `settings.js` ; `update-check.js` et `export.js` ne s'éprouvent que sous Electron. Puis remonter
+  le seuil de la CI.
+- **ESLint 10** : la 9 n'est plus maintenue, et c'est une migration de configuration.
+- **Le lancement d'un terminal et l'ouverture d'un dossier sous Windows et macOS** (point 8) : seule
+  une vraie machine en juge, aucun test n'ayant le droit de toucher un vrai terminal. À faire depuis
+  le poste Windows.
+
+### 7. Les chantiers qui demandent d'abord une décision
+
+- **Les fichiers modifiés et leurs différences**, comme chez claude-code-history-viewer. Le piège
+  est la sélectivité : l'index fait 1 % de l'entrée parce qu'il coupe les aperçus à 2 000
+  caractères. Montrer des différences, c'est garder davantage, ou relire les fichiers des assistants
+  à la demande.
+- **Les sessions actives** — celles qui tournent, celles qui attendent une réponse —, comme le
+  « cockpit » d'Agent Sessions. La conversation ouverte se met déjà à jour toutes les 30 s ; ce qui
+  manque est la vue d'ensemble.
+- **La coloration syntaxique** : 237 messages nomment le langage de leur code. Une bibliothèque y
+  gagne nettement, mais produit du HTML, contre l'invariant 2 (échapper, puis décorer) : à faire
+  sur des nœuds, pas sur des chaînes.
+- **D'autres assistants** (Cursor, Cline, Aider, OpenCode…). Aucun n'a de conversation sur la
+  machine de développement : sans fichiers réels à mesurer, un adaptateur serait écrit à l'aveugle.
+- **Un coût en dollars**, en option et libellé « équivalent au prix public de l'API » : la décision
+  est déjà écrite, personne ne l'a demandé.
+
+### Hors de portée, par choix
+
+Écrire chez les assistants — renommer ou supprimer leurs sessions, régler leurs serveurs MCP —,
+démarrer une session, ou servir l'historique sur le web. Ariane lit, et ne fait que lire : c'est ce
+qui permet de lui confier tout un historique.
