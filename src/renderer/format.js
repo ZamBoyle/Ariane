@@ -525,9 +525,20 @@ export function subagentTokens(session) {
   };
 }
 
-/** Split a path into its last segment and its parent, for a two-line label. */
+/**
+ * The folder of a conversation whose agent recorded none: a key, which the
+ * screen says in the reader's language (`folder-unknown`). The same value as
+ * core/agents/contract.js's; a test keeps the two equal.
+ */
+export const UNKNOWN_FOLDER = '(?)';
+
+/**
+ * Split a path into its last segment and its parent, for a two-line label.
+ * The unknown folder has neither: `unknown` tells the caller to name it.
+ */
 export function folderLabel(fullPath) {
   const value = String(fullPath || '');
+  if (value === UNKNOWN_FOLDER) return { name: '', parent: '', unknown: true };
   const parts = value.split(/[/\\]/).filter(Boolean);
   if (parts.length === 0) return { name: value || '/', parent: '' };
   return {

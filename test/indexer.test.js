@@ -260,6 +260,19 @@ test.describe('incremental indexing', () => {
     assert.equal(new Set(texts).size, 1200);
   });
 
+  test('a conversation with no folder is filed under the unknown folder, not a guess', async (t) => {
+    const { fx, index, teardown } = setup();
+    t.after(teardown);
+    const tree = fx.codex();
+    const file = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+    tree.session(file, [cdx.meta('', file), cdx.message('user', 'sans dossier')]);
+    await codexPass(fx, index)();
+    const [folder] = index.folders();
+    assert.equal(folder.path, require('../src/core/agents/contract').UNKNOWN_FOLDER);
+    assert.equal(folder.pathExact, 1, 'inconnu, ce n’est pas approximatif');
+    assert.equal(folder.existsOnDisk, 1, 'ses fichiers sont là : rien n’a été purgé');
+  });
+
   test('a reply read before its newline keeps the cost that follows it', async (t) => {
     const { fx, index, teardown } = setup();
     t.after(teardown);

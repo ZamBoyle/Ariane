@@ -374,7 +374,7 @@ async function deriveFolder(ctx, id, mentions) {
     return null;
   }
 
-  const absolutes = await remember(ctx, `antigravity:paths:${dbFile}`, stampOf(stat), () =>
+  const absolutes = await remember(ctx, `antigravity:paths:${dbFile}`, await storeStamp(dbFile, stat), () =>
     absolutePathsIn(dbFile)
   );
   if (!absolutes.length) return null;
@@ -486,8 +486,25 @@ async function knownWorkspaces(ctx) {
   } catch {
     return new Map();
   }
-  const pairs = await remember(ctx, `antigravity:workspaces:${file}`, stampOf(stat), () => readWorkspaces(file));
+  const pairs = await remember(ctx, `antigravity:workspaces:${file}`, await storeStamp(file, stat), () =>
+    readWorkspaces(file)
+  );
   return new Map(pairs);
+}
+
+/**
+ * A SQLite store's stamp, its journal included: agy writes to the `-wal` file
+ * first, and the store itself only moves at a checkpoint — until which a memo
+ * keyed on the store alone kept answering with the old paths.
+ */
+async function storeStamp(file, stat) {
+  let journal = '';
+  try {
+    journal = stampOf(await fsp.stat(`${file}-wal`));
+  } catch {
+    journal = '';
+  }
+  return `${stampOf(stat)}|${journal}`;
 }
 
 function readWorkspaces(file) {

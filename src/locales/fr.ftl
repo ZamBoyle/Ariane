@@ -139,6 +139,7 @@ convo-tokens-cached = ↑ { $sent } envoyés · ↓ { $received } reçus · { $c
         Relus depuis le cache : { $cachedExact } jetons, le contexte renvoyé à chaque tour
 convo-branch =
     .title = Branche git
+folder-unknown = Dossier inconnu
 convo-span =
     .title =
         Premier message : { $start }

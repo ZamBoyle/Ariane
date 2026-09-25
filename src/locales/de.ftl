@@ -140,6 +140,7 @@ convo-tokens-cached = ↑ { $sent } gesendet · ↓ { $received } empfangen · {
         Aus dem Cache gelesen: { $cachedExact } Tokens – der Kontext, der in jeder Runde erneut gesendet wird
 convo-branch =
     .title = Git-Branch
+folder-unknown = Unbekannter Ordner
 convo-span =
     .title =
         Erste Nachricht: { $start }

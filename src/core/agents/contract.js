@@ -280,4 +280,13 @@ function globalSessionId(agentId, sessionId) {
   return `${agentId}:${sessionId}`;
 }
 
-module.exports = { assertAdapter, globalSessionId, usageOf, REQUIRED, USAGE_FIELDS };
+/**
+ * Where a conversation whose agent recorded no folder is filed. A key, not a
+ * word: the screen says it in the reader's language (format.js, folderLabel).
+ * It was « (dossier inconnu) » for Codex and « (inconnu) » for the others —
+ * two folders, in French in every language (26 September 2026). format.js
+ * holds the same value; a test keeps the two equal.
+ */
+const UNKNOWN_FOLDER = '(?)';
+
+module.exports = { assertAdapter, globalSessionId, usageOf, REQUIRED, USAGE_FIELDS, UNKNOWN_FOLDER };

@@ -12,6 +12,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const adapter = require('../src/core/agents/vscode');
 const { applyDeltas, extractRequest, readResponse, folderFromUri, epoch } =
@@ -181,6 +183,12 @@ test.describe('folderFromUri', () => {
   test('decodes a file URI verbatim, percent-escapes included', () => {
     assert.equal(folderFromUri('file:///home/zam/mon%20projet'), '/home/zam/mon projet');
     assert.equal(folderFromUri('file:///home/zam/Math%C3%A9matiques'), '/home/zam/Mathématiques');
+    // Sous Windows, VS Code écrit le deux-points du lecteur %3A : « /c:/Users/… »
+    // n'était ni le chemin que les autres assistants écrivent, ni un chemin tout court.
+    assert.equal(folderFromUri('file:///c%3A/Users/zam/projet'), 'C:\\Users\\zam\\projet');
+    assert.equal(folderFromUri('file:///C:/Users/zam/mon%20projet'), 'C:\\Users\\zam\\mon projet');
+    assert.equal(folderFromUri('file:///d%3A'), 'D:\\');
+    assert.equal(folderFromUri('file://serveur/partage/projet'), '\\\\serveur\\partage\\projet', 'un partage réseau');
   });
 
   test('survives a malformed escape rather than throwing', () => {
@@ -261,6 +269,28 @@ test.describe('adapter', () => {
     assert.equal(d.delta, true);
     assert.equal(d.title, 'Log', 'the title comes from line 0 alone');
     assert.deepEqual((await messages(d)).map((m) => m.text), ['question', 'reponse en morceaux']);
+  });
+
+  // La même session en instantané figé ET en journal vivant : l'ordre du
+  // répertoire choisissait, et l'instantané pouvait gagner (26 septembre 2026).
+  // Le plus récent gagne, quel que soit l'ordre.
+  test('a session kept both ways is read from the copy written last', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+    const tree = fx.vscode().workspace('h9', '/p');
+    tree.snapshot('h9', 'same', vsc.session([vsc.request('vieille', [])]));
+    tree.deltaLog('h9', 'same', [{ kind: 0, v: vsc.session([vsc.request('vivante', [])]) }]);
+    const dir = path.join(fx.env.VSCODE_CONFIG_DIR, 'User', 'workspaceStorage', 'h9', 'chatSessions');
+    const age = (name, seconds) => fs.utimesSync(path.join(dir, name), seconds, seconds);
+
+    age('same.json', 1_000_000);
+    age('same.jsonl', 2_000_000);
+    let found = (await collect(adapter.discover(ctx))).filter((d) => d.sessionId === 'same');
+    assert.deepEqual(found.map((d) => d.delta), [true], 'le journal, écrit en dernier');
+
+    age('same.json', 3_000_000);
+    found = (await collect(adapter.discover(ctx))).filter((d) => d.sessionId === 'same');
+    assert.deepEqual(found.map((d) => d.delta), [false], 'l’instantané, s’il est le plus récent');
   });
 
   // The previous generation, still present in 75 of 188 real workspaces.

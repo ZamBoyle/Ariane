@@ -80,7 +80,33 @@ const NOTICE_BLOCKS = [
   'init',
 ];
 
-const INJECTED_BLOCK = new RegExp(`<(${NOTICE_BLOCKS.join('|')})>[\\s\\S]*?<\\/\\1>`, 'g');
+const INJECTED_OPENER = new RegExp(`<(${NOTICE_BLOCKS.join('|')})>`, 'g');
+
+/**
+ * Remove every `<tag>…</tag>` block of those names — the nearest closer of the
+ * same name, as `<(tag)>[\s\S]*?</\1>` would, in one pass. That expression
+ * scanned to the end of the text for every opener without a closer: a Java
+ * stack trace full of `Foo.<init>` took seconds (measured 7.5 s for 40 000).
+ */
+function stripInjected(text) {
+  let out = '';
+  let from = 0;
+  const lastCloser = new Map();
+  INJECTED_OPENER.lastIndex = 0;
+  let found;
+  while ((found = INJECTED_OPENER.exec(text))) {
+    const tag = found[1];
+    const closer = `</${tag}>`;
+    if (!lastCloser.has(tag)) lastCloser.set(tag, text.lastIndexOf(closer));
+    // No closer after this opener: it is text, and so is every later one of the same name.
+    if (lastCloser.get(tag) < found.index) continue;
+    const end = text.indexOf(closer, INJECTED_OPENER.lastIndex);
+    out += text.slice(from, found.index);
+    from = end + closer.length;
+    INJECTED_OPENER.lastIndex = from;
+  }
+  return out + text.slice(from);
+}
 
 /**
  * Markers the harness writes in place of a turn: an interruption, a compaction
@@ -157,8 +183,12 @@ function extractRecord(raw) {
     }
     return queuedMessage(raw, queued);
   }
-  if (type === 'ai-title') {
-    const title = typeof raw.aiTitle === 'string' ? raw.aiTitle.trim() : '';
+  // The title Claude gives, then the one the person gives (/rename), written
+  // after it: the last one read wins, so the person's does — 23 records in two
+  // files on 26 September 2026, none followed by a new automatic title.
+  if (type === 'ai-title' || type === 'custom-title') {
+    const value = type === 'ai-title' ? raw.aiTitle : raw.customTitle;
+    const title = typeof value === 'string' ? value.trim() : '';
     return title
       ? { kind: 'title', sessionId: raw.sessionId, title }
       : { kind: 'ignored', reason: 'empty-title' };
@@ -335,25 +365,29 @@ function extractMessage(raw) {
 
   const content = message.content;
   const rawText = [];
+  // The harness injects into the person's turns, never into a reply: a reply
+  // that quotes `<command-name>` — a conversation about Claude Code — keeps its
+  // words, and is no command (/btw and /init on two replies, 26 September 2026).
+  const harnessed = raw.type === 'user';
   if (typeof content === 'string') {
     rawText.push(content);
-    pushText(content, parts, texts);
+    pushText(content, parts, texts, harnessed);
   } else if (Array.isArray(content)) {
     for (const block of content) {
       if (!block || typeof block !== 'object') continue;
       if (block.type === 'text' && typeof block.text === 'string') rawText.push(block.text);
-      readBlock(block, parts, texts, thinkings);
+      readBlock(block, parts, texts, thinkings, harnessed);
     }
   }
 
   // Detect on the raw text: clean() removes the very envelope we match on.
-  const command = detectCommand(rawText.join('\n'));
+  const command = harnessed ? detectCommand(rawText.join('\n')) : null;
   const joinedText = joined(texts);
   const rawJoined = rawText.join('\n').trim();
 
   // Nothing of the person's own words survived the strip, yet there WAS text:
   // the whole turn was harness-injected.
-  const strippedToNothing = rawJoined !== '' && joinedText === '';
+  const strippedToNothing = harnessed && rawJoined !== '' && joinedText === '';
   const isNotice =
     Boolean(raw.isMeta) ||
     Boolean(raw.isCompactSummary) ||
@@ -390,15 +424,15 @@ function extractMessage(raw) {
   return item;
 }
 
-function readBlock(block, parts, texts, thinkings) {
+function readBlock(block, parts, texts, thinkings, harnessed = true) {
   switch (block.type) {
     case 'text':
-      pushText(block.text, parts, texts);
+      pushText(block.text, parts, texts, harnessed);
       break;
 
     case 'thinking': {
       // `signature` is an opaque cryptographic blob; only the prose is useful.
-      const value = clean(block.thinking);
+      const value = harnessed ? clean(block.thinking) : trimmed(block.thinking);
       if (value) {
         parts.push({ type: 'thinking', text: value });
         thinkings.push(value);
@@ -447,17 +481,22 @@ function readBlock(block, parts, texts, thinkings) {
   }
 }
 
-function pushText(value, parts, texts) {
-  const cleaned = clean(value);
+function pushText(value, parts, texts, harnessed = true) {
+  const cleaned = harnessed ? clean(value) : trimmed(value);
   if (!cleaned) return;
   parts.push({ type: 'text', text: cleaned });
   texts.push(cleaned);
 }
 
+/** A reply's text as it was written, only trimmed. */
+function trimmed(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 /** Strip harness-injected context and slash-command envelopes. */
 function clean(value) {
   if (typeof value !== 'string') return '';
-  return value.replace(INJECTED_BLOCK, '').trim();
+  return stripInjected(value).trim();
 }
 
 function detectCommand(rawContent) {

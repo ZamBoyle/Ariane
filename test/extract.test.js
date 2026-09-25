@@ -24,6 +24,18 @@ test.describe('record classification', () => {
     assert.equal(r.title, 'Mon titre');
   });
 
+  // Le titre que la personne a donné (/rename) : 23 lignes dans deux fichiers,
+  // comptées comme format inconnu par la passe complète du 26 septembre 2026,
+  // et la conversation gardait le titre automatique.
+  test('extracts the title the person chose', () => {
+    assert.deepEqual(extractRecord({ type: 'custom-title', customTitle: '  Mise à jour  ', sessionId: 's1' }), {
+      kind: 'title',
+      sessionId: 's1',
+      title: 'Mise à jour',
+    });
+    assert.equal(extractRecord({ type: 'custom-title', customTitle: '', sessionId: 's1' }).kind, 'ignored');
+  });
+
   test('ignores an empty ai-title', () => {
     assert.equal(extractRecord({ type: 'ai-title', aiTitle: '   ' }).kind, 'ignored');
   });
@@ -200,6 +212,28 @@ test.describe('injected context is never indexed', () => {
 
   test('leaves ordinary angle brackets alone', () => {
     assert.equal(clean('if (a < b && c > d) return;'), 'if (a < b && c > d) return;');
+  });
+
+  // Le harnais injecte dans les messages de la personne, jamais dans les
+  // réponses. Une réponse qui CITE ces balises — une conversation sur Claude
+  // Code — perdait ses mots et recevait l'étiquette d'une commande : /btw et
+  // /init sur deux réponses du vrai corpus (26 septembre 2026).
+  test('an assistant quoting the envelopes keeps its words, and runs no command', () => {
+    const said = 'Claude Code écrit `<command-name>/clear</command-name>` et une balise <init>x</init>.';
+    const r = extractRecord(msg('assistant', [{ type: 'text', text: said }]));
+    assert.equal(r.text, said);
+    assert.equal(r.command, null);
+    assert.equal(r.isNotice, false);
+  });
+
+  // Des milliers d'ouvrantes sans fermante — une pile d'appels Java, pleine de
+  // <init> — coûtaient un parcours jusqu'à la fin du texte chacune.
+  test('thousands of openers without a closer cost a single pass', () => {
+    const text = 'at Foo.<init>(Foo.java:1)\n'.repeat(40000);
+    const started = Date.now();
+    assert.equal(clean(text), text.trim());
+    assert.ok(Date.now() - started < 1000, `${Date.now() - started} ms`);
+    assert.equal(clean('<init>a</init> puis <init>b'), 'puis <init>b', 'une ouvrante sans fermante reste du texte');
   });
 });
 

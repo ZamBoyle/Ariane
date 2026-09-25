@@ -139,6 +139,7 @@ convo-tokens-cached = ↑ { $sent } verzonden · ↓ { $received } ontvangen · 
         Uit de cache herlezen: { $cachedExact } tokens, de context die elke beurt opnieuw wordt verzonden
 convo-branch =
     .title = Git-branch
+folder-unknown = Onbekende map
 convo-span =
     .title =
         Eerste bericht: { $start }

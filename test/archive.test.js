@@ -209,6 +209,22 @@ test.describe('a rebuild of the index', () => {
     await pass(migrated);
     assert.equal(migrated.session('claude:ghost').source, 'history');
   });
+
+  // Une archive écrite quand le dossier inconnu avait un nom français revient
+  // sous la clé d'aujourd'hui : un seul dossier inconnu, pas trois.
+  test('an archive written when the unknown folder had a French name comes back under its key', (t) => {
+    const { open } = setup(t);
+    const index = open();
+    const row = {
+      uuid: 'u1', parent_uuid: null, role: 'user', ts: '2026-09-01T10:00:00.000Z', seq: 0, model: '',
+      text: 'sans dossier', thinking: '', parts: '[]', is_meta: 0, is_notice: 0, is_sidechain: 0, command: null,
+    };
+    for (const [id, legacy] of [['codex:a', '(dossier inconnu)'], ['antigravity:b', '(inconnu)']]) {
+      index.restoreArchived(id, { agent_id: id.split(':')[0], folder_path: legacy, folder_exact: 0 }, [row], id);
+    }
+    const unknown = require('../src/core/agents/contract').UNKNOWN_FOLDER;
+    assert.deepEqual(index.folders().map((f) => [f.path, f.sessionCount]), [[unknown, 2]]);
+  });
 });
 
 // ── what the archive must NOT do ────────────────────────────────────────────

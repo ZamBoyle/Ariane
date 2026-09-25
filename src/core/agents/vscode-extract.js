@@ -284,16 +284,28 @@ function stringify(value) {
   }
 }
 
-/** `file:///home/zam/mon%20projet` -> `/home/zam/mon projet`. */
+/**
+ * `file:///home/zam/mon%20projet` -> `/home/zam/mon projet`. On Windows,
+ * `file:///c%3A/Users/zam` -> `C:\Users\zam` and `file://serveur/partage` ->
+ * `\\serveur\partage`: the path every other agent writes there, so that the
+ * same folder is one folder — `/c:/Users/…` was neither that nor a path.
+ */
 function folderFromUri(uri) {
   const value = str(uri);
   if (!value) return null;
   const withoutScheme = value.replace(/^file:\/\//, '');
+  let path;
   try {
-    return decodeURIComponent(withoutScheme) || null;
+    path = decodeURIComponent(withoutScheme);
   } catch {
-    return withoutScheme || null;
+    path = withoutScheme;
   }
+  if (!path) return null;
+  const drive = /^\/([a-zA-Z]):(\/.*)?$/.exec(path);
+  if (drive) return `${drive[1].toUpperCase()}:${(drive[2] || '/').replace(/\//g, '\\')}`;
+  // A host before the first slash: a network share.
+  if (/^file:\/\/[^/]/.test(value)) return `\\\\${path.replace(/\//g, '\\')}`;
+  return path;
 }
 
 const str = (v) => (typeof v === 'string' ? v : '');

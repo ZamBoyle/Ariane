@@ -126,6 +126,7 @@ convo-tokens-cached = ↑ { $sent } 送信 · ↓ { $received } 受信 · キャ
         キャッシュからの再読み込み：{ $cachedExact } トークン（毎ターン再送されるコンテキスト）
 convo-branch =
     .title = Git ブランチ
+folder-unknown = 不明なフォルダー
 convo-span =
     .title =
         最初のメッセージ：{ $start }

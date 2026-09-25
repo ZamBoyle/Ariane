@@ -117,6 +117,12 @@ const adapter = {
     let model = resumed.model;
     // The last running total seen: a shutdown only adds what grew since.
     let total = resumed.total;
+    // Copilot writes each call twice: on the reply that asks for it
+    // (toolRequests), then when the tool starts — 439 of 439 measured on
+    // 26 September 2026, same id, same arguments. The first is kept, where
+    // Claude keeps it too; the start is the repeat. Within one read: a pass
+    // landing between the two, milliseconds apart, would show both once.
+    const requested = new Set();
 
     // A line still being written is left to the next pass (jsonl.js).
     for await (const record of readRecords(descriptor.logFile, { start, unfinished: false })) {
@@ -144,12 +150,22 @@ const adapter = {
       // Tool activity arrives as standalone events rather than blocks inside a
       // message, so each is promoted to a message carrying only that part.
       if (item.kind === 'ignored' && item.part) {
+        if (item.part.type === 'tool_use' && requested.has(item.part.id)) {
+          yield {
+            item: { kind: 'ignored', reason: 'known-noise', detail: 'tool start of a requested call' },
+            cursor: next,
+          };
+          continue;
+        }
         const tool = toolMessage(item.part, str(record.value && record.value.timestamp));
         yield { item: withModel(tool, model), cursor: next };
         continue;
       }
 
       if (item.kind === 'message') {
+        for (const part of item.parts || []) {
+          if (part.type === 'tool_use' && part.id) requested.add(part.id);
+        }
         yield { item: { ...item, gitBranch: descriptor.gitBranch }, cursor: next };
         continue;
       }
@@ -189,7 +205,9 @@ async function readWorkspace(file) {
   }
 
   const keys = { id: 'id', cwd: 'cwd', git_root: 'gitRoot', branch: 'branch', name: 'name' };
-  const lines = text.split('\n');
+  // Written on Windows, lines may end in CRLF: a "\r" left on each line made
+  // every field unreadable.
+  const lines = text.split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
     const match = /^([a-z_]+):\s*(.*)$/.exec(lines[i]);
     if (!match) continue;

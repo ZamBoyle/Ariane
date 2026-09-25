@@ -560,6 +560,15 @@ test.describe('what a conversation cost', () => {
 });
 
 test.describe('display helpers', () => {
+  // Une clé, pas un mot : l'écran le dit dans la langue de la personne. Il
+  // s'appelait « (dossier inconnu) » chez Codex et « (inconnu) » ailleurs, en
+  // français dans les neuf langues (26 septembre 2026).
+  test('the unknown folder is a key the screen names, the same on both sides', () => {
+    assert.deepEqual(F.folderLabel(F.UNKNOWN_FOLDER), { name: '', parent: '', unknown: true });
+    assert.equal(F.UNKNOWN_FOLDER, require('../src/core/agents/contract').UNKNOWN_FOLDER);
+    assert.equal(F.folderLabel('/home/zam').unknown, undefined);
+  });
+
   test('folderLabel splits POSIX and Windows paths', () => {
     assert.deepEqual(F.folderLabel('/home/zam/Documents/Mathématiques'),
       { name: 'Mathématiques', parent: 'home/zam/Documents' });

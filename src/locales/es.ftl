@@ -139,6 +139,7 @@ convo-tokens-cached = ↑ { $sent } enviados · ↓ { $received } recibidos · {
         Releídos de la caché: { $cachedExact } tokens, el contexto reenviado en cada turno
 convo-branch =
     .title = Rama de git
+folder-unknown = Carpeta desconocida
 convo-span =
     .title =
         Primer mensaje: { $start }

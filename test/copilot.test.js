@@ -186,8 +186,23 @@ test.describe('adapter', () => {
 
     assert.deepEqual(prose(chunks).map((m) => m.text), ['ma question', 'ma reponse']);
     const parts = chunks.flatMap((c) => c.item.parts || []).map((p) => p.type);
-    assert.ok(parts.includes('tool_use'));
-    assert.ok(parts.includes('tool_result'));
+    // Copilot écrit l'appel deux fois : sur la réponse (toolRequests), puis au
+    // démarrage de l'outil. 439 appels sur 878 comptés deux fois le 26 septembre
+    // 2026 — des bandeaux « bash ×2 » pour un seul appel.
+    assert.deepEqual(
+      parts.filter((p) => p === 'tool_use' || p === 'tool_result'),
+      ['tool_use', 'tool_result'],
+      'un appel, un résultat'
+    );
+  });
+
+  test('a call requested but never started is still shown', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+    fx.copilot().session('cccc-4', [cop.start('/p'), cop.user('fais-le'), cop.assistantToolsOnly('bash', '{}')]);
+    const [d] = await collect(adapter.discover(ctx));
+    const parts = (await collect(adapter.read(d, { cursor: null }))).flatMap((c) => c.item.parts || []);
+    assert.equal(parts.filter((p) => p.type === 'tool_use').length, 1);
   });
 
   test('carries the branch onto every message', async (t) => {
@@ -532,6 +547,17 @@ test.describe('title from workspace.yaml', () => {
 
   test('a folded block, ">", is read the same way', async (t) => {
     assert.equal(await titleOf(t, '>-\n  Une seule idée\nsummary_count: 0'), 'Une seule idée');
+  });
+
+  // Écrit sous Windows, le fichier peut finir ses lignes en CRLF : le « \\r »
+  // restait collé et plus rien ne se lisait (26 septembre 2026).
+  test('a file written with Windows line ends reads the same', async (t) => {
+    const { fx, ctx, teardown } = setup();
+    t.after(teardown);
+    const tree = fx.copilot().session('w2', [cop.start('/p'), cop.user('q')]);
+    fs.writeFileSync(path.join(tree.dir('w2'), 'workspace.yaml'), 'id: w2\r\ncwd: /home/zam/win\r\nname: Titre Windows\r\n');
+    const [d] = await collect(adapter.discover(ctx));
+    assert.equal(d.title, 'Titre Windows');
   });
 
   test('an apostrophe doubled inside single quotes is one apostrophe', async (t) => {

@@ -160,6 +160,7 @@ convo-tokens-cached = ↑ { $sent } sent · ↓ { $received } received · { $cac
         Read back from the cache: { $cachedExact } tokens, the context resent at every turn
 convo-branch =
     .title = Git branch
+folder-unknown = Unknown folder
 convo-span =
     .title =
         First message: { $start }

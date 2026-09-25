@@ -13,7 +13,10 @@ const path = require('path');
 const Database = require('better-sqlite3');
 
 const { toMatchQuery } = require('./query');
-const { USAGE_FIELDS } = require('./agents/contract');
+const { USAGE_FIELDS, UNKNOWN_FOLDER } = require('./agents/contract');
+
+/** What the unknown folder was called before it had a key (contract.js), in archives written then. */
+const LEGACY_UNKNOWN_FOLDERS = new Set(['(inconnu)', '(dossier inconnu)']);
 const { withoutRepeatedUsage, withoutEchoedPrompts, flattenPrompt, echoOf } = require('./archive');
 const { WINDOW_SLACK, keeper } = require('./quota');
 
@@ -25,6 +28,8 @@ const { WINDOW_SLACK, keeper } = require('./quota');
  * already stored. Raising this version drops the index and rebuilds it, which
  * takes about ten seconds.
  *
+ * 20: a Copilot call once; a reply's words kept whole; the title the person
+ *     chose; one unknown folder; VS Code folders on Windows
  * 19: usage limits read (Codex's windows and credits, Claude's refused requests)
  * 18: the person's words once: a delivered queued message, a cut last-prompt
  * 17: a resumed or forked conversation linked to the one it continues
@@ -45,7 +50,7 @@ const { WINDOW_SLACK, keeper } = require('./quota');
  * 2: multi-agent schema
  * 1: initial
  */
-const SCHEMA_VERSION = 19;
+const SCHEMA_VERSION = 20;
 /** The five token columns of one message, from the contract's shape. */
 function usageColumns(usage) {
   const u = usage || {};
@@ -1341,11 +1346,12 @@ class Index {
       this.resetSession(sessionId, null);
       // Its agent may be gone from this machine altogether; the row is only a label.
       this.s.insertAgentIfAbsent.run(session.agent_id, agentLabel || session.agent_id);
+      const unknown = !session.folder_path || LEGACY_UNKNOWN_FOLDERS.has(session.folder_path);
       const folderId = this.folderId(
-        session.folder_path || '(inconnu)',
+        unknown ? UNKNOWN_FOLDER : session.folder_path,
         null,
         true,
-        session.folder_exact !== 0
+        unknown || session.folder_exact !== 0
       );
       this.upsertSession({
         id: sessionId,

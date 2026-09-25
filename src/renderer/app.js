@@ -838,14 +838,22 @@ function renderTree() {
   el.tree.replaceChildren(...folders.map(renderFolder));
 }
 
+/** A folder's name as the screen says it: the unknown one in the reader's language. */
+function shownFolder(path) {
+  const label = folderLabel(path);
+  return label.unknown ? t('folder-unknown') : label.name;
+}
+
 function renderFolder(folder) {
-  const { name, parent } = folderLabel(folder.path);
+  const label = folderLabel(folder.path);
+  const name = label.unknown ? t('folder-unknown') : label.name;
+  const { parent } = label;
   const expanded = state.expanded.has(folder.id);
 
   const button = node('button', 'folder-btn');
   button.type = 'button';
   button.setAttribute('aria-expanded', String(expanded));
-  button.title = folder.path;
+  button.title = label.unknown ? '' : folder.path;
 
   const names = node('span', 'folder-names');
   names.append(node('span', 'folder-name', name), node('span', 'folder-parent', parent));
@@ -1139,10 +1147,13 @@ function headerFacts(session, theme) {
   if (state.models.models.length) who.append(text('meta-models', l10n.list(state.models.models)));
 
   // Where: the folder by its name, the whole path on hover; then its branch.
-  const { name } = folderLabel(session.folderPath || '');
-  const folder = text('meta-strong meta-folder', name || session.folderPath);
+  const label = folderLabel(session.folderPath || '');
+  const folder = text(
+    'meta-strong meta-folder',
+    label.unknown ? t('folder-unknown') : label.name || session.folderPath
+  );
   const where = group('meta-where', 'folder', folder);
-  where.title = session.folderPath || '';
+  where.title = label.unknown ? '' : session.folderPath || '';
   if (session.gitBranch) {
     const branch = nodeFrom('span', 'meta-branch', 'convo-branch');
     branch.textContent = session.gitBranch;
@@ -2404,7 +2415,7 @@ function renderScopeOptions() {
     const folder = state.folders.find((f) => f.id === state.currentFolderId);
     options.push({
       value: 'folder',
-      label: folder ? t('scope-folder', { name: folderLabel(folder.path).name }) : t('scope-folder-current'),
+      label: folder ? t('scope-folder', { name: shownFolder(folder.path) }) : t('scope-folder-current'),
     });
   }
   if (state.currentSessionId) options.push({ value: 'session', label: t('scope-session') });
@@ -2505,8 +2516,9 @@ function renderResults() {
   state.results.forEach((hit, i) => {
     if (hit.folderPath !== lastFolder) {
       lastFolder = hit.folderPath;
-      const group = node('div', 'results-group', hit.folderPath);
-      group.title = hit.folderPath;
+      const unknown = folderLabel(hit.folderPath).unknown;
+      const group = node('div', 'results-group', unknown ? t('folder-unknown') : hit.folderPath);
+      group.title = unknown ? '' : hit.folderPath;
       children.push(group);
     }
     children.push(renderResult(hit, i));

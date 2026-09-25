@@ -24,12 +24,9 @@ const path = require('path');
 const { readRecords } = require('../jsonl');
 const { remember, stampOf } = require('../memo');
 const { extractCodexRecord } = require('./codex-extract');
-const { usageOf } = require('./contract');
+const { usageOf, UNKNOWN_FOLDER } = require('./contract');
 
 const ID = 'codex';
-
-/** Where sessions whose folder is genuinely unrecoverable are grouped. */
-const UNKNOWN_FOLDER = '(dossier inconnu)';
 
 /** Header records are cheap; stop hunting for a cwd after this many lines. */
 const CWD_SCAN_LIMIT = 400;
@@ -356,9 +353,13 @@ function sessionIdFromName(file) {
   return uuid ? uuid[1] : base;
 }
 
-/** The oldest files carry no per-message timestamp; the name is date-stamped. */
+/**
+ * The oldest files carry no per-message timestamp; the name is date-stamped —
+ * and timed only after its T: the uuid's first digits, right after the date
+ * in `rollout-2025-04-15-12ab34cd-…`, were read as minutes.
+ */
 function timestampFromName(file) {
-  const found = /rollout-(\d{4})-?(\d{2})-?(\d{2})T?(\d{2})?-?(\d{2})?-?(\d{2})?/.exec(
+  const found = /rollout-(\d{4})-?(\d{2})-?(\d{2})(?:T(\d{2})-?(\d{2})-?(\d{2}))?/.exec(
     path.basename(file)
   );
   if (!found) return '';
@@ -408,3 +409,4 @@ const str = (v) => (typeof v === 'string' ? v : '');
 
 module.exports = adapter;
 module.exports.UNKNOWN_FOLDER = UNKNOWN_FOLDER;
+module.exports.timestampFromName = timestampFromName;

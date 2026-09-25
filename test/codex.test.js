@@ -240,6 +240,15 @@ test.describe('adapter', () => {
     assert.ok(items.every((m) => m.timestamp), 'the session stamp stands in for missing times');
   });
 
+  // « rollout-2025-04-15-12ab34cd-… » : les deux premiers chiffres de l'uuid
+  // devenaient les minutes (26 septembre 2026). Une heure ne vient qu'après T.
+  test('a name gives its date, and a time only after its T', () => {
+    const { timestampFromName } = adapter;
+    assert.equal(timestampFromName('/x/rollout-2025-04-15-12ab34cd-5678.json'), '2025-04-15T00:00:00.000Z');
+    assert.equal(timestampFromName('/x/rollout-2025-04-15T12-30-45-12ab34cd.jsonl'), '2025-04-15T12:30:45.000Z');
+    assert.equal(timestampFromName('/x/autre.json'), '');
+  });
+
   test('a legacy document is never resumed', async (t) => {
     const { fx, ctx, teardown } = setup();
     t.after(teardown);

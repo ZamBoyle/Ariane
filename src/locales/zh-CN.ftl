@@ -126,6 +126,7 @@ convo-tokens-cached = ↑ { $sent } 已发送 · ↓ { $received } 已接收 · 
         从缓存重读：{ $cachedExact } 个 token，即每轮重新发送的上下文
 convo-branch =
     .title = Git 分支
+folder-unknown = 未知文件夹
 convo-span =
     .title =
         第一条消息：{ $start }

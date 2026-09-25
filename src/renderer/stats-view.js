@@ -631,8 +631,11 @@ function byFolder(data, { t, l10n, folderLabel }) {
   for (const folder of shown) {
     const label = folderLabel(folder.path);
     const name = el('td', 'stats-name');
-    name.title = folder.path;
-    name.append(el('span', 'stats-folder', label.name), el('span', 'stats-parent', label.parent));
+    name.title = label.unknown ? '' : folder.path;
+    name.append(
+      el('span', 'stats-folder', label.unknown ? t('folder-unknown') : label.name),
+      el('span', 'stats-parent', label.parent)
+    );
     const row = el('tr', '');
     row.append(name, cell(l10n.number(folder.messages), true), barCell(folder.messages / max));
     body.append(row);

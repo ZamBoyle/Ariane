@@ -148,8 +148,14 @@ const adapter = {
           }
 
           const sessionId = name.replace(/\.jsonl?$/, '');
-          // The same session can exist as both a snapshot and a delta log.
-          if (seen.has(sessionId)) continue;
+          // The same session can exist as both a snapshot and a delta log: the
+          // one written last is the living copy. The order of the directory
+          // chose before, and the frozen one could win (26 September 2026).
+          const twin = live.findIndex((entry) => entry.sessionId === sessionId);
+          if (twin >= 0) {
+            if (live[twin].stat.mtimeMs >= stat.mtimeMs) continue;
+            live.splice(twin, 1);
+          } else if (seen.has(sessionId)) continue;
           seen.add(sessionId);
 
           live.push({ name, delta, filePath, stat, sessionId });

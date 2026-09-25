@@ -19,7 +19,7 @@
  */
 
 const registry = require('./agents');
-const { globalSessionId } = require('./agents/contract');
+const { globalSessionId, UNKNOWN_FOLDER } = require('./agents/contract');
 const { echoOf, flattenPrompt } = require('./archive');
 const { addReadings } = require('./quota');
 
@@ -281,13 +281,17 @@ class Indexer {
     // Reading from the start replays messages we already stored, so they go.
     if (!cursor) this.index.resetSession(id, null);
 
+    // A conversation whose agent recorded no folder is filed as unknown — not
+    // a guess either, and the screen names it as such. Its files are on disk
+    // all the same: `false` there reads "transcripts purged".
+    const unknown = !descriptor.folderPath || descriptor.folderPath === UNKNOWN_FOLDER;
     const folderId = this.index.folderId(
-      descriptor.folderPath || '(inconnu)',
+      unknown ? UNKNOWN_FOLDER : descriptor.folderPath,
       descriptor.dirName || null,
       descriptor.folderOnDisk !== false,
       // An adapter that could not confirm the path says so; the reader is then
       // told the folder is a guess rather than being shown one as a fact.
-      descriptor.folderExact !== false
+      unknown || descriptor.folderExact !== false
     );
 
     this.index.upsertSession({
