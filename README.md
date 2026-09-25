@@ -167,12 +167,27 @@ sudo apt install -y libnss3 libnotify4 libsecret-1-0 xdg-utils
 
 Without them the binary does not start at all: `error while loading shared libraries: libnspr4.so`.
 
-On Linux, if the launch aborts on `chrome-sandbox`, once and for all:
+On Linux, if the launch aborts on `chrome-sandbox`, once per install of Electron:
 
 ```bash
 sudo chown root:root node_modules/electron/dist/chrome-sandbox
 sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
 ```
+
+### Updating a clone
+
+```bash
+git pull
+npm ci
+npm start
+```
+
+**`git pull` alone is not enough.** It brings the code, not what `node_modules` holds: when a
+version moves a dependency, the old one stays there until npm runs again. 0.6.0 is such a version —
+it moves Electron from 44.4.3 to 44.4.5. `npm ci` empties `node_modules` and installs exactly what
+`package-lock.json` names, which makes it the safe choice after any pull. The first launch then
+downloads the new Electron (about 100 MB, once per version), and on Linux the `chrome-sandbox` step
+above has to be done again: that file was reinstalled with it.
 
 ## Build the packages
 

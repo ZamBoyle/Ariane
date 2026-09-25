@@ -253,12 +253,29 @@ libraries: libnspr4.so`.
 
 ### Si le lancement s'interrompt sur `chrome-sandbox` (Linux)
 
-Une fois pour toutes :
+Une fois par installation d'Electron :
 
 ```bash
 sudo chown root:root node_modules/electron/dist/chrome-sandbox
 sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
 ```
+
+### Mettre à jour un clone
+
+```bash
+git pull
+npm ci
+npm start
+```
+
+**`git pull` seul ne suffit pas.** Il apporte le code, pas ce que contient
+`node_modules` : quand une version change une dépendance, l'ancienne y reste
+tant que npm ne repasse pas. La 0.6.0 en est une — elle fait passer Electron
+de la 44.4.3 à la 44.4.5. `npm ci` vide `node_modules` et installe exactement
+ce que nomme `package-lock.json` : c'est le choix sûr après chaque `git pull`.
+Le premier lancement télécharge ensuite le nouvel Electron (une centaine de Mo,
+une fois par version), et sous Linux l'étape `chrome-sandbox` ci-dessus est à
+refaire : ce fichier a été réinstallé avec lui.
 
 ### Construire les paquets soi-même
 
