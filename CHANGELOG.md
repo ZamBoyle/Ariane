@@ -18,6 +18,7 @@ Voici à quelle version chacune appartient.
 
 | Version | Date | Ce qu'elle apporte |
 |---|---|---|
+| [0.7.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.7.0) | 25 sept. 2026 | les limites d'utilisation de Codex et de Claude, lues et datées ; ce qu'a coûté une conversation, en haut d'elle ; vos mots une seule fois ; une conversation qui mettait 31 s à s'ouvrir s'ouvre aussitôt |
 | [0.6.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.6.0) | 25 sept. 2026 | ce que coûte chaque réponse, en jetons ; la taille du texte réglable, avec Ctrl+= et le pavé numérique ; une conversation reprise reliée à celle qu'elle continue ; Electron 44.4.5 |
 | [0.5.1](https://github.com/ZamBoyle/Ariane/releases/tag/v0.5.1) | 25 sept. 2026 | une indexation complète deux fois plus rapide : 13 s au lieu de 30 |
 | [0.5.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.5.0) | 25 sept. 2026 | les sous-agents de Claude et de Codex, rattachés à leur conversation ; une conversation reprise ne répète plus celle qu'elle reprend |
