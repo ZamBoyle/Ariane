@@ -201,7 +201,9 @@ async function run() {
     };
   })()`;
   // The facts under the title, with a folder name far too long for the window,
-  // built as the app builds them: a group wraps whole, none is ever cut.
+  // built as the app builds them: groups wrap whole, and one still too long on
+  // a line of its own ends in "…" — it never runs out of the header. That last
+  // part failed on macOS and Windows only, whose fonts are wider (d4b2b62).
   const META = `(() => {
     document.getElementById('convo-head').hidden = false;
     const meta = document.getElementById('convo-meta');
@@ -216,7 +218,7 @@ async function run() {
     const row = document.createElement('span');
     row.className = 'meta-row';
     row.append(group('meta-who', 'Claude claude-opus-5, claude-opus-5-5 et gpt-6-astra'), ' ',
-      group('meta-where', 'un-dossier-au-nom-vraiment-très-long-pour-une-fenêtre-étroite'), ' ',
+      group('meta-where', 'un-dossier-au-nom-vraiment-très-long-pour-une-fenêtre-étroite'.repeat(3)), ' ',
       group('meta-when', '25 sept. 2026, 18:29'), ' ', group('meta-size', '7 484 messages'));
     const cost = document.createElement('span');
     cost.className = 'meta-row meta-cost-row';
@@ -224,8 +226,10 @@ async function run() {
     meta.replaceChildren(row, cost);
     const groups = [...meta.querySelectorAll('.meta-group')];
     const box = (el) => el.getBoundingClientRect();
+    const others = groups.filter((g) => !g.classList.contains('meta-where'));
     return {
-      whole: groups.every((g) => g.scrollWidth <= g.clientWidth + 1 && box(g).right <= box(meta).right + 1),
+      inside: groups.every((g) => box(g).right <= box(meta).right + 1) && meta.scrollWidth <= meta.clientWidth + 1,
+      othersWhole: others.every((g) => g.scrollWidth <= g.clientWidth + 1),
       wrapped: new Set(groups.map((g) => Math.round(box(g).top))).size > 1,
       costWhole: cost.scrollWidth <= cost.clientWidth + 1,
     };
@@ -373,8 +377,9 @@ async function run() {
     wideComposer.oneLine && wideComposer.field >= 300, JSON.stringify(wideComposer));
 
   // -- the conversation header: icons, and labels when there is room -------
-  check('the facts under the title wrap by whole groups, never cut, and so does the cost',
-    narrowMeta.whole && narrowMeta.wrapped && narrowMeta.costWhole, JSON.stringify(narrowMeta));
+  check('the facts under the title wrap by whole groups and never run out of the header',
+    narrowMeta.inside && narrowMeta.othersWhole && narrowMeta.wrapped && narrowMeta.costWhole,
+    JSON.stringify(narrowMeta));
 
   check('a narrow header keeps its actions on one line, icons alone',
     !narrow.overflow && narrow.labels > 0 && narrow.labelsShown === 0 && narrow.title > 100,

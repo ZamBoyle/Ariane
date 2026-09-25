@@ -589,7 +589,9 @@ button.stats:focus-visible {
 
 /* Les faits de la conversation, groupés par la question qu'ils règlent — qui,
    où, quand, combien — au lieu de huit faits dans une seule chaîne de points.
-   Un groupe passe entier à la ligne ; aucun n'est jamais coupé. */
+   Un groupe passe entier à la ligne. Seul sur la sienne et encore trop long —
+   un nom de dossier interminable —, son texte finit par « … » plutôt que de
+   déborder de l'en-tête ; le chemin entier reste au survol. */
 .meta-row {
   display: flex;
   flex-wrap: wrap;
@@ -602,7 +604,15 @@ button.stats:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 100%;
+  min-width: 0;
   white-space: nowrap;
+}
+
+.meta-group > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .meta-icon {

@@ -56,7 +56,10 @@ règlent : **qui** (la marque de l'assistant, comme dans la barre latérale, son
 **où** (le dossier par son nom, le chemin entier au survol, la branche en étiquette), **quand**,
 **combien** de messages — chaque groupe annoncé par une icône. Sur une ligne à lui, **ce qu'a coûté
 la conversation**, ses chiffres nommés : « ↑ 756K envoyés · ↓ 477K reçus · 94,8M relus depuis le
-cache ». Un groupe passe entier à la ligne quand la place manque ; aucun n'est coupé. Les actions de
+cache ». Un groupe passe entier à la ligne quand la place manque ; seul sur la sienne et encore trop
+long — un nom de dossier interminable —, son texte finit par « … » au lieu de déborder, le chemin
+entier au survol. La CI l'a appris : sous macOS et Windows, dont les polices sont plus larges, le
+premier jet débordait ; le test reproduit désormais le cas sous Linux aussi. Les actions de
 l'en-tête sont des icônes, nommées au survol et pour les lecteurs d'écran ; « Oublier » montre sa
 question en toutes lettres pendant qu'il attend le second clic — ce qu'il ne faisait pas quand la
 fenêtre était étroite.
