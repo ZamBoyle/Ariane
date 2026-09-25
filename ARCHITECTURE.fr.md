@@ -181,6 +181,19 @@ côté » — le premier est la consigne de l'assistant parent, jamais les mots 
 sous-agent n'est pas listé ; on l'ouvre depuis son parent. Mesuré le 25 septembre 2026 : 381
 sous-agents chez Claude (122 Mo, 24 000 messages) et 7 chez Codex.
 
+**Les mots de la personne, une seule fois.** Claude Code en écrit deux échos, et chacun est reconnu
+par ce que dit le fichier, jamais par le texte seul. Un message tapé pendant que Claude travaille
+est mis en file (`enqueue`, gardé) ; sorti de la file (`dequeue`), il est écrit une seconde fois
+comme une ligne `user` ordinaire — `markDelivery`, dans `claude.js`, marque le premier message de
+la personne lu dans les 32 lignes qui suivent un dequeue, le curseur portant l'attente (`d<n>`)
+d'une passe à l'autre, et l'indexeur retire la copie de la file. Un message retiré de la file
+(`remove`) n'existe que là, et reste. Et le pointeur `last-prompt` répète le dernier prompt avec ses blancs
+aplatis, coupé au-delà de 200 caractères par « … » (`echoOf`, dans `archive.js`). Mesuré le 25
+septembre 2026 : 219 copies de la file et 90 pointeurs affichés deux fois, le pointeur comme le
+message le plus récent, sans date. Une passe qui lit un fichier depuis le début décide des deux sur
+ce qu'elle a lu ; seule une passe qui reprend un fichier interroge la base — l'interroger à chaque
+fois coûtait une demi-seconde d'une passe complète.
+
 ---
 
 ## 4. La base
@@ -286,7 +299,10 @@ seule copie. Les règles, chacune tenue par un test :
   découverte est allée à son terme ;
 - **la migration sauve avant de jeter** : tout ce qui n'est pas _prouvé_ présent sur le disque est
   copié d'abord. Quelques copies inutiles, jamais l'inverse ;
-- **le format de l'archive se migre et ne se jette jamais** ;
+- **le format de l'archive se migre et ne se jette jamais** — la version 3 retire les deux échos du
+  § 3.4, et là où la preuve du fichier (le `dequeue`) n'existe plus, seule part une copie de la file
+  livrée en moins de deux secondes : une copie qui a attendu plus longtemps reste en double, plutôt
+  que risquer un mot tapé une seule fois ;
 - **« Oublier » efface pour de bon** : `secure_delete`, fusion des segments FTS, `wal_checkpoint`.
 
 ---
@@ -632,6 +648,7 @@ de `git status` — passait tous les tests unitaires de `speakerOf()` pendant qu
 | toucher à la taille du texte ou aux touches | `src/main/text-size.js` (les règles), `main.js` (leur application — une fois la fenêtre montrée, jamais avant), `textSize` dans `settings.js` |
 | toucher à ce qu'une réponse montre de son coût | `groupMessages` / `sumUsage` dans `format.js` (le regroupement), `replyCost` dans `app.js` (l'affichage), `usagePerSession` sur l'adaptateur |
 | toucher aux sous-agents | la découverte dans `claude.js` (`discoverSubagents`) et `codex.js` (l'en-tête), `parentId` dans le contrat, `LISTED` et `Index.subagents` dans `db.js`, `paintSubagents` dans `app.js` |
+| toucher à ce qui compte comme écho de la personne | `markDelivery` dans `claude.js` (la file), `deliversQueued` dans `indexer.js`, `echoOf` dans `archive.js` (la forme de `last-prompt`) |
 | toucher à ce qui compte comme copie | `Index.markCopies` dans `db.js` (la règle), `globalIds` sur l'adaptateur (à qui elle s'applique), `OWN_MESSAGES` (ce qui est listé) |
 | toucher aux marques | `src/core/marks.js` ; elles vivent dans `marks.json`, jamais dans l'index |
 | ajouter une phrase à l'écran | `src/locales/en.ftl` **et tous les autres fichiers** ; jamais dans le code |

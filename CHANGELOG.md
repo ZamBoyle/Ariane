@@ -38,6 +38,47 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### Tes mots une seule fois : l'écho du dernier message, et la file d'attente
+
+**Signalé depuis Windows** : dans une conversation Claude, « mon message initial est remis en
+dernier ». En tête de la conversation — la plus récente, puisque l'ordre par défaut commence par la
+fin —, un « Vous » sans date répétait le premier message, coupé par « … ». C'était le pointeur
+`last-prompt` que Claude Code écrit pour `--resume`. Ariane l'écartait quand la conversation tenait
+déjà le même texte, mais Claude Code l'écrit dans sa propre forme : retours à la ligne aplatis en
+espaces, coupé au-delà de 200 caractères par « … ». La comparaison exacte échouait, et l'écho,
+ajouté en fin de passe, s'affichait comme le message le plus récent. Il n'a pas fallu la base du
+PC Windows : le même défaut était ici. **90 pointeurs sur 101** restés dans l'index répétaient
+ainsi un message ; les 11 autres n'existent nulle part ailleurs et restent. La première mesure,
+« 92 uniques sur 647 », comptait donc surtout des échos coupés.
+
+**En cherchant, un second écho, plus gros.** Un message tapé pendant que Claude travaille est mis
+en file (`enqueue`) — Ariane le récupère depuis la version 3 du schéma, parce que c'était alors le
+seul endroit où il existait. Claude Code a changé depuis : sorti de la file (`dequeue`), le
+message est écrit une seconde fois comme une ligne ordinaire. **219 messages sur 219 livrés**
+s'affichaient deux fois. Ceux qu'on retire de la file (`remove`, 124) n'existent toujours que là.
+
+**Le fichier décide, pas le texte.** Un « oui » retiré de la file puis un « oui » tapé plus tard
+sont deux messages ; comparer les textes les aurait fondus. La règle suit donc ce que Claude Code
+écrit : le premier message de la personne lu après un `dequeue` — mesuré, de 1 à 14 lignes plus
+loin, en moins de 532 ms, toujours précédé d'un `dequeue` — est sa livraison, et la copie de la
+file s'en va. Deux pièges payés en chemin : un « [Request interrupted by user] » s'intercale
+parfois entre les deux (7 livraisons manquées au premier essai), et une passe peut s'arrêter entre
+le `dequeue` et la livraison, d'où l'attente portée dans le curseur.
+
+**Vérifié sur le vrai corpus**, le vrai indexeur contre la 0.6.0, ligne par ligne : 309 lignes en
+moins — les 219 copies de la file, toutes suivies d'un `dequeue` dans le fichier, et les 90 échos —,
+chacune avec son original présent, et pas une ligne portant un identifiant touchée. Le premier jet
+coûtait 0,5 à 1 s de plus sur une passe complète : il interrogeait la base pour chaque écho
+possible. Une passe qui lit un fichier depuis le début décide maintenant sur ce qu'elle a lu, et
+trois passes alternées donnent 9,26 s pour la 0.6.0 contre 9,24 s.
+
+**L'archive aussi**, qu'on ne relit pas : son format passe en version 3 et retire les deux échos.
+Là où la preuve du fichier n'existe plus, seule part une copie de la file livrée en moins de deux
+secondes — la moitié des livraisons suivent en 74 ms ; une copie qui a attendu plus longtemps reste
+en double, plutôt que risquer un mot tapé une seule fois. La migration de l'index sauve de même,
+sans leurs échos, les conversations qu'elle met à l'abri. `SCHEMA_VERSION` passe à 18 : le premier
+lancement relit tout, une fois.
+
 ### Sous Windows, la fenêtre d'Ariane ne s'ouvrait plus
 
 **Ce qui s'est passé.** Le travail sur la taille du texte, juste en dessous, l'appliquait au

@@ -430,15 +430,22 @@ l'échappement HTML.
 ### Et ne jamais perdre ce que vous avez dit
 
 Le symétrique, et la source des défauts les plus coûteux du projet. Un message tapé **pendant que
-l'assistant travaille** est mis en file d'attente, et cet enregistrement est le seul endroit où il
-existe. Le traiter comme de la plomberie faisait disparaître la moitié d'une conversation.
+l'assistant travaille** est mis en file d'attente, et s'il en est retiré, cet enregistrement est le
+seul endroit où il existe. Le traiter comme de la plomberie faisait disparaître la moitié d'une
+conversation.
 
 Six types d'enregistrements ont été récupérés après coup, chacun contenant des mots qui
-n'existaient nulle part ailleurs : messages en file d'attente, pointeurs `last-prompt` (92 uniques
-sur 647), commandes différées (35 sur 109), **résumés de session** écrits pour vous pendant votre
+n'existaient nulle part ailleurs : messages en file d'attente, pointeurs `last-prompt` (11 uniques
+sur 101, comptés exactement le 25 septembre 2026), commandes différées (35 sur 109), **résumés de session** écrits pour vous pendant votre
 absence (71), contenus **collés** dans un prompt dont la transcription a été purgée (7 sur 510), et
 la **raison d'un échec** que VS Code enregistrait pendant que l'affichage laissait croire à une
 question ignorée (4 sur 53).
+
+**Mais jamais deux fois non plus.** Claude Code réécrit aujourd'hui un message sorti de la file
+comme un message ordinaire, et répète le dernier prompt dans un pointeur aux retours à la ligne
+aplatis, coupé à 200 caractères. Ariane reconnaît les deux — la file par le `dequeue` que le fichier
+écrit, le pointeur par sa forme — et ne garde que l'original : 309 doublons sur ce corpus, dont un
+signalé depuis Windows, qui s'affichait comme votre message le plus récent.
 
 Et quand un chemin ne peut pas être établi avec certitude — un nom de dossier décodé, un encodage
 qui a détruit les accents — il est affiché comme une approximation, jamais comme un fait.

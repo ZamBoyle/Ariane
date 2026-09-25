@@ -22,7 +22,7 @@ const fs = require('fs');
 const path = require('path');
 
 const FORMAT = 'ariane-archive';
-const VERSION = 2;
+const VERSION = 3;
 
 class Archive {
   /** @param {string} dir Usually `<userData>/archive`. */
@@ -57,7 +57,13 @@ class Archive {
     const file = this.fileFor(globalId);
     fs.mkdirSync(path.dirname(file), { recursive: true });
 
-    const header = { format: FORMAT, version: VERSION, id: globalId, savedAt: new Date().toISOString(), session };
+    const header = {
+      format: FORMAT,
+      version: VERSION,
+      id: globalId,
+      savedAt: new Date().toISOString(),
+      session,
+    };
     const body = `${[header, ...messages].map((line) => JSON.stringify(line)).join('\n')}\n`;
 
     // Written whole, then renamed into place: a crash half-way must never leave
@@ -84,6 +90,9 @@ class Archive {
     if (header.version < 2 && String(header.id).startsWith('claude:')) {
       messages = withoutRepeatedUsage(messages);
     }
+    if (header.version < 3 && String(header.id).startsWith('claude:')) {
+      messages = withoutEchoedPrompts(messages);
+    }
     return { id: header.id, session: header.session, savedAt: header.savedAt, messages };
   }
 
@@ -105,7 +114,10 @@ class Archive {
       const dir = path.join(this.dir, agent.name);
       for (const name of fs.readdirSync(dir)) {
         if (!name.endsWith('.jsonl')) continue; // .partial files are a write that never finished
-        out.push({ id: `${agent.name}:${decodeURIComponent(name.slice(0, -'.jsonl'.length))}`, file: path.join(dir, name) });
+        out.push({
+          id: `${agent.name}:${decodeURIComponent(name.slice(0, -'.jsonl'.length))}`,
+          file: path.join(dir, name),
+        });
       }
     }
     return out;
@@ -143,9 +155,81 @@ function withoutRepeatedUsage(messages) {
   });
 }
 
+/** A text with every run of blanks made one space, as Claude Code's pointer writes it. */
+const flattenPrompt = (text) =>
+  String(text ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/**
+ * What Claude Code's `last-prompt` pointer repeats. It writes the prompt in its
+ * own shape — blanks flattened to one space, and past 200 characters cut and
+ * ended with "…" — so it repeats a message whose flattened text is its own, or
+ * begins with it when cut. `matches` takes a text already flattened: callers
+ * flatten each candidate once, not once per pointer.
+ *
+ * @returns {{stem: string, matches: (flatHeld: string) => boolean}}
+ */
+function echoOf(pointer) {
+  const flat = flattenPrompt(pointer);
+  const cut = flat.endsWith('…');
+  const stem = cut ? flat.slice(0, -1).trimEnd() : flat;
+  return {
+    stem,
+    matches: (flatHeld) => Boolean(stem) && (cut ? flatHeld.startsWith(stem) : flatHeld === stem),
+  };
+}
+
+/** How close a queued copy and its delivery are, when the file no longer says. */
+const QUEUED_COPY_MS = 2000;
+
+/**
+ * Version 2 → 3: until 25 September 2026, the person's words could be stored twice
+ * (agents/claude.js, db.js hasMessageText). The index is rebuilt from the files;
+ * an archive cannot be, so the two echoes are recognised here instead:
+ *
+ * - a `last-prompt` pointer — the only rows with neither a time nor an id — whose
+ *   text, blanks flattened, is another message of the person's, or begins one
+ *   when Claude Code cut it with "…";
+ * - a queued copy — no id, a time — followed within QUEUED_COPY_MS by a line of
+ *   the person's with an id and the same text. The file's own proof, the
+ *   `dequeue`, is not in an archive; the delay is, and it is tight on purpose:
+ *   measured, half the deliveries follow within 74 ms. A copy that waited
+ *   longer stays twice, rather than risk a word the person typed only once.
+ */
+function withoutEchoedPrompts(messages) {
+  const said = messages.filter((m) => m.role === 'user' && !m.is_notice && m.text);
+  const drop = new Set();
+  for (const m of said) {
+    if (m.uuid) continue;
+    if (!m.ts) {
+      const { matches } = echoOf(m.text);
+      const echoes = said.some(
+        (o) => o !== m && !drop.has(o) && (o.uuid || o.ts) && matches(flattenPrompt(o.text))
+      );
+      if (echoes) drop.add(m);
+      continue;
+    }
+    const at = Date.parse(m.ts);
+    const delivery = said.find(
+      (o) =>
+        o.uuid &&
+        o.seq > m.seq &&
+        o.text === m.text &&
+        Date.parse(o.ts) - at >= 0 &&
+        Date.parse(o.ts) - at <= QUEUED_COPY_MS
+    );
+    if (delivery) drop.add(m);
+  }
+  return drop.size ? messages.filter((m) => !drop.has(m)) : messages;
+}
+
 module.exports = {
   Archive,
   ARCHIVE_FORMAT: FORMAT,
   ARCHIVE_VERSION: VERSION,
   withoutRepeatedUsage,
+  withoutEchoedPrompts,
+  flattenPrompt,
+  echoOf,
 };

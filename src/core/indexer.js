@@ -20,6 +20,10 @@
 
 const registry = require('./agents');
 const { globalSessionId } = require('./agents/contract');
+const { echoOf, flattenPrompt } = require('./archive');
+
+/** A queued message as the queue wrote it: the person's words, a time, no id. */
+const isQueuedCopy = (m) => m.role === 'user' && !m.uuid && m.timestamp && !m.isNotice && m.text;
 
 /** Rows buffered before hitting the database, to keep transactions chunky. */
 const BATCH_SIZE = 500;
@@ -141,7 +145,8 @@ class Indexer {
    */
   #saveVanished(report, adapters, completed) {
     const present = new Set(adapters.map((a) => a.id));
-    const vouched = (agentId) => completed.has(agentId) || (!this.adapters && !present.has(agentId));
+    const vouched = (agentId) =>
+      completed.has(agentId) || (!this.adapters && !present.has(agentId));
 
     for (const { id, agentId, source } of this.index.sessionsBrief()) {
       if (source === 'archive' || this.seen.has(id) || !vouched(agentId)) continue;
@@ -289,8 +294,19 @@ class Indexer {
     // an UPDATE, each its own transaction — made a full pass three times slower.
     let lastReply = null;
 
+    // Read from the start, this pass sees everything the session will hold —
+    // resetSession emptied it above. The two checks on the person's words are
+    // then made on what it read: asking the database for each cost half a
+    // second of a full pass. Only a pass that resumes a file halfway asks.
+    const whole = !cursor;
+    const said = new Set();
+    const queuedWritten = new Map();
+
     const flush = () => {
       if (buffer.length === 0) return;
+      for (const m of buffer) {
+        if (isQueuedCopy(m)) queuedWritten.set(m.text, (queuedWritten.get(m.text) || 0) + 1);
+      }
       count += this.index.addMessages(id, buffer);
       buffer = [];
       lastReply = null;
@@ -316,6 +332,18 @@ class Indexer {
             if (item.text) deferred.push(item);
             break;
           }
+          // A queued message, now delivered as a line of its own (claude.js):
+          // its queued copy goes, from the buffer or from an earlier pass.
+          if (item.deliversQueued) {
+            const copy = buffer.findLastIndex((m) => isQueuedCopy(m) && m.text === item.text);
+            if (copy >= 0) buffer.splice(copy, 1);
+            else if (!whole || queuedWritten.get(item.text) > 0) {
+              if (this.index.dropQueuedCopy(id, item.text) && whole) {
+                queuedWritten.set(item.text, queuedWritten.get(item.text) - 1);
+              }
+            }
+          }
+          if (whole && item.role === 'user' && item.text) said.add(item.text);
           buffer.push(item);
           if (item.role === 'assistant') {
             lastReply = item;
@@ -360,15 +388,24 @@ class Indexer {
     flush();
 
     // Now that everything else is stored, keep only the deferred records whose
-    // text the session still lacks. Measured on a real corpus: 555 of 647 are
-    // dropped here, and the 92 survivors would otherwise be lost entirely.
+    // text the session still lacks, in any shape (archive.js, echoOf). Measured
+    // on 25 September 2026: 11 survivors in the whole corpus, lost otherwise.
     const kept = [];
     const seen = new Set();
+    let flatSaid = null;
+    const holds = (item) => {
+      if (!whole || item.role !== 'user')
+        return this.index.hasMessageText(id, item.role, item.text);
+      if (said.has(item.text)) return true;
+      flatSaid ??= [...said].map(flattenPrompt);
+      const { matches } = echoOf(item.text);
+      return flatSaid.some(matches);
+    };
     for (const item of deferred) {
       const key = `${item.role}\u0000${item.text}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      if (this.index.hasMessageText(id, item.role, item.text)) continue;
+      if (holds(item)) continue;
       kept.push(item);
     }
     if (kept.length > 0) count += this.index.addMessages(id, kept);

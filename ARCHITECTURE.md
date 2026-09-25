@@ -175,6 +175,18 @@ names `parent_thread_id`. Either way the descriptor carries `parentId`, the inde
 briefing, never the person's. A subagent is not listed; it is opened from its parent. Measured on
 25 September 2026: 381 Claude subagents (122 MB, 24 000 messages) and 7 Codex ones.
 
+**The person's words, once.** Claude Code writes two echoes of them, and each is recognised by what
+the file says, never by the text alone. A message typed while Claude works is queued (`enqueue`,
+stored); taken off the queue (`dequeue`), it is written again as an ordinary `user` line —
+`markDelivery` in `claude.js` marks the first message of the person within 32 lines of a dequeue,
+the cursor carrying the wait (`d<n>`) across passes, and the indexer drops the queued copy. One
+`remove`d from the queue exists nowhere else and stays. And the `last-prompt` pointer repeats the
+last prompt with its blanks flattened, cut past 200 characters with "…" (`echoOf` in
+`archive.js`). Measured on 25 September 2026: 219 queued copies and 90 pointers shown twice, the
+pointer as the newest message, undated. A pass that reads a file from the start decides both on
+what it read; only a pass resuming a file asks the database — asking every time cost half a second
+of a full pass.
+
 ---
 
 ## 4. The database
@@ -273,7 +285,9 @@ copy left. The rules, each held up by a test:
 - **a pass only saves what no source offered**, and only for agents whose discovery ran to the end;
 - **the migration saves before it drops**: anything not _proven_ present on disk is copied first. A
   few needless copies, never the reverse;
-- **the archive format is migrated, never dropped**;
+- **the archive format is migrated, never dropped** — version 3 removes the two echoes of § 3.4,
+  and where the file's proof (`dequeue`) is gone, only a queued copy delivered within two seconds
+  goes: a copy that waited longer stays twice, rather than risk a word typed once;
 - **“Forget” really forgets**: `secure_delete`, FTS segment merge, `wal_checkpoint`.
 
 ---
@@ -604,6 +618,7 @@ the output of `git status` — passed every unit test of `speakerOf()` while the
 | touch the text size or the keys | `src/main/text-size.js` (the rules), `main.js` (applying them — once the window is shown, never before), `textSize` in `settings.js` |
 | touch what a reply shows it cost | `groupMessages` / `sumUsage` in `format.js` (the grouping), `replyCost` in `app.js` (the display), `usagePerSession` on the adapter |
 | touch subagents | discovery in `claude.js` (`discoverSubagents`) and `codex.js` (the header), `parentId` in the contract, `LISTED` and `Index.subagents` in `db.js`, `paintSubagents` in `app.js` |
+| touch what counts as the person's echo | `markDelivery` in `claude.js` (the queue), `deliversQueued` in `indexer.js`, `echoOf` in `archive.js` (the `last-prompt` shape) |
 | touch what counts as a copy | `Index.markCopies` in `db.js` (the rule), `globalIds` on the adapter (who it applies to), `OWN_MESSAGES` (what is listed) |
 | touch marks | `src/core/marks.js`; they live in `marks.json`, never in the index |
 | add a sentence on screen | `src/locales/en.ftl` **and every other file**; never in the code |

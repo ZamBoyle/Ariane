@@ -79,10 +79,7 @@ const NOTICE_BLOCKS = [
   'init',
 ];
 
-const INJECTED_BLOCK = new RegExp(
-  `<(${NOTICE_BLOCKS.join('|')})>[\\s\\S]*?<\\/\\1>`,
-  'g'
-);
+const INJECTED_BLOCK = new RegExp(`<(${NOTICE_BLOCKS.join('|')})>[\\s\\S]*?<\\/\\1>`, 'g');
 
 /**
  * Markers the harness writes in place of a turn: an interruption, a compaction
@@ -102,19 +99,24 @@ function extractRecord(raw) {
 
   const type = raw.type;
 
-  // A message typed while the assistant is still working is QUEUED, and the
-  // queue record is the only place it is ever written: it never gets a `user`
-  // record of its own. Discarding these loses the person's words outright -
-  // measured on one real session, 30 of their ~50 messages lived only here.
+  // A message typed while the assistant is still working is QUEUED. When it is
+  // `remove`d from the queue, that record is the only place it is ever written:
+  // discarding these loses the person's words outright - measured on one real
+  // session, 30 of their ~50 messages lived only here. When it is `dequeue`d,
+  // Claude Code now writes it again as a `user` line: agents/claude.js marks
+  // that line, and the indexer drops the queued copy.
   //
   // `enqueue` is the arrival. `remove` repeats the same text once the message
   // has been handled, and `dequeue` carries none, so both are skipped or every
   // queued message would appear twice.
   // A pointer to the last prompt of a session, written for `--resume`. Usually
-  // it repeats a message that already has a `user` record, but measured over a
-  // whole corpus 92 of 647 exist NOWHERE else - prompts that would otherwise be
-  // lost. It is emitted with `dedupeByText`, and the indexer drops it when the
-  // session already holds that text, so the 555 duplicates never reach the reader.
+  // it repeats a message that already has a `user` record, but some exist
+  // NOWHERE else - prompts that would otherwise be lost. It is emitted with
+  // `dedupeByText`, and the indexer drops it when the session already holds that
+  // text. The text is in the pointer's own shape — blanks flattened, cut past
+  // 200 characters with "…" (archive.js, echoOf). Counted exactly, that first
+  // measure's "92 of 647 exist nowhere else" was mostly those cut echoes: on 25
+  // September 2026, 11 of 101 pointers left in an index did.
   if (type === 'last-prompt') {
     const prompt = typeof raw.lastPrompt === 'string' ? raw.lastPrompt.trim() : '';
     if (!prompt) return { kind: 'ignored', reason: 'known-noise', detail: 'last-prompt:empty' };
@@ -471,7 +473,9 @@ function preview(value) {
     text = value;
   } else if (Array.isArray(value)) {
     text = value
-      .map((b) => (b && typeof b === 'object' && typeof b.text === 'string' ? b.text : stringify(b)))
+      .map((b) =>
+        b && typeof b === 'object' && typeof b.text === 'string' ? b.text : stringify(b)
+      )
       .join('\n');
   } else {
     text = stringify(value);

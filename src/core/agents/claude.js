@@ -81,10 +81,15 @@ const adapter = {
     // counts only what the later lines add.
     let counted = resumed.reply;
     let seen = resumed.seen;
+    // Lines read since a queued message was taken off the queue, while its
+    // delivery has not been read yet — in the cursor too, for a pass that
+    // stops between the two.
+    let sinceDequeue = resumed.sinceDequeue;
     let last = cursor;
 
     for await (const record of readRecords(descriptor.filePath, { start })) {
       let item = extractRecord(record.value);
+      ({ item, sinceDequeue } = markDelivery(record.value, item, sinceDequeue));
       const reply = replyIdOf(record.value);
       if (reply && item.kind === 'message' && item.usage) {
         if (reply !== counted) {
@@ -99,12 +104,54 @@ const adapter = {
       // A trailing line with no newline reports endOffset === offset; yielding
       // the previous cursor makes the indexer re-read it once complete.
       const next =
-        record.endOffset > record.offset ? makeCursor(record.endOffset, counted, seen) : last;
+        record.endOffset > record.offset
+          ? makeCursor(record.endOffset, counted, seen, sinceDequeue)
+          : last;
       last = next;
       yield { item, cursor: next };
     }
   },
 };
+
+// ── a queued message, delivered ─────────────────────────────────────────────
+
+/**
+ * A message typed while Claude works is queued (`enqueue`, which Ariane stores:
+ * extract.js). Claude Code now also writes it again as an ordinary `user` line
+ * once it is sent — and the person read their words twice. Measured
+ * on 25 September 2026, 356 queued messages: 219 were taken off the queue
+ * (`dequeue`) and then written as a `user` line, always after a `dequeue`, 1 to
+ * 14 lines and at most 532 ms later; 124 were `remove`d and exist nowhere else.
+ *
+ * So the text alone does not decide — "oui" queued and removed, then "oui"
+ * typed later, are two messages. The `dequeue` does: the first message of the
+ * person read within DELIVERY_WINDOW lines after one is its delivery, and the
+ * indexer drops the queued copy of that text (`deliversQueued`). The copy goes
+ * and the line stays: it has an id, and it sits where the reply answers it.
+ */
+const DELIVERY_WINDOW = 32;
+
+function markDelivery(raw, item, sinceDequeue) {
+  if (raw && raw.type === 'queue-operation' && raw.operation === 'dequeue') {
+    return { item, sinceDequeue: 0 };
+  }
+  if (sinceDequeue == null) return { item, sinceDequeue };
+  if (sinceDequeue >= DELIVERY_WINDOW) return { item, sinceDequeue: null };
+
+  // Only the person's words end the wait. A notice does not: "[Request
+  // interrupted by user]" comes between a dequeue and its delivery, and letting
+  // it count left 7 of the 219 twice.
+  const spoken =
+    raw &&
+    raw.type === 'user' &&
+    item.kind === 'message' &&
+    item.text &&
+    !item.isNotice &&
+    !item.isMeta &&
+    !item.isSidechain;
+  if (!spoken) return { item, sinceDequeue: sinceDequeue + 1 };
+  return { item: { ...item, deliversQueued: true }, sinceDequeue: null };
+}
 
 // ── one reply, several lines ────────────────────────────────────────────────
 
@@ -162,16 +209,20 @@ function highest(usage, seen) {
  * cursor written before a part existed simply lacks it — and without the
  * counts, a later line of the same reply is not counted at all, as before.
  */
-function makeCursor(offset, reply, seen) {
-  if (!reply) return String(offset);
-  if (!seen) return `${offset};${reply}`;
-  const counts = USAGE_FIELDS.map((field) => (seen[field] == null ? '' : seen[field])).join(',');
-  return `${offset};${reply};${counts}`;
+function makeCursor(offset, reply, seen, sinceDequeue = null) {
+  const counts = seen
+    ? USAGE_FIELDS.map((field) => (seen[field] == null ? '' : seen[field])).join(',')
+    : '';
+  const parts = [offset, reply || '', counts, sinceDequeue == null ? '' : `d${sinceDequeue}`];
+  // Fields left empty at the end are dropped, so a cursor with nothing to carry
+  // reads as it always has: an offset, then the reply, then its counts.
+  while (parts.length > 1 && parts[parts.length - 1] === '') parts.pop();
+  return parts.join(';');
 }
 
 function parseCursor(cursor) {
-  if (cursor == null) return { offset: 0, reply: null, seen: null };
-  const [offset, reply, counts] = String(cursor).split(';');
+  if (cursor == null) return { offset: 0, reply: null, seen: null, sinceDequeue: null };
+  const [offset, reply, counts, dequeue] = String(cursor).split(';');
   let seen = null;
   if (counts) {
     const values = counts.split(',');
@@ -179,7 +230,8 @@ function parseCursor(cursor) {
       USAGE_FIELDS.map((field, i) => [field, values[i] ? Number(values[i]) : null])
     );
   }
-  return { offset: Number(offset), reply: reply || null, seen };
+  const since = /^d\d+$/.test(dequeue || '') ? Number(dequeue.slice(1)) : null;
+  return { offset: Number(offset), reply: reply || null, seen, sinceDequeue: since };
 }
 
 // ── discovery ───────────────────────────────────────────────────────────────
@@ -454,9 +506,10 @@ function pastedParts(pastedContents) {
     parts.push({
       type: 'pasted',
       lines: typeof (entry || {}).lineCount === 'number' ? entry.lineCount : 0,
-      preview: content.length > PASTE_PREVIEW_LIMIT
-        ? `${content.slice(0, PASTE_PREVIEW_LIMIT)}\u2026`
-        : content,
+      preview:
+        content.length > PASTE_PREVIEW_LIMIT
+          ? `${content.slice(0, PASTE_PREVIEW_LIMIT)}\u2026`
+          : content,
     });
   }
   return parts;
@@ -471,7 +524,9 @@ async function rememberOriginalPath(ctx, indexPath) {
   } catch {
     return null; // no sessions-index.json: the transcripts say where they ran
   }
-  return remember(ctx, `claude:index:${indexPath}`, stampOf(stat), () => readOriginalPath(indexPath));
+  return remember(ctx, `claude:index:${indexPath}`, stampOf(stat), () =>
+    readOriginalPath(indexPath)
+  );
 }
 
 /** `originalPath` from sessions-index.json — the only exact source. */

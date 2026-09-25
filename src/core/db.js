@@ -14,7 +14,7 @@ const Database = require('better-sqlite3');
 
 const { toMatchQuery } = require('./query');
 const { USAGE_FIELDS } = require('./agents/contract');
-const { withoutRepeatedUsage } = require('./archive');
+const { withoutRepeatedUsage, withoutEchoedPrompts, flattenPrompt, echoOf } = require('./archive');
 
 /**
  * Bumped for a schema change OR a change in what the adapters extract.
@@ -24,6 +24,7 @@ const { withoutRepeatedUsage } = require('./archive');
  * already stored. Raising this version drops the index and rebuilds it, which
  * takes about ten seconds.
  *
+ * 18: the person's words once: a delivered queued message, a cut last-prompt
  * 17: a resumed or forked conversation linked to the one it continues
  * 16: subagents read, each attached to the conversation that launched it
  * 15: messages copied from another conversation flagged; a Claude line counts what it adds
@@ -42,7 +43,7 @@ const { withoutRepeatedUsage } = require('./archive');
  * 2: multi-agent schema
  * 1: initial
  */
-const SCHEMA_VERSION = 17;
+const SCHEMA_VERSION = 18;
 /** The five token columns of one message, from the contract's shape. */
 function usageColumns(usage) {
   const u = usage || {};
@@ -79,8 +80,19 @@ const SCHEMA_SQL = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
  * two can never disagree about what a saved conversation contains.
  */
 const ARCHIVE_SESSION_COLUMNS = [
-  'id', 'agent_id', 'title', 'slug', 'git_branch', 'first_prompt',
-  'first_at', 'last_at', 'source', 'file_path', 'parent_id', 'continued_in', 'continues_from',
+  'id',
+  'agent_id',
+  'title',
+  'slug',
+  'git_branch',
+  'first_prompt',
+  'first_at',
+  'last_at',
+  'source',
+  'file_path',
+  'parent_id',
+  'continued_in',
+  'continues_from',
 ];
 const ARCHIVE_SESSION_SQL = archiveSessionSelect(ARCHIVE_SESSION_COLUMNS);
 
@@ -93,13 +105,33 @@ function archiveSessionSelect(columns) {
 
 /** The same, restricted to what an older index has — see archiveMessagesSql. */
 function archiveSessionSql(db) {
-  const present = new Set(db.prepare('PRAGMA table_info(sessions)').all().map((c) => c.name));
+  const present = new Set(
+    db
+      .prepare('PRAGMA table_info(sessions)')
+      .all()
+      .map((c) => c.name)
+  );
   return archiveSessionSelect(ARCHIVE_SESSION_COLUMNS.filter((name) => present.has(name)));
 }
 const ARCHIVE_MESSAGE_COLUMNS = [
-  'seq', 'uuid', 'parent_uuid', 'role', 'ts', 'model',
-  'tok_input', 'tok_output', 'tok_cache_read', 'tok_cache_write', 'tok_reasoning',
-  'text', 'thinking', 'parts', 'is_meta', 'is_notice', 'is_sidechain', 'command',
+  'seq',
+  'uuid',
+  'parent_uuid',
+  'role',
+  'ts',
+  'model',
+  'tok_input',
+  'tok_output',
+  'tok_cache_read',
+  'tok_cache_write',
+  'tok_reasoning',
+  'text',
+  'thinking',
+  'parts',
+  'is_meta',
+  'is_notice',
+  'is_sidechain',
+  'command',
 ];
 const ARCHIVE_MESSAGES_SQL = `
   SELECT ${ARCHIVE_MESSAGE_COLUMNS.join(', ')}
@@ -116,7 +148,12 @@ const ARCHIVE_MESSAGES_SQL = `
  * the file, which is luck, not design.
  */
 function archiveMessagesSql(db) {
-  const present = new Set(db.prepare('PRAGMA table_info(messages)').all().map((c) => c.name));
+  const present = new Set(
+    db
+      .prepare('PRAGMA table_info(messages)')
+      .all()
+      .map((c) => c.name)
+  );
   const columns = ARCHIVE_MESSAGE_COLUMNS.filter((name) => present.has(name));
   return `SELECT ${columns.join(', ')} FROM messages WHERE session_id = ? ORDER BY seq`;
 }
@@ -237,7 +274,9 @@ class Index {
     if (current === SCHEMA_VERSION || current === 0) return;
 
     const tables = this.db
-      .prepare("SELECT name FROM sqlite_master WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%'")
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%'"
+      )
       .all()
       .map((r) => r.name);
     if (tables.length === 0) return;
@@ -269,8 +308,10 @@ class Index {
         // An index built before 0.3.4 holds a Claude reply's usage on each of
         // its lines (archive.js, withoutRepeatedUsage). Saved as it is, the
         // inflated count would be kept in a format nothing migrates any more.
-        const messages =
-          fromVersion < 11 && session.agent_id === 'claude' ? withoutRepeatedUsage(rows) : rows;
+        // And one built before 25 September 2026 may hold the person's words twice.
+        const claude = session.agent_id === 'claude';
+        let messages = fromVersion < 11 && claude ? withoutRepeatedUsage(rows) : rows;
+        if (fromVersion < 18 && claude) messages = withoutEchoedPrompts(messages);
         if (messages.length) this.archive.write(session.id, session, messages);
       }
     } catch (error) {
@@ -385,6 +426,15 @@ class Index {
       hasText: db.prepare(
         'SELECT 1 FROM messages WHERE session_id = ? AND role = ? AND text = ? LIMIT 1'
       ),
+      textsContaining: db.prepare(
+        "SELECT text FROM messages WHERE session_id = ? AND role = ? AND text <> '' AND instr(text, ?) > 0"
+      ),
+      dropQueuedCopy: db.prepare(`
+        DELETE FROM messages WHERE id = (
+          SELECT id FROM messages
+          WHERE session_id = ? AND role = 'user' AND uuid IS NULL AND ts <> ''
+            AND is_notice = 0 AND text = ?
+          ORDER BY seq DESC LIMIT 1)`),
       dropSession: db.prepare('DELETE FROM sessions WHERE id = ?'),
       messageText: db.prepare('SELECT text FROM messages WHERE id = ?'),
       archiveSession: db.prepare(`${ARCHIVE_SESSION_SQL} WHERE s.id = ?`),
@@ -656,7 +706,25 @@ class Index {
    * showing the common case twice.
    */
   hasMessageText(sessionId, role, text) {
-    return Boolean(this.s.hasText.get(sessionId, role, text));
+    if (this.s.hasText.get(sessionId, role, text)) return true;
+    // Claude Code writes that pointer in its own shape (archive.js, echoOf).
+    // Measured on 25 September 2026: 90 of 101 pointers left in an index
+    // repeated a message that way, and showed as the newest one, undated. The
+    // rare survivor still gets through — a text the session holds in no shape.
+    const { stem, matches } = echoOf(text);
+    const word = stem.split(' ')[0];
+    if (!word) return false;
+    return this.s.textsContaining
+      .all(sessionId, role, word)
+      .some(({ text: held }) => matches(flattenPrompt(held)));
+  }
+
+  /**
+   * A queued message was delivered as a line of its own (agents/claude.js):
+   * the queued copy of that text, the latest one, is no longer needed.
+   */
+  dropQueuedCopy(sessionId, text) {
+    return this.s.dropQueuedCopy.run(sessionId, text).changes > 0;
   }
 
   finalizeSession(sessionId) {
@@ -733,9 +801,7 @@ class Index {
       after.push(child.id);
       id = child.id;
     }
-    return [...before, sessionId, ...after]
-      .map((id) => this.s.chainPart.get(id))
-      .filter(Boolean);
+    return [...before, sessionId, ...after].map((id) => this.s.chainPart.get(id)).filter(Boolean);
   }
 
   /** Adapter-supplied incremental state for one storage key. */
@@ -837,16 +903,23 @@ class Index {
   }
 
   messages(sessionId) {
-    return this.s.getMessages.all(sessionId).map(({ tok_input, tok_output, tok_cache_read,
-                                                     tok_cache_write, tok_reasoning, ...m }) => ({
-      ...m,
-      usage: usageFromRow({ tok_input, tok_output, tok_cache_read, tok_cache_write, tok_reasoning }),
-      isMeta: Boolean(m.isMeta),
-      isNotice: Boolean(m.isNotice),
-      isSidechain: Boolean(m.isSidechain),
-      parts: safeParse(m.parts, []),
-      command: safeParse(m.command, null),
-    }));
+    return this.s.getMessages
+      .all(sessionId)
+      .map(({ tok_input, tok_output, tok_cache_read, tok_cache_write, tok_reasoning, ...m }) => ({
+        ...m,
+        usage: usageFromRow({
+          tok_input,
+          tok_output,
+          tok_cache_read,
+          tok_cache_write,
+          tok_reasoning,
+        }),
+        isMeta: Boolean(m.isMeta),
+        isNotice: Boolean(m.isNotice),
+        isSidechain: Boolean(m.isSidechain),
+        parts: safeParse(m.parts, []),
+        command: safeParse(m.command, null),
+      }));
   }
 
   /**
@@ -925,7 +998,14 @@ class Index {
    *   `ts` is the message's time as the date filter reads it, never empty.
    */
   search(input, opts = {}) {
-    const { folderId = null, sessionId = null, agentId = null, since = null, limit = 100, hidden = [] } = opts;
+    const {
+      folderId = null,
+      sessionId = null,
+      agentId = null,
+      since = null,
+      limit = 100,
+      hidden = [],
+    } = opts;
     // Hiding an agent on the left while its hits keep arriving below would be
     // two answers to the same question.
     const hiddenIds = cleanIds(hidden);
@@ -1012,7 +1092,12 @@ class Index {
       this.resetSession(sessionId, null);
       // Its agent may be gone from this machine altogether; the row is only a label.
       this.s.insertAgentIfAbsent.run(session.agent_id, agentLabel || session.agent_id);
-      const folderId = this.folderId(session.folder_path || '(inconnu)', null, true, session.folder_exact !== 0);
+      const folderId = this.folderId(
+        session.folder_path || '(inconnu)',
+        null,
+        true,
+        session.folder_exact !== 0
+      );
       this.upsertSession({
         id: sessionId,
         agent_id: session.agent_id,
@@ -1186,7 +1271,9 @@ function safeParse(value, fallback) {
  */
 function cleanIds(hidden) {
   if (!Array.isArray(hidden)) return [];
-  return [...new Set(hidden.filter((id) => typeof id === 'string' && /^[a-z][a-z0-9-]*$/.test(id)))];
+  return [
+    ...new Set(hidden.filter((id) => typeof id === 'string' && /^[a-z][a-z0-9-]*$/.test(id))),
+  ];
 }
 
 /**
