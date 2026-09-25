@@ -76,6 +76,9 @@ deux par cinq d'entre eux :
   numérique compris.
 - **Lecture confortable** : Markdown rendu, raisonnements repliés, et les rafales d'appels d'outils
   regroupées en un seul bandeau dépliable au lieu de vingt bulles.
+- **Le code en couleurs** : les blocs de code des réponses et de ce que vous avez collé, et les
+  commandes que les outils ont lancées — la commande elle-même, en bash, plutôt que le JSON autour ;
+  le JavaScript de Codex, ses correctifs en diff. Avec les teintes du thème, lisibles dans les deux.
 - **Attribution honnête** : l'outil qui répond n'est pas vous. Voir plus bas — c'est le point le
   plus important du projet.
 - **Récupération des conversations purgées** : quand une transcription disparaît, vos prompts

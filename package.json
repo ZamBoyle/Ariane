@@ -49,6 +49,7 @@
   },
   "dependencies": {
     "@fluent/bundle": "^0.19.1",
+    "@highlightjs/cdn-assets": "11.12.0",
     "better-sqlite3": "^13.0.3"
   },
   "devDependencies": {
@@ -71,7 +72,12 @@
       "!test/**",
       "!scripts/**",
       "!node_modules/better-sqlite3/deps/**",
-      "!node_modules/better-sqlite3/src/**"
+      "!node_modules/better-sqlite3/src/**",
+      "!node_modules/@highlightjs/cdn-assets/languages/**",
+      "!node_modules/@highlightjs/cdn-assets/styles/**",
+      "!node_modules/@highlightjs/cdn-assets/highlight*.js",
+      "!node_modules/@highlightjs/cdn-assets/es/highlight*.js",
+      "!node_modules/@highlightjs/cdn-assets/es/core.js"
     ],
     "directories": {
       "output": "dist"

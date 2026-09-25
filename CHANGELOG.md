@@ -39,6 +39,50 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### Le code en couleurs — dans les réponses, dans ce qu'on colle, dans les outils
+
+**Demandé** : la coloration syntaxique « comme le fait Claude Desktop quand on regarde les commandes
+exécutées », et aussi pour le code qu'un LLM écrit dans sa réponse, et pour celui que la personne
+colle elle-même dans du Markdown.
+
+**Ce qui se voit maintenant.** Un bloc de code qui nomme son langage est colorié, qu'il vienne de
+l'assistant ou de la personne. Un appel d'outil ne montre plus le JSON qui l'enveloppe mais **ce
+qu'il a lancé** : la commande shell, en bash ; sa description (« Show working tree status ») sur la
+ligne repliée, comme dans Claude Desktop ; ses autres champs dessous (`timeout`, `workdir`) — rien
+n'est perdu. Le mode code de Codex (`exec`) est du JavaScript, ses `apply_patch` des correctifs,
+montrés en diff ; tout autre appel, son JSON colorié. Sept teintes du thème, chacune à 4,5:1 au
+moins sur un bloc de code et dans un pli, en clair comme en sombre — la suite de mise en page le
+mesure.
+
+**Mesuré avant d'écrire**, sur tout le corpus :
+- 26 770 appels d'outils. Les commandes ne sont pas au même endroit d'un assistant à l'autre : le
+  `command` de Claude (13 846 appels), le `cmd` de Codex ou son `["bash", "-lc", script]`, le
+  `CommandLine` d'Antigravity. 1 247 aperçus de Claude, coupés à 2 000 caractères, ne sont plus du
+  JSON : la commande est lue jusqu'à la coupure, marquée « … ».
+- 1 073 blocs de code, dont 605 nomment leur langage — bash, js, sql, cpp, json en tête ; 41 venaient
+  de la personne. Seuls ces langages-là sont chargés. Les 468 blocs sans étiquette ne sont pas
+  devinés, et les 18 blocs `asm` (de l'assembleur 6502, que la bibliothèque ne connaît pas) restent
+  en texte.
+
+**La bibliothèque** est highlight.js (licence BSD), embarquée : rien n'est téléchargé. Mais le paquet
+`highlight.js` n'offre pas de vrai module ES — son `es/core.js` réexporte du CommonJS, qu'une page
+sandboxée ne sait pas charger —, c'est donc sa version navigateur officielle,
+`@highlightjs/cdn-assets`, même version, même licence. Ce qui ne sert pas est laissé hors du paquet.
+
+**Le piège était l'invariant 2** : `innerHTML` ne reçoit que ce qu'Ariane a échappé elle-même, et la
+bibliothèque écrit du HTML. Sa sortie est donc **relue** jeton par jeton, et ne passe que si elle
+est faite de `span` à classe `hljs-` autour du code exact, caractère pour caractère ; sinon le code
+reste du texte. Passé sur tout le corpus : 16 539 commandes, 3 006 JavaScript, 272 correctifs,
+6 614 JSON et 499 blocs coloriés, **aucun refusé** — après avoir autorisé la classe qu'un
+Dockerfile donne à ses `RUN`, écrits en bash (2 blocs refusés sans cela : prudent, mais trop).
+
+**Vérifié** : du code piégé, dans chacun des langages, ne produit que des `span` autour du texte
+exact ; la relecture refuse dix sorties falsifiées ; le rendu réel colore le code collé par la
+personne sans qu'une balise devienne vivante, et montre la commande d'un appel Bash avec sa
+description et ses champs. Chaque test a échoué sur le code volontairement cassé. Les deux plus
+grandes conversations s'ouvrent dans le même temps qu'avant, au bruit près (210–420 ms). Les
+exports ne sont pas coloriés : le papier reste en noir et blanc.
+
 ### Quand une conversation a commencé, et quand elle a fini
 
 **Demandé** : dans l'en-tête, la date et l'heure du début et de la fin, « attention de bien trouver

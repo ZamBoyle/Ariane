@@ -75,6 +75,9 @@ three busiest:
   Codex's week and its credits; Claude's current week and its history — with Claude Desktop
   installed — its last reading, and each time its limit refused a request — read from their files,
   never asked of a server.
+- **Code in colour**: the code blocks of the replies and of what you pasted, and the commands the
+  tools ran — the command itself, as bash, rather than the JSON around it; Codex's JavaScript, its
+  patches as diffs. In the theme's own tones, readable in both.
 - **Export** to Markdown or PDF, crediting each speaker exactly as the screen does.
 - **Nine languages**, chosen or following the system, a light, dark or system theme, and a text
   size from 90 to 130 % — in the settings, or with Ctrl + and Ctrl −.

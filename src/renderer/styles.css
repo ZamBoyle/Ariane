@@ -32,6 +32,16 @@
   --chart: #c2603c;
   --user: #496da2;
   --mark: #ffe08a;
+  /* La coloration syntaxique : les teintes du thème, chacune à 4,5:1 au moins
+     sur le fond d'un bloc de code et sur celui d'un pli d'outil. */
+  --syn-keyword: #a13f24;
+  --syn-string: #3b6a2c;
+  --syn-number: #7646a0;
+  --syn-title: #28608f;
+  --syn-builtin: #85560f;
+  --syn-comment: #6f6b63;
+  --syn-addition: #2f6b2a;
+  --syn-deletion: #b0322a;
   /* Native widgets only: MUST stay fully opaque. A translucent value here is
      composited by the OS against its own highlight and comes out wrong - it is
      what turned the selected option pink. */
@@ -79,6 +89,14 @@
     --chart: #d6744f;
     --user: #8aa9d6;
     --mark: #7a5c15;
+    --syn-keyword: #e58a68;
+    --syn-string: #a8c98f;
+    --syn-number: #c6a6e8;
+    --syn-title: #8ebce4;
+    --syn-builtin: #dcb872;
+    --syn-comment: #959188;
+    --syn-addition: #93cf8c;
+    --syn-deletion: #f0897f;
     --scrollbar: rgba(255, 255, 255, 0.26);
     --option-bg: #262622;
     --option-text: #f0eee6;
@@ -106,6 +124,14 @@
   --chart: #d6744f;
   --user: #8aa9d6;
   --mark: #7a5c15;
+  --syn-keyword: #e58a68;
+  --syn-string: #a8c98f;
+  --syn-number: #c6a6e8;
+  --syn-title: #8ebce4;
+  --syn-builtin: #dcb872;
+  --syn-comment: #959188;
+  --syn-addition: #93cf8c;
+  --syn-deletion: #f0897f;
   --scrollbar: rgba(255, 255, 255, 0.26);
   --option-bg: #262622;
   --option-text: #f0eee6;
@@ -1583,6 +1609,108 @@ details.fold > summary:hover {
 
 .fold-tag.error {
   color: var(--accent);
+}
+
+/* Ce qu'un appel d'outil dit faire, sur sa ligne repliée, comme dans Claude
+   Desktop : le texte de l'assistant, coupé par « … » s'il est long, entier au
+   survol. */
+.tool-description {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Les autres champs de l'appel, sous la commande : rien de ce qu'il disait
+   n'est perdu. */
+.tool-fields {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 10px;
+  margin: 0;
+  padding: 7px 12px 9px;
+  border-top: 1px solid var(--border-soft);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.tool-fields dt {
+  color: var(--text-faint);
+}
+
+.tool-fields dd {
+  margin: 0;
+  color: var(--text-soft);
+  overflow-wrap: anywhere;
+}
+
+/* ── La coloration syntaxique ────────────────────────────────────────── */
+
+/* Les classes que highlight.js écrit, ramenées à sept teintes du thème. Ce
+   qui n'est pas nommé ici — ponctuation, opérateurs, paramètres — garde la
+   couleur du texte autour. */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-section,
+.hljs-name,
+.hljs-type,
+.hljs-doctag {
+  color: var(--syn-keyword);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-symbol,
+.hljs-link,
+.hljs-template-tag,
+.hljs-selector-attr,
+.hljs-selector-pseudo {
+  color: var(--syn-string);
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-bullet {
+  color: var(--syn-number);
+}
+
+.hljs-title,
+.hljs-attr,
+.hljs-attribute,
+.hljs-property,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: var(--syn-title);
+}
+
+.hljs-built_in,
+.hljs-variable,
+.hljs-template-variable {
+  color: var(--syn-builtin);
+}
+
+.hljs-comment,
+.hljs-quote,
+.hljs-meta {
+  color: var(--syn-comment);
+}
+
+.hljs-comment,
+.hljs-quote,
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 600;
+}
+
+.hljs-addition {
+  color: var(--syn-addition);
+}
+
+.hljs-deletion {
+  color: var(--syn-deletion);
 }
 
 details.fold pre {

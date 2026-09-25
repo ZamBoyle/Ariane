@@ -501,10 +501,28 @@ view therefore calls back on every slice it paints (`onPaint`), and the marker i
 refuses nodes already inside a `<mark>`, since the search highlight and the Ctrl+F one can both be
 on at once.
 
+**Code is coloured** (`src/renderer/syntax.js`, 25 September 2026), by highlight.js — its official
+browser build, `@highlightjs/cdn-assets`, because the `highlight.js` package's `es/core.js` only
+re-exports CommonJS, which a sandboxed page cannot load. Where: a fenced block that names its
+language, in a reply **or in what the person pasted**; and a tool call, which `toolCall` in
+`format.js` reads for what it ran — the shell command itself as bash rather than the JSON around it
+(Claude's `command`, Codex's `cmd` or `["bash", "-lc", …]`, Antigravity's `CommandLine`; a preview
+cut at 2 000 characters is read up to the cut), Codex's `exec` as JavaScript, `apply_patch` as a
+diff, anything else as JSON; the description goes on the folded line, the other fields under the
+code. Only the languages the corpus names are registered, and a block that names none is never
+guessed. Measured on the whole corpus: 16 539 shell commands, 3 006 JavaScript, 272 patches, 6 614
+JSON inputs and 499 fenced blocks coloured, **none refused**; the two largest conversations open
+in the same time as before, within noise. Exports are not coloured: paper stays black and white.
+Seven tones of the theme (`--syn-*`), each at 4.5:1 on a code block and in a fold, both themes,
+measured by the layout suite.
+
 Two rules hold up everything else:
 
 1. **Escape, then decorate.** `innerHTML` is only ever fed the output of
-   `renderMarkdown` / `renderSnippet`; everything else goes through `textContent`.
+   `renderMarkdown` / `renderSnippet` — or of `colourCode`, which does not trust its library: it
+   reads the HTML back token by token and lets it through only if it is `hljs-` spans (or a
+   sub-language's `language-…`) around the exact code, character for character. Everything else
+   goes through `textContent`.
 2. **Never put words in anyone’s mouth.** `speakerOf()` returns a role (`'you'`, `'assistant'`, or
    nothing): on a real corpus, 88 % of records with the role `user` were tool output or harness
    notices.
@@ -676,5 +694,6 @@ the output of `git status` — passed every unit test of `speakerOf()` while the
 | change how a CLI is found | `src/main/terminal.js`, remembering that the settings win |
 | touch the usage limits | `src/core/quota.js` (what a reading says, what a window keeps), `recordQuotas` / `quotas` in `db.js`, `quotas` in `stats-view.js` |
 | change the statistics | `src/core/statistics.js` (counting — it takes `speakerOf` from format.js, never its own), `db.statisticsRows` (the rows), `stats-view.js` (the layout) |
+| colour code | `src/renderer/syntax.js` (the languages, the read-back guard), `toolCall` in `format.js` (what a tool call ran), the `--syn-*` tones and `.hljs-*` rules in `styles.css`; run the whole corpus through `colourCode` and count what it refuses |
 | change how Markdown renders | `renderMarkdown` in `src/renderer/format.js`, its style in `styles.css` **and** in `export-document.js` (paper); compare old and new on the whole corpus |
 | touch the update check | `src/core/update.js` (comparing), `src/main/update-check.js` (asking), `app.js` (the button) |

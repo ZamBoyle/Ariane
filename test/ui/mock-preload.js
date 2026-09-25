@@ -344,11 +344,14 @@ const MESSAGES = [
   // 2. The assistant calls a tool.
   {
     id: 2, seq: 1, role: 'assistant', ts: '2026-09-17T23:01:00.000Z', model: 'claude-opus-5',
-    text: 'Je regarde.', thinking: 'raisonnement interne',
+    // Du code dans la réponse, et un appel Bash tel que Claude l'écrit :
+    // la commande, ce qu'elle fait, et un champ de plus.
+    text: 'Je regarde.\n\n```bash\nfor f in *.md; do echo "$f"; done\n```', thinking: 'raisonnement interne',
     parts: [
       { type: 'text', text: 'Je regarde.' },
       { type: 'thinking', text: 'raisonnement interne' },
-      { type: 'tool_use', id: 't1', name: 'Bash', preview: '{"command":"git status"}' },
+      { type: 'tool_use', id: 't1', name: 'Bash',
+        preview: '{"command":"git status && echo \\"$HOME\\"","description":"Voir l’état du dépôt","timeout":120000}' },
     ],
     isMeta: false, isNotice: false, isSidechain: false, command: null,
     // Ce que cette réponse a coûté : 503 envoyés, 120 reçus, 24 000 relus.
@@ -406,7 +409,9 @@ const MESSAGES = [
   // 6. A second real message, carrying markup that must never become live HTML.
   {
     id: 6, seq: 5, role: 'user', ts: '2026-09-17T23:05:00.000Z',
-    text: 'Et <script>alert(1)</script> ceci, avec `du code`',
+    // Et du code collé par la personne, piégé : il doit être colorié, et rester du texte.
+    text: 'Et <script>alert(1)</script> ceci, avec `du code`\n\n'
+      + '```js\nconst piège = \'<img src=x onerror=alert(1)>\'; // </span><script>alert(2)</script>\n```',
     thinking: '', parts: [],
     isMeta: false, isNotice: false, isSidechain: false, command: null,
   },

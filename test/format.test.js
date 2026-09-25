@@ -947,3 +947,65 @@ test.describe('finding a word in the open conversation', () => {
     assert.deepEqual(F.findRanges('texte', 'absent'), []);
   });
 });
+
+// Ce qu'un appel d'outil a lancé, lu dans son aperçu — les formes mesurées le
+// 25 septembre 2026 sur 26 609 appels.
+test.describe('toolCall', () => {
+  test('le Bash de Claude : la commande en bash, sa description à part, les autres champs dessous', () => {
+    const call = F.toolCall('Bash', '{"command":"git status && echo \\"$HOME\\"","description":"Voir l’état","timeout":120000}');
+    assert.deepEqual(call, {
+      language: 'bash',
+      code: 'git status && echo "$HOME"',
+      description: 'Voir l’état',
+      fields: [['timeout', '120000']],
+    });
+  });
+
+  test('Codex, Copilot et Antigravity : cmd, command, CommandLine, et le tableau ["bash", "-lc", …]', () => {
+    assert.deepEqual(F.toolCall('exec_command', '{"cmd":"pwd && ls -la","workdir":"/p","max_output_tokens":2000}'), {
+      language: 'bash',
+      code: 'pwd && ls -la',
+      description: '',
+      fields: [['workdir', '/p'], ['max_output_tokens', '2000']],
+    });
+    assert.equal(F.toolCall('shell', '{"command":["bash","-lc","ls -la | head"],"workdir":"."}').code, 'ls -la | head');
+    assert.equal(
+      F.toolCall('shell', '{"command":["rg","-n","deux mots","src/"]}').code,
+      "rg -n 'deux mots' src/",
+      'des mots, cités pour un shell : aucun n’est perdu'
+    );
+    assert.equal(F.toolCall('shell_command', '{"command":"ssh zam@cups \'uname -a\'"}').code, "ssh zam@cups 'uname -a'");
+    assert.equal(F.toolCall('run_command', '{"CommandLine":"ls -la","Cwd":"/tmp"}').code, 'ls -la');
+    assert.equal(F.toolCall('outil', '{"command":"npm test","description":"Tests"}').language, 'bash', 'un appel sans nom');
+  });
+
+  test('un aperçu coupé à 2 000 caractères : la commande jusqu’à la coupure, marquée « … »', () => {
+    const long = `echo "${'x'.repeat(1990)}`;
+    const cut = `${JSON.stringify({ command: long }).slice(0, 2000)}…`;
+    const call = F.toolCall('Bash', cut);
+    assert.equal(call.language, 'bash');
+    assert.ok(call.code.endsWith('…'));
+    assert.ok(long.startsWith(call.code.slice(0, -1)), 'le début est le vrai début de la commande');
+    // Coupée après la commande : elle est entière.
+    const after = `{"command":"ls -la","description":"${'d'.repeat(2000)}`.slice(0, 2000) + '…';
+    assert.equal(F.toolCall('Bash', after).code, 'ls -la');
+    // Coupée au milieu d'un échappement : il est retiré, pas décodé à moitié.
+    assert.equal(F.toolCall('Bash', '{"command":"a\\u00e9b\\u00…').code, 'aéb…');
+    assert.equal(F.toolCall('Bash', '{"command":"a\\…').code, 'a…');
+    assert.equal(F.toolCall('Bash', '{"command":"a\\\\u12…').code, 'a\\u12…', 'une barre littérale suivie de « u12 » reste');
+  });
+
+  test('ce qui n’est pas une commande shell reste ce qu’il est', () => {
+    assert.equal(F.toolCall('str_replace_based_edit_tool', '{"command":"view","path":"a.js"}').language, 'json',
+      'le « command » d’un éditeur n’est pas du shell');
+    assert.deepEqual(F.toolCall('Read', '{"file_path":"/a.js"}'), {
+      language: 'json', code: '{"file_path":"/a.js"}', description: '', fields: [],
+    });
+    assert.equal(F.toolCall('exec', 'text(await tools.exec_command({cmd:"ls"}));').language, 'javascript',
+      'le mode code de Codex');
+    assert.equal(F.toolCall('apply_patch', '*** Begin Patch\n*** Add File: a\n+x\n*** End Patch').language, 'diff');
+    assert.equal(F.toolCall('copilot_readFile', 'Reading [](file:///a.txt)').language, null);
+    assert.equal(F.toolCall('Bash', '').language, null, 'rien à montrer');
+    assert.equal(F.toolCall('Bash', '{"command":""}').language, 'json', 'une commande vide n’en est pas une');
+  });
+});

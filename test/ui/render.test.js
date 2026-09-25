@@ -84,6 +84,30 @@ const SCRIPT = `(async () => {
     html: el.querySelector('.msg-body') ? el.querySelector('.msg-body').innerHTML : '',
   }));
 
+  // La coloration : le code de la personne, celui de la réponse, et l'appel Bash.
+  const inRow = (id, selector) => transcript.querySelector('[data-message-id="' + id + '"] ' + selector);
+  const bashFold = [...transcript.querySelectorAll('[data-message-id="2"] details.fold')]
+    .find((d) => (d.querySelector('.fold-tag') || {}).textContent === 'Bash');
+  const codeCheck = {
+    userBlock: (inRow(6, 'pre.code code') || {}).innerHTML || null,
+    userText: (inRow(6, 'pre.code') || {}).textContent || null,
+    replyBlock: (inRow(2, 'pre.code code') || {}).innerHTML || null,
+    // Rien d'autre que des span, chacun avec sa seule classe hljs-.
+    spansOnly: [...transcript.querySelectorAll('pre code *')].every((e) => e.tagName === 'SPAN'
+      && e.getAttributeNames().join() === 'class'
+      && /^(hljs-[a-z_-]+( [a-z]+_+)*|language-[a-z0-9]+)$/.test(e.className)),
+    spans: transcript.querySelectorAll('pre code span').length,
+    images: transcript.querySelectorAll('.msg-body img, pre img').length,
+    tool: bashFold ? {
+      summary: bashFold.querySelector('summary').textContent,
+      description: (bashFold.querySelector('.tool-description') || {}).title || null,
+      command: bashFold.querySelector('pre').textContent,
+      coloured: bashFold.querySelectorAll('pre code span').length,
+      lang: bashFold.querySelector('pre').dataset.lang || null,
+      fields: [...bashFold.querySelectorAll('.tool-fields dt, .tool-fields dd')].map((e) => e.textContent),
+    } : null,
+  };
+
   // Search: type into the composer and let the debounce fire.
   const search = document.getElementById('search');
   search.value = 'terme';
@@ -1139,6 +1163,7 @@ const SCRIPT = `(async () => {
     lefts,
     distinctLefts: [...new Set(lefts)].length,
     toolRuns,
+    codeCheck,
     title: claudeChrome.title,
     meta: claudeChrome.meta,
     claudeModelLabels: claudeChrome.modelLabels,
@@ -1174,6 +1199,7 @@ const SCREENS_SCRIPT = `(async () => {
     '.result-title strong', '.results-group', '#convo-title', '.agent-chip', '.agent-dot',
     '.fold pre', '.fold-tag', 'code', 'pre', '.outline-tick', 'title', '.msg-model', '.session-model',
     '.stats-model', '.stats-folder', '.stats-parent', '.convo-id', '.meta-folder', '.meta-branch',
+    '.tool-description', '.tool-fields',
   ].join(', ');
   // Names, not sentences: the app's, the assistants', the languages' own.
   const NAMES = new Set(['Ariane', 'Claude Code', 'Codex', 'Copilot CLI', 'Qwen Code', 'Gemini CLI',
@@ -1689,6 +1715,24 @@ async function run() {
   check('injected markup is shown escaped',
     byId['6'] && byId['6'].html.includes('&lt;script&gt;'), byId['6'] ? byId['6'].html.slice(0, 60) : '');
   check('inline code still renders', byId['6'] && byId['6'].html.includes('<code>'));
+
+  // -- la coloration syntaxique --------------------------------------------
+  const code = r.codeCheck;
+  check('le code que la personne colle est colorié, comme celui du LLM',
+    /<span class="hljs-keyword">const<\/span>/.test(code.userBlock || '')
+      && /<span class="hljs-keyword">for<\/span>/.test(code.replyBlock || ''),
+    JSON.stringify([code.userBlock, code.replyBlock]));
+  check('et reste du texte : le piège se lit tel qu’il a été écrit, sans une balise vivante',
+    code.userText === "const piège = '<img src=x onerror=alert(1)>'; // </span><script>alert(2)</script>"
+      && code.images === 0 && r.liveScripts === 0 && code.spansOnly && code.spans > 0,
+    JSON.stringify({ text: code.userText, images: code.images, spansOnly: code.spansOnly, spans: code.spans }));
+  check('un appel Bash montre sa commande coloriée, pas le JSON autour',
+    code.tool && code.tool.command === 'git status && echo "$HOME"' && code.tool.lang === 'bash' && code.tool.coloured > 0,
+    JSON.stringify(code.tool));
+  check('sa description sur la ligne repliée, entière au survol, et ses autres champs dessous',
+    code.tool && code.tool.summary.includes('Voir l’état du dépôt') && code.tool.description === 'Voir l’état du dépôt'
+      && JSON.stringify(code.tool.fields) === '["timeout","120000"]',
+    JSON.stringify(code.tool));
 
   // -- chrome --------------------------------------------------------------
   check('the conversation header names the session', r.title === 'Session de test', r.title);

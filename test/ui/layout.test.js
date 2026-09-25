@@ -363,11 +363,14 @@ async function run() {
     return { light, dark };
   })()`);
   // Every tone text is written in, on every surface it sits on, both themes.
+  const SYNTAX = ['--syn-keyword', '--syn-string', '--syn-number', '--syn-title', '--syn-builtin',
+    '--syn-comment', '--syn-addition', '--syn-deletion'];
   const tones = await win.webContents.executeJavaScript(`(() => {
     const root = document.documentElement;
     const was = root.dataset.theme;
     const read = () => Object.fromEntries(['--text', '--text-soft', '--text-faint', '--accent', '--user',
-      '--bg', '--bg-sidebar', '--bg-panel'].map((k) => [k, getComputedStyle(root).getPropertyValue(k).trim()]));
+      '--bg', '--bg-sidebar', '--bg-panel', '--bg-code', ${JSON.stringify(SYNTAX).slice(1, -1)}]
+      .map((k) => [k, getComputedStyle(root).getPropertyValue(k).trim()]));
     root.dataset.theme = 'light';
     const light = read();
     root.dataset.theme = 'dark';
@@ -532,6 +535,20 @@ async function run() {
     check(`every text tone reads at 4.5:1 or more on every surface, ${theme}`,
       weak.length === 0 && text > soft && soft > faint,
       weak.length ? weak.join(', ') : `texte ${text.toFixed(1)} > doux ${soft.toFixed(1)} > pâle ${faint.toFixed(1)}`);
+  }
+
+  // La coloration syntaxique : chaque teinte, sur le fond d'un bloc de code et
+  // sur celui d'un pli d'outil (--bg-sidebar), dans les deux thèmes.
+  for (const [theme, t] of Object.entries(tones)) {
+    const weak = [];
+    for (const tone of SYNTAX) {
+      for (const surface of ['--bg-code', '--bg-sidebar']) {
+        const r = /^#[0-9a-f]{6}$/i.test(t[tone]) ? contrast(t[tone], t[surface]) : 0;
+        if (!(r >= 4.5)) weak.push(`${tone} (${t[tone] || 'absent'}) sur ${surface} ${r.toFixed(2)}`);
+      }
+    }
+    check(`la coloration syntaxique se lit à 4,5:1 au moins, sur un bloc de code et dans un pli, ${theme}`,
+      weak.length === 0, weak.length ? weak.join(', ') : SYNTAX.map((k) => t[k]).join(' '));
   }
 
   check('the window background is the stylesheet\'s, in both themes',

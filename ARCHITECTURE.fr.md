@@ -533,10 +533,29 @@ que les 120 premières lignes. La vue prévient donc à chaque tranche peinte (`
 marqueur est **idempotent** : il refuse les nœuds déjà dans un `<mark>`, puisque le surlignage de
 recherche et celui du Ctrl+F peuvent être allumés en même temps.
 
+**Le code est colorié** (`src/renderer/syntax.js`, 25 septembre 2026), par highlight.js — sa
+version navigateur officielle, `@highlightjs/cdn-assets`, parce que le `es/core.js` du paquet
+`highlight.js` ne fait que réexporter du CommonJS, qu'une page sandboxée ne sait pas charger. Où :
+un bloc clôturé qui nomme son langage, dans une réponse **ou dans ce que la personne a collé** ; et
+un appel d'outil, que `toolCall` dans `format.js` lit pour ce qu'il a lancé — la commande shell
+elle-même en bash plutôt que le JSON autour (le `command` de Claude, le `cmd` ou le
+`["bash", "-lc", …]` de Codex, le `CommandLine` d'Antigravity ; un aperçu coupé à 2 000 caractères
+est lu jusqu'à la coupure), l'`exec` de Codex en JavaScript, `apply_patch` en diff, tout le reste en
+JSON ; la description va sur la ligne repliée, les autres champs sous le code. Seuls les langages
+que le corpus nomme sont enregistrés, et un bloc qui n'en nomme aucun n'est jamais deviné. Mesuré sur
+tout le corpus : 16 539 commandes shell, 3 006 JavaScript, 272 correctifs, 6 614 entrées JSON et 499
+blocs clôturés coloriés, **aucun refusé** ; les deux plus grandes conversations s'ouvrent dans le
+même temps qu'avant, au bruit près. Les exports ne sont pas coloriés : le papier reste en noir et
+blanc. Sept teintes du thème (`--syn-*`), chacune à 4,5:1 sur un bloc de code et dans un pli, dans
+les deux thèmes, mesurées par la suite de mise en page.
+
 Deux règles tiennent tout le reste :
 
 1. **Échapper, puis décorer.** `innerHTML` ne reçoit jamais que la sortie de
-   `renderMarkdown` / `renderSnippet` ; tout le reste passe par `textContent`.
+   `renderMarkdown` / `renderSnippet` — ou de `colourCode`, qui ne fait pas confiance à sa
+   bibliothèque : il relit le HTML jeton par jeton et ne le laisse passer que s'il est fait de span
+   `hljs-` (ou `language-…` d'un sous-langage) autour du code exact, caractère pour caractère. Tout
+   le reste passe par `textContent`.
 2. **Ne jamais mettre de mots dans la bouche de quelqu'un.** `speakerOf()` renvoie un rôle
    (`'you'`, `'assistant'`, ou rien) : sur un corpus réel, 88 % des enregistrements de rôle
    « user » étaient des sorties d'outils ou des avis du harnais.
@@ -713,5 +732,6 @@ de `git status` — passait tous les tests unitaires de `speakerOf()` pendant qu
 | changer la façon dont une CLI est trouvée | `src/main/terminal.js`, et se souvenir que les réglages priment |
 | toucher aux limites d'utilisation | `src/core/quota.js` (ce que dit un relevé, ce que garde une fenêtre), `recordQuotas` / `quotas` dans `db.js`, `quotas` dans `stats-view.js` |
 | changer les statistiques | `src/core/statistics.js` (le compte — il prend `speakerOf` à format.js, jamais le sien), `db.statisticsRows` (les lignes), `stats-view.js` (la mise en page) |
+| colorier le code | `src/renderer/syntax.js` (les langages, la relecture), `toolCall` dans `format.js` (ce qu'un appel d'outil a lancé), les teintes `--syn-*` et les règles `.hljs-*` dans `styles.css` ; passer tout le corpus par `colourCode` et compter ce qu'il refuse |
 | changer le rendu du Markdown | `renderMarkdown` dans `src/renderer/format.js`, son style dans `styles.css` **et** dans `export-document.js` (papier) ; comparer l'ancien et le nouveau sur tout le corpus |
 | toucher à la vérification de version | `src/core/update.js` (comparer), `src/main/update-check.js` (demander), `app.js` (le bouton) |

@@ -46,8 +46,13 @@ export function renderSnippet(snippet) {
  *
  * Fenced blocks are extracted before anything else, so `**` inside code is
  * never mistaken for emphasis.
+ *
+ * `colour(code, language)` — the screen passes syntax.js's `colourCode` —
+ * colours a block that names its language, and answers null for anything it
+ * does not vouch for; the block is then escaped here, as always. The exports
+ * pass none: paper stays black and white.
  */
-export function renderMarkdown(text) {
+export function renderMarkdown(text, { colour = null } = {}) {
   if (!text) return '';
 
   const blocks = [];
@@ -55,9 +60,11 @@ export function renderMarkdown(text) {
     /```([\w+-]*)\n?([\s\S]*?)```/g,
     (_match, lang, code) => {
       const index = blocks.length;
+      const body = code.replace(/\n$/, '');
+      const coloured = colour && lang ? colour(body, lang.toLowerCase()) : null;
       blocks.push(
         `<pre class="code"${lang ? ` data-lang="${escapeHtml(lang)}"` : ''}>` +
-          `<code>${escapeHtml(code.replace(/\n$/, ''))}</code></pre>`
+          `<code>${coloured ?? escapeHtml(body)}</code></pre>`
       );
       return `\u0000BLOCK${index}\u0000`;
     }
@@ -824,6 +831,109 @@ export function describeToolRun(messages) {
   const kind = calls > 0 ? 'calls' : results > 0 ? 'results' : 'attachments';
   const count = { calls, results, attachments }[kind];
   return { calls, results, errors, attachments, kind, count, label };
+}
+
+/** Tools that run a shell command, and the names given to a call whose name was not written. */
+const SHELL_TOOLS = new Set([
+  'Bash',
+  'bash',
+  'shell',
+  'shell_command',
+  'exec_command',
+  'run_command',
+]);
+const UNNAMED_TOOLS = new Set(['tool', 'outil']);
+const COMMAND_KEYS = ['command', 'cmd', 'CommandLine'];
+const SHELLS = new Set(['bash', 'sh', 'zsh', 'dash']);
+
+/**
+ * What a tool call ran, read from its stored preview — the call's input as
+ * JSON, cut at 2 000 characters (extract.js) — so that the screen shows it as
+ * Claude Desktop does: the command itself, as bash, not the JSON around it.
+ * Measured on 25 September 2026 over 26 609 calls:
+ *
+ * - a shell command sits in `command` (Claude's Bash, 13 846 calls; Copilot;
+ *   Codex's `shell_command`), in `cmd` (Codex's `exec_command`), in
+ *   `CommandLine` (Antigravity), or in `command` as ["bash", "-lc", script]
+ *   (Codex's `shell`) — for a shell tool, or a call whose name was not
+ *   written; an editor's `command: "view"` is not a shell command;
+ * - Codex's `exec` is JavaScript — its code mode, 3 006 calls — and its
+ *   `apply_patch` a patch, 272;
+ * - any other input is JSON.
+ *
+ * 1 247 of Claude's Bash previews were cut and no longer parse: the command
+ * is read up to the cut, which "…" still marks.
+ *
+ * @returns {{language: string|null, code: string, description: string,
+ *            fields: Array<[string, string]>}} `fields` are the input's other
+ *   keys, shown beside the command: nothing the call said is dropped.
+ */
+export function toolCall(name, preview) {
+  const text = typeof preview === 'string' ? preview : '';
+  const plain = (language) => ({ language, code: text, description: '', fields: [] });
+  if (name === 'exec' && !text.startsWith('{')) return plain('javascript');
+  if (name === 'apply_patch' || text.startsWith('*** Begin Patch')) return plain('diff');
+
+  if (SHELL_TOOLS.has(name) || UNNAMED_TOOLS.has(name)) {
+    const input = parseObject(text);
+    const key = input && COMMAND_KEYS.find((k) => commandOf(input[k]) !== null);
+    if (key) {
+      const description = typeof input.description === 'string' ? input.description : '';
+      const fields = Object.entries(input)
+        .filter(([k]) => k !== key && !(k === 'description' && description))
+        .map(([k, v]) => [k, typeof v === 'string' ? v : JSON.stringify(v)]);
+      return { language: 'bash', code: commandOf(input[key]), description, fields };
+    }
+    const cut = input ? null : cutCommand(text);
+    if (cut !== null) return { language: 'bash', code: cut, description: '', fields: [] };
+  }
+  return plain(/^\s*[[{]/.test(text) ? 'json' : null);
+}
+
+function parseObject(text) {
+  try {
+    const value = JSON.parse(text);
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A command as text: itself, the script of ["bash", "-lc", script], or its words quoted for a shell. */
+function commandOf(value) {
+  if (typeof value === 'string') return value.trim() ? value : null;
+  if (!Array.isArray(value) || !value.length || !value.every((word) => typeof word === 'string'))
+    return null;
+  const shell = value[0].split('/').pop();
+  if (value.length === 3 && SHELLS.has(shell) && /^-[a-z]*c$/.test(value[1])) return value[2];
+  return value
+    .map((word) => (/^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replace(/'/g, `'\\''`)}'`))
+    .join(' ');
+}
+
+/**
+ * The command of a preview cut before its end: read as far as it goes. Whole
+ * if its closing quote is there — only what came after it was cut — or ended
+ * with "…" where the cut fell. Null if the preview does not open on a command.
+ */
+function cutCommand(text) {
+  // The preview's own "…" first: read after a backslash, it would pass for an escape.
+  const body = text.endsWith('…') ? text.slice(0, -1) : text;
+  const found = /^\{\s*"(?:command|cmd|CommandLine)"\s*:\s*"((?:[^"\\]|\\.)*)(")?/.exec(body);
+  if (!found) return null;
+  const whole = Boolean(found[2]);
+  // An escape the cut split in two is dropped, never half-decoded: a lone
+  // backslash is already left out, a "\u" short of its four digits goes here.
+  const escaped = whole
+    ? found[1]
+    : found[1].replace(/(^|[^\\])((?:\\\\)*)\\u[0-9a-fA-F]{0,3}$/, '$1$2');
+  let command;
+  try {
+    command = JSON.parse(`"${escaped}"`);
+  } catch {
+    return null;
+  }
+  return whole ? command : `${command}…`;
 }
 
 /**

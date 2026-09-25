@@ -6,7 +6,8 @@
  *
  * DOM rule, applied without exception: text goes in through `textContent`, and
  * `innerHTML` is only ever fed the output of format.js, which escapes first and
- * decorates second.
+ * decorates second — or of syntax.js, which reads its library's HTML back
+ * token by token before letting it through.
  */
 
 import {
@@ -22,11 +23,13 @@ import {
   commandLabel,
   groupMessages,
   describeToolRun,
+  toolCall,
   agentTheme,
   findRanges,
   foldForSearch,
 } from './format.js';
 import { TranscriptView } from './transcript-view.js';
+import { colourCode } from './syntax.js';
 import { icon, setButton, setIconButton } from './icons.js';
 import { SettingsDialog } from './settings-dialog.js';
 import { statisticsPane, statisticsLoading } from './stats-view.js';
@@ -1636,8 +1639,9 @@ function renderMessage(message, usage = null) {
 
   const body = node('div', 'msg-body');
   if (message.text) {
-    // Safe: renderMarkdown escapes before decorating (see format.js).
-    body.innerHTML = renderMarkdown(message.text);
+    // Safe: renderMarkdown escapes before decorating (see format.js), and
+    // colours only what syntax.js read back as the code itself.
+    body.innerHTML = renderMarkdown(message.text, { colour: colourCode });
   }
 
   for (const part of message.parts) appendPart(body, part, message);
@@ -2184,7 +2188,7 @@ function appendPart(body, part, message) {
   }
 
   if (part.type === 'tool_use') {
-    body.append(fold(t('part-tool'), part.preview, part.name));
+    body.append(toolFold(part));
     return;
   }
 
@@ -2215,6 +2219,43 @@ function fold(label, content, tag = '', isError = false) {
   const pre = document.createElement('pre');
   pre.textContent = content || t('part-empty');
   details.append(pre);
+  return details;
+}
+
+/**
+ * A tool call, folded, the way Claude Desktop shows one: what it ran rather
+ * than the JSON around it — a shell command as bash, Codex's code as
+ * JavaScript, a patch as a diff (format.js, toolCall) — coloured when
+ * syntax.js knows the language; its description on the folded line; its other
+ * fields under the code, so nothing the call said is lost.
+ */
+function toolFold(part) {
+  const call = toolCall(part.name, part.preview);
+  const details = node('details', 'fold');
+  const summary = document.createElement('summary');
+  summary.append(node('span', '', t('part-tool')), node('span', 'fold-tag', part.name));
+  if (call.description) {
+    const said = node('span', 'tool-description', call.description);
+    said.title = call.description;
+    summary.append(said);
+  }
+  details.append(summary);
+
+  const pre = document.createElement('pre');
+  const code = document.createElement('code');
+  const coloured = call.code && call.language ? colourCode(call.code, call.language) : null;
+  // Safe: syntax.js read it back as the code itself, in spans of its classes.
+  if (coloured) code.innerHTML = coloured;
+  else code.textContent = call.code || t('part-empty');
+  if (call.language) pre.dataset.lang = call.language;
+  pre.append(code);
+  details.append(pre);
+
+  if (call.fields.length) {
+    const fields = node('dl', 'tool-fields');
+    for (const [name, value] of call.fields) fields.append(node('dt', '', name), node('dd', '', value));
+    details.append(fields);
+  }
   return details;
 }
 
