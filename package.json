@@ -24,7 +24,7 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "demo": "electron scripts/demo.js --no-sandbox",
-    "demo:capture": "electron scripts/demo.js --no-sandbox --capture=docs/ariane.png",
+    "demo:capture": "electron scripts/demo.js --no-sandbox --capture=docs",
     "test": "node --test \"test/*.test.js\"",
     "test:watch": "node --test --watch \"test/*.test.js\"",
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=96 --test-coverage-branches=87 --test-coverage-functions=94 \"test/*.test.js\"",

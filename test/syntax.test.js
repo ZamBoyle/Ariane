@@ -164,3 +164,59 @@ test('le rendu Markdown colore un bloc qui nomme son langage, et escape le reste
     'le rendu fait confiance au coloriste qu’on lui passe : c’est syntax.js qui relit'
   );
 });
+
+// Comme Claude Desktop : la commande elle-même, quelle qu'elle soit, et
+// seulement là où un shell la lirait comme une commande (signalé le
+// 25 septembre 2026 : sed, git et npm restaient en blanc, et le « test » de
+// « npm test » s'allumait).
+test.describe('une commande shell', () => {
+  const commands = (code) =>
+    [...S.colourCode(code, 'bash').matchAll(/<span class="hljs-built_in">([^<]*)<\/span>/g)].map(
+      (m) => m[1]
+    );
+
+  test('le premier mot de chaque commande, où qu’elle commence', () => {
+    assert.deepEqual(commands('sed -n 370,660p scripts/demo-corpus.js'), ['sed']);
+    assert.deepEqual(commands('cat a.js; sed -n 1,60p b.js'), ['cat', 'sed']);
+    assert.deepEqual(commands('git status && npm test | tail -n 3'), ['git', 'npm', 'tail']);
+    assert.deepEqual(commands('a || b\nc'), ['a', 'b', 'c']);
+    assert.deepEqual(commands('echo $(git rev-parse HEAD) `date`'), ['echo', 'git', 'date']);
+    assert.deepEqual(commands('cd /tmp && ./run.sh ~/x'), ['cd', './run.sh']);
+  });
+
+  test('après ce qui lance la suivante : sudo, xargs, if, then, do, et des NOM=valeur', () => {
+    assert.deepEqual(commands('sudo apt-get install -y git'), ['sudo', 'apt-get']);
+    assert.deepEqual(commands('find . -name "*.js" | xargs grep -l TODO'), [
+      'find',
+      'xargs',
+      'grep',
+    ]);
+    assert.deepEqual(commands('if grep -q x f; then make all; else echo non; fi'), [
+      'grep',
+      'make',
+      'echo',
+    ]);
+    assert.deepEqual(commands('for f in *.md; do wc -l "$f"; done'), ['wc']);
+    assert.deepEqual(commands('FOO=bar BAZ="a b" node x.js'), ['node']);
+  });
+
+  test('jamais un argument, un mot-clé, une affectation, une ligne continuée ou le corps d’un heredoc', () => {
+    assert.deepEqual(commands('npm test'), ['npm'], 'le « test » de npm test est un argument');
+    assert.deepEqual(commands('x=1; echo $x'), ['echo']);
+    assert.deepEqual(
+      commands('ls \\\n  --all \\\n  src/'),
+      ['ls'],
+      'une ligne qui continue la précédente'
+    );
+    assert.deepEqual(
+      commands("python3 - <<'EOF'\nimport json\nprint(json)\nEOF\necho fini"),
+      ['python3', 'echo'],
+      'le heredoc est du texte'
+    );
+    assert.match(
+      S.colourCode("cat <<'EOF'\nsed x\nEOF", 'bash'),
+      /<span class="hljs-string">&lt;&lt;&#x27;EOF&#x27;\nsed x\nEOF<\/span>/
+    );
+    assert.deepEqual(commands('ifconfig eth0'), ['ifconfig'], 'if n’est un mot-clé qu’entier');
+  });
+});

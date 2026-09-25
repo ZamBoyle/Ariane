@@ -48,7 +48,10 @@ const CONVERSATIONS = [
       { say: 'Je lance d’abord la suite pour voir où ça coince.' },
       {
         tool: 'Bash',
-        input: { command: "npm test -- --grep 'grande question'" },
+        input: {
+          command: 'cd "$HOME/projets/deep-thought" && npm test -- --grep \'grande question\' 2>&1 | tail -n 5',
+          description: 'Lancer le test de la grande question',
+        },
         result:
           '✗ la réponse est cohérente\n    attendu : 42\n    obtenu  : undefined\n' +
           '    (délai dépassé après 7 500 000 ans)',
@@ -85,7 +88,7 @@ const CONVERSATIONS = [
       },
       {
         tool: 'Bash',
-        input: { command: 'npm test' },
+        input: { command: 'npm test 2>&1 | tail -n 3', description: 'Relancer toute la suite' },
         result: '✓ la réponse est cohérente (42)\n\n1 test réussi, 0 échec',
       },
       {
@@ -99,6 +102,7 @@ const CONVERSATIONS = [
     agent: 'codex',
     folder: 'projets/deep-thought',
     ago: 1 * DAY,
+    limits: { hours: 12, week: 44 },
     turns: [
       { user: "ponder() prend 7,5 millions d'années. On peut descendre sous la seconde ?" },
       {
@@ -151,7 +155,7 @@ const CONVERSATIONS = [
       },
       {
         tool: 'Bash',
-        input: { command: 'valgrind ./tardis --materialise' },
+        input: { command: 'valgrind --leak-check=full ./tardis --materialise', description: 'Chercher la fuite' },
         result:
           '==42== définitivement perdus : ∞ octets dans 1 bloc\n' +
           '==42== (le bloc est plus grand à l’intérieur)',
@@ -189,6 +193,7 @@ const CONVERSATIONS = [
     agent: 'codex',
     folder: 'projets/moteur-de-warp',
     ago: 2 * DAY,
+    limits: { hours: 31, week: 38 },
     turns: [
       {
         user:
@@ -212,6 +217,8 @@ const CONVERSATIONS = [
     agent: 'codex',
     folder: 'projets/moteur-de-warp',
     ago: 9 * DAY,
+    // The morning the five-hour limit was reached: the statistics say so.
+    limits: { hours: 94, week: 81 },
     turns: [
       { user: 'Le vaisseau n’arrive plus à joindre la base stellaire. Tout le reste marche.' },
       {
@@ -272,7 +279,7 @@ const CONVERSATIONS = [
       },
       {
         tool: 'Bash',
-        input: { command: 'npm test -- --watch=false' },
+        input: { command: 'for i in 1 2 3; do npm test -- --watch=false; done', description: 'Observer le chat trois fois' },
         result: '✓ chat.est_vivant()\n✗ chat.est_vivant()\n\n1 test, 2 résultats',
         error: true,
       },
@@ -306,7 +313,7 @@ const CONVERSATIONS = [
       { user: 'Mon site affiche encore du lorem ipsum depuis 2019. Tu peux trouver où ?' },
       {
         tool: 'Bash',
-        input: { command: "rg -l 'Lorem ipsum' site/" },
+        input: { command: "rg -l 'Lorem ipsum' site/", description: 'Trouver le faux texte' },
         result: 'site/index.html\nsite/a-propos.html\nsite/cv.html',
       },
       {
@@ -358,6 +365,78 @@ const CONVERSATIONS = [
         say:
           'Il répond désormais « Avec plaisir ! Je m’en occupe. » La logique métier n’a pas bougé, ' +
           'mais la satisfaction utilisateur est passée de 0 à 100 %.',
+      },
+    ],
+  },
+  // Older, so that the statistics have months to compare.
+  {
+    agent: 'claude',
+    folder: 'projets/deep-thought',
+    title: 'Documenter la réponse',
+    ago: 34 * DAY,
+    turns: [
+      { user: 'Écris le README de Deep Thought. Court.' },
+      {
+        tool: 'Write',
+        input: { file_path: 'README.md', content: '# Deep Thought\n\nRéponse : 42.\nQuestion : à venir.\n' },
+        result: 'Fichier créé : README.md',
+      },
+      {
+        say:
+          'Voilà : deux lignes, dont une à compléter. C’est le README le plus honnête que j’aie ' +
+          'jamais écrit.',
+      },
+    ],
+  },
+  {
+    agent: 'codex',
+    folder: 'projets/tardis',
+    ago: 48 * DAY,
+    limits: { hours: 6, week: 17 },
+    turns: [
+      { user: 'Le son de la matérialisation grince. On peut le lisser ?' },
+      {
+        tool: 'shell',
+        input: { command: ['bash', '-lc', 'ffprobe -hide_banner sons/vworp.wav 2>&1 | head -n 2'] },
+        result: 'Duration: 00:00:04.20, 44100 Hz, stéréo\n(frein à main : serré)',
+      },
+      {
+        say:
+          'Le grincement vient du frein à main, serré depuis 1963. Je ne touche pas au son : ' +
+          'les fans y tiennent.',
+      },
+    ],
+  },
+  {
+    agent: 'claude',
+    folder: 'retro/pong-6502',
+    title: 'Un bip à chaque rebond',
+    ago: 67 * DAY,
+    turns: [
+      { user: 'Je voudrais un bip quand la balle touche une raquette.' },
+      {
+        tool: 'Bash',
+        input: { command: "grep -n 'sid' src/*.asm", description: 'Trouver le SID' },
+        result: 'src/sound.asm:12:sid_voice1 = $d400',
+      },
+      {
+        say:
+          'Le SID est déjà câblé. Il suffit d’ouvrir la porte de la voix 1 au rebond :\n\n' +
+          '```asm\nlda #$11\nsta $d404\n```\n\nLe bip dure une image ; plus long, il couvrirait la musique.',
+      },
+    ],
+  },
+  {
+    agent: 'gemini',
+    folder: 'labo/chat-de-schrodinger',
+    ago: 96 * DAY,
+    turns: [
+      { user: 'Écris un test qui vérifie que le chat est vivant sans ouvrir la boîte.' },
+      {
+        say:
+          'À la lettre, impossible. Voici l’approche indirecte :\n\n```python\n' +
+          'def test_chat_vivant():\n    boite = Boite(chat=Chat())\n' +
+          '    assert boite.ronronne() or boite.miaule()\n```',
       },
     ],
   },
@@ -485,6 +564,35 @@ function* timeline(turns, start) {
 
 const iso = (ms) => new Date(ms).toISOString();
 
+/**
+ * What each reply cost — invented, but shaped like the real thing (ARCHITECTURE
+ * § 12): a handful of fresh tokens, the new context written to the cache once,
+ * and the whole context read back at every turn, which dwarfs everything else,
+ * as it does for real. The same corpus always gives the same figures.
+ *
+ * @returns {(turn: object) => {input: number, cacheRead: number, cacheWrite: number,
+ *   output: number, reasoning: number}}
+ */
+function costs(conversation) {
+  const seed = [...conversation.id].reduce((sum, c) => sum + c.charCodeAt(0), 0);
+  let context = 11000 + (seed % 7) * 1300;
+  let n = 0;
+  return (turn) => {
+    n += 1;
+    const said = `${turn.say || ''}${turn.think || ''}${turn.input ? JSON.stringify(turn.input) : ''}`;
+    const reasoning = turn.think ? Math.round(turn.think.length * 0.9) : 0;
+    const cost = {
+      input: 3 + ((seed + n) % 6),
+      cacheRead: context,
+      cacheWrite: n === 1 ? 5200 + (seed % 5) * 700 : 380 + said.length * 2,
+      output: Math.round(60 + said.length * 0.45) + reasoning,
+      reasoning,
+    };
+    context += cost.cacheWrite + cost.output;
+    return cost;
+  };
+}
+
 // ── Claude Code ─────────────────────────────────────────────────────────────
 
 function writeClaude(configDir, conversation, cwd, start) {
@@ -507,7 +615,23 @@ function writeClaude(configDir, conversation, cwd, start) {
     lines.push({ ...common, ...record, uuid, parentUuid: parent });
     parent = uuid;
   };
-  const assistant = (content) => ({ role: 'assistant', model: 'claude-opus-5', content });
+  const cost = costs(conversation);
+  // One reply, one line here: its id and its usage, as the API writes them.
+  const assistant = (content, turn) => {
+    const c = cost(turn);
+    return {
+      role: 'assistant',
+      model: 'claude-opus-5',
+      id: `msg_demo_${sessionId.slice(-4)}_${n}`,
+      content,
+      usage: {
+        input_tokens: c.input,
+        cache_read_input_tokens: c.cacheRead,
+        cache_creation_input_tokens: c.cacheWrite,
+        output_tokens: c.output,
+      },
+    };
+  };
 
   for (const { turn, at, resultAt } of timeline(conversation.turns, start)) {
     if (turn.user) {
@@ -517,7 +641,7 @@ function writeClaude(configDir, conversation, cwd, start) {
       push({
         type: 'assistant',
         timestamp: iso(at),
-        message: assistant([{ type: 'tool_use', id, name: turn.tool, input: turn.input }]),
+        message: assistant([{ type: 'tool_use', id, name: turn.tool, input: turn.input }], turn),
       });
       push({
         type: 'user',
@@ -531,7 +655,7 @@ function writeClaude(configDir, conversation, cwd, start) {
       const content = [];
       if (turn.think) content.push({ type: 'thinking', thinking: turn.think, signature: 'demo' });
       content.push({ type: 'text', text: turn.say });
-      push({ type: 'assistant', timestamp: iso(at), message: assistant(content) });
+      push({ type: 'assistant', timestamp: iso(at), message: assistant(content, turn) });
     }
   }
 
@@ -539,6 +663,11 @@ function writeClaude(configDir, conversation, cwd, start) {
 }
 
 // ── Codex ───────────────────────────────────────────────────────────────────
+
+/** When the week a moment falls in ends: every Tuesday, 03:59 UTC. */
+const WEEK = 7 * DAY;
+const WEEK_ANCHOR = Date.UTC(2026, 0, 6, 3, 59);
+const weekEnd = (at) => WEEK_ANCHOR + Math.ceil((at - WEEK_ANCHOR) / WEEK) * WEEK;
 
 function writeCodex(home, conversation, cwd, start) {
   const day = new Date(start);
@@ -559,8 +688,47 @@ function writeCodex(home, conversation, cwd, start) {
       payload: { id: conversation.id, cwd, timestamp: iso(start), originator: 'codex_cli_rs' },
     },
   ];
+  // The only place Codex names its model.
+  lines.push({ timestamp: iso(start), type: 'turn_context', payload: { cwd, model: 'gpt-5.2-codex' } });
   let n = 0;
   const item = (at, payload) => lines.push({ timestamp: iso(at), type: 'response_item', payload });
+
+  // After each reply, what it cost and the running total — input INCLUDING the
+  // cache, as Codex counts it — with the usage limits as they then stood.
+  const cost = costs(conversation);
+  const total = { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0 };
+  const limits = conversation.limits || { hours: 5, week: 20 };
+  let replies = 0;
+  const spent = (turn, at) => {
+    const c = cost(turn);
+    const last = {
+      input_tokens: c.input + c.cacheWrite + c.cacheRead,
+      cached_input_tokens: c.cacheRead,
+      output_tokens: c.output,
+      reasoning_output_tokens: c.reasoning,
+      total_tokens: c.input + c.cacheWrite + c.cacheRead + c.output,
+    };
+    for (const key of Object.keys(total)) total[key] += last[key];
+    const window = (used, minutes, resetsAt) => ({
+      used_percent: Math.min(100, used),
+      window_minutes: minutes,
+      resets_at: Math.floor(resetsAt / 1000),
+    });
+    replies += 1;
+    lines.push({
+      timestamp: iso(at + SECOND),
+      type: 'event_msg',
+      payload: {
+        type: 'token_count',
+        info: { total_token_usage: { ...total }, last_token_usage: last },
+        rate_limits: {
+          primary: window(limits.hours + 3 * replies, 300, start + 5 * HOUR),
+          secondary: window(limits.week + replies, 10080, weekEnd(start)),
+          plan_type: 'plus',
+        },
+      },
+    });
+  };
   // Codex's ids come from the API and are unique across every conversation: the
   // same id twice means one conversation copied the other (Index.markCopies).
   const tag = conversation.id.slice(-4);
@@ -572,9 +740,11 @@ function writeCodex(home, conversation, cwd, start) {
     } else if (turn.tool) {
       const callId = `call_demo_${tag}_${n}`;
       item(at, { type: 'function_call', id: callId, call_id: callId, name: turn.tool, arguments: JSON.stringify(turn.input) });
+      spent(turn, at);
       item(resultAt, { type: 'function_call_output', call_id: callId, output: turn.result });
     } else {
       item(at, { type: 'message', id: `msg_demo_${tag}_${n}`, role: 'assistant', content: [{ type: 'output_text', text: turn.say }] });
+      spent(turn, at);
     }
   }
 
@@ -597,17 +767,45 @@ function writeCopilot(home, conversation, cwd, start) {
     }),
   ];
 
+  const cost = costs(conversation);
+  const total = { input: 0, cache_read: 0, cache_write: 0, output: 0, reasoning: 0 };
+  const count = (turn) => {
+    const c = cost(turn);
+    total.input += c.input;
+    total.cache_read += c.cacheRead;
+    total.cache_write += c.cacheWrite;
+    total.output += c.output;
+    total.reasoning += c.reasoning;
+  };
+  let last = start;
+
   for (const { turn, at, resultAt } of timeline(conversation.turns, start)) {
+    last = resultAt;
     if (turn.user) {
       lines.push(event('user.message', at, { content: turn.user }));
     } else if (turn.tool) {
       const toolCallId = `tc_demo_${n}`;
       lines.push(event('tool.execution_start', at, { toolCallId, name: turn.tool, arguments: JSON.stringify(turn.input) }));
       lines.push(event('tool.execution_complete', resultAt, { toolCallId, result: turn.result, status: 'ok' }));
+      count(turn);
     } else {
       lines.push(event('assistant.message', at, { messageId: `m_demo_${n}`, model: 'gpt-5', content: turn.say }));
+      count(turn);
     }
   }
+  // What the whole session cost, written when it closes — and nowhere else.
+  const tokens = (key) => ({ tokenCount: total[key] });
+  lines.push(
+    event('session.shutdown', last + MINUTE, {
+      tokenDetails: {
+        input: tokens('input'),
+        cache_read: tokens('cache_read'),
+        cache_write: tokens('cache_write'),
+        output: tokens('output'),
+      },
+      modelMetrics: { 'gpt-5': { usage: { reasoningTokens: total.reasoning } } },
+    })
+  );
 
   writeJsonl(path.join(dir, 'events.jsonl'), lines);
   fs.writeFileSync(
@@ -629,12 +827,20 @@ function writeGemini(configDir, conversation, cwd, start) {
   let n = 0;
   const messages = [];
   let last = start;
+  const cost = costs(conversation);
   for (const { turn, at } of timeline(conversation.turns, start)) {
     last = at;
     const id = `${conversation.id}-${++n}`;
     // The shape of `content` follows the role: parts for the person, a string for the model.
     if (turn.user) messages.push({ id, timestamp: iso(at), type: 'user', content: [{ text: turn.user }] });
-    else messages.push({ id, timestamp: iso(at), type: 'gemini', model: 'gemini-2.5-pro', content: turn.say });
+    else {
+      // Gemini's input includes the cache, and its thoughts sit beside the output.
+      const c = cost(turn);
+      const input = c.input + c.cacheWrite + c.cacheRead;
+      const output = c.output - c.reasoning;
+      const tokens = { input, output, cached: c.cacheRead, thoughts: c.reasoning, tool: 0, total: input + c.output };
+      messages.push({ id, timestamp: iso(at), type: 'gemini', model: 'gemini-2.5-pro', content: turn.say, tokens });
+    }
   }
 
   const stamp = iso(start).slice(0, 16).replace(/:/g, '-');

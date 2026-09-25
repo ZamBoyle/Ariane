@@ -42,8 +42,65 @@ import typescript from '../../node_modules/@highlightjs/cdn-assets/es/languages/
 import xml from '../../node_modules/@highlightjs/cdn-assets/es/languages/xml.min.js';
 import yaml from '../../node_modules/@highlightjs/cdn-assets/es/languages/yaml.min.js';
 
+/**
+ * Words after which the next one is a command too: `sudo git push`,
+ * `xargs rm`, `if grep -q`, `then make`.
+ */
+const LEADS = [
+  'sudo',
+  'xargs',
+  'exec',
+  'nohup',
+  'env',
+  'time',
+  'command',
+  'builtin',
+  'nice',
+  'watch',
+];
+
+/**
+ * bash as Claude Desktop shows a command: the command itself in colour — the
+ * first word of each simple command, whatever it is. highlight.js colours
+ * only the words on its list of built-ins, and colours them anywhere: `sed`,
+ * `git` and `npm` stayed plain while the `test` of `npm test` lit up (reported
+ * with screenshots, 25 September 2026). So the list goes, and the position
+ * decides: a line's start (not a continued one), after `;`, `&&`, `||`, `|`,
+ * `(`, a backquote or `$(`, after a keyword that opens a command (`then`,
+ * `do`, `if`…) or a word that runs the next (`sudo`, `xargs`…), past any
+ * `NAME=value` in front. A heredoc's body is text, as a string is: its lines
+ * are not commands.
+ */
+function shell(hljs) {
+  const grammar = bash(hljs);
+  // Its built-ins are coloured anywhere; the position does it instead.
+  const keywords = { ...grammar.keywords };
+  delete keywords.built_in;
+  const reserved = keywords.keyword.join('|');
+  const opens = ['then', 'do', 'else', 'elif', 'if', 'while', 'until', '!', ...LEADS].join('|');
+  // A line's start — unless the line before ends in a backslash, which
+  // continues it — or a separator, `$(` included through its parenthesis.
+  const where = String.raw`(?:(?<!\\\n)^|[;&|({\x60]|(?:^|[\s;&|(])(?:${opens})(?=[ \t]))`;
+  const assignments = String.raw`(?:[A-Za-z_]\w*=(?:"[^"\n]*"|'[^'\n]*'|[^\s;&|]*)[ \t]+)*`;
+  const word = String.raw`[\w.+~/:@-]`;
+  const command = {
+    scope: 'built_in',
+    match: new RegExp(
+      String.raw`(?<=${where}[ \t]*${assignments})(?!(?:${reserved})(?!${word}))[A-Za-z_.~/]${word}*(?![\w=])`
+    ),
+    relevance: 0,
+  };
+  const heredoc = hljs.END_SAME_AS_BEGIN({
+    scope: 'string',
+    begin: /<<-?[ \t]*['"]?([A-Za-z_]\w*)['"]?/,
+    end: /^[ \t]*([A-Za-z_]\w*)(?=[ \t]*$)/,
+    relevance: 0,
+  });
+  return { ...grammar, keywords, contains: [heredoc, command, ...grammar.contains] };
+}
+
 const GRAMMARS = {
-  bash,
+  bash: shell,
   c,
   cpp,
   css,

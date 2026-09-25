@@ -516,6 +516,15 @@ in the same time as before, within noise. Exports are not coloured: paper stays 
 Seven tones of the theme (`--syn-*`), each at 4.5:1 on a code block and in a fold, both themes,
 measured by the layout suite.
 
+**A shell command is coloured by position, as Claude Desktop shows it**: highlight.js's bash
+colours only the words on its list of built-ins, anywhere — `sed`, `git` and `npm` stayed plain
+while the `test` of `npm test` lit up. `shell()` in `syntax.js` drops that list and colours the
+word where a shell reads a command: a line's start (not one a backslash continues), after `;`,
+`&`, `|`, `(` (so `$(`) or a backquote, after `if`/`then`/`do`… or `sudo`/`xargs`/`env`…, past
+any `NAME=value`; a heredoc's body is a string. On the corpus, 16 639 of 16 645 commands get
+theirs — the six others start with a variable (`$PY - <<'EOF'`). What a tool ran is written in
+the full text tone, its output in the soft one, and a CSS `$ ` stands before it, as in a terminal.
+
 Two rules hold up everything else:
 
 1. **Escape, then decorate.** `innerHTML` is only ever fed the output of

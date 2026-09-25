@@ -38,7 +38,7 @@
   --syn-string: #3b6a2c;
   --syn-number: #7646a0;
   --syn-title: #28608f;
-  --syn-builtin: #85560f;
+  --syn-builtin: #9a5700;
   --syn-comment: #6f6b63;
   --syn-addition: #2f6b2a;
   --syn-deletion: #b0322a;
@@ -1619,6 +1619,21 @@ details.fold > summary:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Une commande lancée par un outil s'annonce comme dans un terminal, et comme
+   Claude Desktop la montre : « $ ». Posé par le CSS, il ne part pas avec une
+   copie. */
+/* Ce qu'un outil a lancé s'écrit en texte plein, sa sortie reste en doux : sur
+   le gris, le nom de la commande ne se détachait pas (mesuré sur les captures
+   du 25 septembre 2026). */
+details.fold pre[data-lang] {
+  color: var(--text);
+}
+
+details.fold pre[data-lang='bash'] > code::before {
+  content: '$ ';
+  color: var(--text-faint);
 }
 
 /* Les autres champs de l'appel, sous la commande : rien de ce qu'il disait

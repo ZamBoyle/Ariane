@@ -87,6 +87,27 @@ test('the showcase conversation shows what the app is for', async (t) => {
   );
 });
 
+// La capture des statistiques du README n'a de sens que si la démo compte ses
+// jetons, sur plusieurs mois, avec les limites de Codex — comme un vrai corpus.
+test('la démo compte ce qu’elle a coûté, sur plusieurs mois, limites comprises', async (t) => {
+  const { index } = await indexDemo(t);
+  const sessions = index.folders().flatMap((f) => index.sessions(f.id));
+
+  for (const agent of ['claude', 'codex', 'gemini', 'copilot-cli']) {
+    const own = sessions.filter((s) => s.agentId === agent);
+    assert.ok(own.length > 0 && own.every((s) => s.tokOutput > 0), `${agent} : chaque conversation mesurée`);
+  }
+  const sum = (key) => sessions.reduce((n, s) => n + (s[key] || 0), 0);
+  assert.ok(sum('tokCacheRead') > 3 * (sum('tokInput') + sum('tokCacheWrite')), 'le cache relu écrase le reste, comme en vrai');
+
+  const months = new Set(sessions.map((s) => s.lastAt.slice(0, 7)));
+  assert.ok(months.size >= 4, `au moins quatre mois pour le graphique : ${[...months]}`);
+
+  const limits = index.quotas({});
+  assert.ok(limits.some((q) => q.minutes === 10080), 'la semaine de Codex');
+  assert.ok(limits.some((q) => q.minutes === 300 && q.reached), 'une limite de 5 heures atteinte');
+});
+
 test.describe('the kept demo', () => {
   const scratch = (t) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ariane-kept-demo-'));

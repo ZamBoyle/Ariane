@@ -40,6 +40,46 @@ Voici à quelle version chacune appartient.
 
 ## 25 septembre 2026
 
+### Les commandes reconnues, comme dans Claude Desktop
+
+**Signalé**, captures à l'appui : les commandes bash n'étaient « pas mises en couleur comme dans
+Claude Desktop » — `sed -n 370,660p …` ne montrait rien. La grammaire bash de highlight.js ne colore
+que les mots de sa liste de commandes internes, et partout : `sed`, `git`, `npm` restaient en blanc,
+et le `test` de `npm test` s'allumait.
+
+**La position décide**, comme dans un shell : le mot qui commence une commande — en début de ligne
+(pas celle qu'une barre oblique inverse continue), après `;`, `&&`, `||`, `|`, `(` ou `$(`, un accent
+grave, après `if`, `then`, `do`… ou `sudo`, `xargs`, `env`…, au-delà des `NOM=valeur`. Le corps d'un
+heredoc est du texte, pas des commandes. **Mesuré sur le corpus : 16 639 commandes sur 16 645 ont la
+leur**, les six autres commencent par une variable. Un `$ ` la précède, comme dans Claude Desktop, posé
+par le CSS : il ne part pas avec une copie.
+
+**Sur le gris, l'ambre disparaissait** : en thème clair, la commande colorée se lisait à peine sur le
+ton doux du pli. Ce qu'un outil a lancé s'écrit désormais dans le ton plein — sa sortie reste douce —
+et l'ambre du thème clair est plus franc (#9a5700, 5,0:1).
+
+**Vérifié** : chaque position a son test, et chacun a échoué quand on retirait sa règle — sauf `$(`,
+dont l'alternative s'est révélée morte (sa parenthèse suffit) : retirée.
+
+### Le README montre l'application
+
+**Demandé** : mettre à jour l'image d'Ariane, en ajouter des statistiques, « comme les autres ».
+L'image datait du 19 septembre : ni l'en-tête d'aujourd'hui, ni la coloration, ni la barre latérale.
+Le README montre maintenant la vue principale, puis quatre captures en grille : ce que les outils ont
+lancé, la recherche, les statistiques, et les statistiques mois par mois — en thème clair et sombre.
+
+**Toutes viennent du corpus fictif** (`npm run demo`) : jamais l'historique de quelqu'un. Mais ce
+corpus ne comptait **aucun jeton** et tenait en dix jours — la vue Statistiques y aurait été vide, et
+d'un seul mois. Il écrit maintenant ce que chaque assistant écrit, dans son format : l'usage de chaque
+réponse de Claude, les `token_count` de Codex avec ses limites (dont une fenêtre de 5 heures atteinte),
+les `tokens` de Gemini, le total de Copilot à sa fermeture ; et quatre conversations plus anciennes
+font quatre mois. Un test tient tout cela, puisque la capture en dépend.
+
+**`npm run demo:capture` prend les cinq images d'un coup.** Elle était cassée depuis l'écran
+d'accueil : elle capturait la première fenêtre ouverte, qui est désormais celle-là. Elle choisit
+maintenant la fenêtre de l'application par sa page. Les Réglages ne sont pas capturés : ils montrent
+les chemins des CLI de la machine qui prend la photo.
+
 ### Le code en couleurs — dans les réponses, dans ce qu'on colle, dans les outils
 
 **Demandé** : la coloration syntaxique « comme le fait Claude Desktop quand on regarde les commandes

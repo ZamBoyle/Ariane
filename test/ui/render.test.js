@@ -102,6 +102,8 @@ const SCRIPT = `(async () => {
       summary: bashFold.querySelector('summary').textContent,
       description: (bashFold.querySelector('.tool-description') || {}).title || null,
       command: bashFold.querySelector('pre').textContent,
+      html: bashFold.querySelector('pre code').innerHTML,
+      prompt: getComputedStyle(bashFold.querySelector('pre code'), '::before').content,
       coloured: bashFold.querySelectorAll('pre code span').length,
       lang: bashFold.querySelector('pre').dataset.lang || null,
       fields: [...bashFold.querySelectorAll('.tool-fields dt, .tool-fields dd')].map((e) => e.textContent),
@@ -1726,8 +1728,10 @@ async function run() {
     code.userText === "const piège = '<img src=x onerror=alert(1)>'; // </span><script>alert(2)</script>"
       && code.images === 0 && r.liveScripts === 0 && code.spansOnly && code.spans > 0,
     JSON.stringify({ text: code.userText, images: code.images, spansOnly: code.spansOnly, spans: code.spans }));
-  check('un appel Bash montre sa commande coloriée, pas le JSON autour',
-    code.tool && code.tool.command === 'git status && echo "$HOME"' && code.tool.lang === 'bash' && code.tool.coloured > 0,
+  check('un appel Bash montre sa commande coloriée, pas le JSON autour : chaque commande, et le « $ » de Claude Desktop',
+    code.tool && code.tool.command === 'git status && echo "$HOME"' && code.tool.lang === 'bash'
+      && /<span class="hljs-built_in">git<\/span>.*<span class="hljs-built_in">echo<\/span>/.test(code.tool.html || '')
+      && code.tool.prompt === '"$ "',
     JSON.stringify(code.tool));
   check('sa description sur la ligne repliée, entière au survol, et ses autres champs dessous',
     code.tool && code.tool.summary.includes('Voir l’état du dépôt') && code.tool.description === 'Voir l’état du dépôt'

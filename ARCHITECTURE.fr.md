@@ -549,6 +549,16 @@ même temps qu'avant, au bruit près. Les exports ne sont pas coloriés : le pap
 blanc. Sept teintes du thème (`--syn-*`), chacune à 4,5:1 sur un bloc de code et dans un pli, dans
 les deux thèmes, mesurées par la suite de mise en page.
 
+**Une commande shell se colore par sa position, comme Claude Desktop la montre** : le bash de
+highlight.js ne colore que les mots de sa liste de commandes internes, et partout — `sed`, `git` et
+`npm` restaient en blanc quand le `test` de `npm test` s'allumait. `shell()` dans `syntax.js` retire
+cette liste et colore le mot là où un shell lit une commande : un début de ligne (pas celle qu'une
+barre oblique inverse continue), après `;`, `&`, `|`, `(` (donc `$(`) ou un accent grave, après
+`if`/`then`/`do`… ou `sudo`/`xargs`/`env`…, au-delà des `NOM=valeur` ; le corps d'un heredoc est une
+chaîne. Sur le corpus, 16 639 commandes sur 16 645 ont la leur — les six autres commencent par une
+variable (`$PY - <<'EOF'`). Ce qu'un outil a lancé s'écrit dans le ton plein, sa sortie dans le doux,
+et un `$ ` posé par le CSS le précède, comme dans un terminal.
+
 Deux règles tiennent tout le reste :
 
 1. **Échapper, puis décorer.** `innerHTML` ne reçoit jamais que la sortie de

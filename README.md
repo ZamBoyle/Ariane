@@ -27,7 +27,29 @@ directories, with no way to browse them — and above all, never seeing one anot
 **Ariane brings them together, and sorts them by working directory.** It reads those folders
 read-only, never writes to them, and never sends anything anywhere.
 
-![Ariane](docs/ariane.png)
+![Ariane: the folders on the left, one conversation open, what it cost and when it ran above it](docs/ariane.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/code.png" alt="A strip of tool calls unfolded: the Bash command coloured, its description on the folded line, and the error it returned" /></td>
+    <td width="50%"><img src="docs/recherche.png" alt="A search for “test” across every conversation, grouped by folder, the word highlighted" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>What the tools ran</b>: the command itself, coloured, not its JSON</td>
+    <td align="center"><b>One search</b> across every assistant and every folder</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/statistiques.png" alt="The statistics view: who wrote what, the tokens sent, received and read back from the cache, and Codex's usage limits" /></td>
+    <td width="50%"><img src="docs/mois.png" alt="The statistics month by month, then by assistant, by model and by folder" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Statistics</b>: who wrote what, the tokens, the usage limits</td>
+    <td align="center"><b>Month by month</b>, by assistant, by model, by folder</td>
+  </tr>
+</table>
+
+<sub>Every screenshot is taken from a fictional corpus — <code>npm run demo</code> — so nobody's history is
+on show. The interface speaks nine languages; these are in French, in the light and the dark theme.</sub>
 
 ## Why folders, not assistants
 
@@ -254,11 +276,13 @@ is in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 ```bash
 npm test              # the unit suite, no framework (node --test)
 npm run test:render   # the real renderer, under Electron
-npm run test:ui       # 26 layout checks
-npm run test:splash   # 7 checks on the splash screen
-npm run test:all      # all four
+npm run test:ui       # layout, under Electron
+npm run test:splash   # the splash screen, under Electron
+npm run test:net      # the one function that speaks to the network, under Electron
+npm run test:all      # all five
 npm run audit:noise   # looks for prose an extractor throws away, on your own data
 npm run demo          # the real app on a fictional corpus
+npm run demo:capture  # retakes the screenshots in docs/ from that corpus
 npm run lint
 ```
 

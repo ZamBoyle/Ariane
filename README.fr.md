@@ -15,7 +15,29 @@ aucun moyen de les parcourir — et surtout sans jamais se voir entre eux.
 
 Ariane les réunit, et les classe par **dossier de travail**.
 
-![Ariane](docs/ariane.png)
+![Ariane : les dossiers à gauche, une conversation ouverte, ce qu'elle a coûté et quand elle a eu lieu au-dessus](docs/ariane.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/code.png" alt="Une série d'appels d'outils dépliée : la commande Bash coloriée, sa description sur la ligne repliée, et l'erreur qu'elle a renvoyée" /></td>
+    <td width="50%"><img src="docs/recherche.png" alt="Une recherche de « test » dans toutes les conversations, groupée par dossier, le mot surligné" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Ce que les outils ont lancé</b> : la commande elle-même, coloriée, pas son JSON</td>
+    <td align="center"><b>Une seule recherche</b>, dans tous les assistants et tous les dossiers</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/statistiques.png" alt="La vue Statistiques : qui a écrit quoi, les jetons envoyés, reçus et relus depuis le cache, et les limites d'utilisation de Codex" /></td>
+    <td width="50%"><img src="docs/mois.png" alt="Les statistiques mois par mois, puis par assistant, par modèle et par dossier" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Les statistiques</b> : qui a écrit quoi, les jetons, les limites</td>
+    <td align="center"><b>Mois par mois</b>, par assistant, par modèle, par dossier</td>
+  </tr>
+</table>
+
+<sub>Toutes les captures viennent d'un corpus fictif — <code>npm run demo</code> — : l'historique de personne
+n'y est montré. En thème clair et en thème sombre.</sub>
 
 ---
 
@@ -487,7 +509,7 @@ npm run test:all      # les quatre
 npm run audit:noise   # cherche du texte jeté par erreur, sur vos données
 npm run demo          # l'app réelle sur un corpus fictif, gardé dans ~/.config/Ariane-demo
 npm run demo -- --reset   # le régénère, avec des dates fraîches
-npm run demo:capture  # régénère docs/ariane.png à partir de ce corpus
+npm run demo:capture  # refait les captures de docs/ à partir de ce corpus
 npm run lint
 ```
 
