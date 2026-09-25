@@ -250,4 +250,28 @@ test('la requête filtre par période et par assistant, comme la barre latérale
     ['claude', 'claude'],
     'les assistants masqués'
   );
+
+  // Un curseur ouvert refuse toute écriture à la connexion — celles d'une passe
+  // d'indexation comprises. Trouvé le 26 septembre 2026 : les statistiques en
+  // gardaient un ouvert le temps d'un await. Il ne survit plus à l'appel, même
+  // lâché en route, même quand celui qui lit lève une exception.
+  const first = index.statisticsRows({}, (rows) => {
+    for (const row of rows) return row.agentId;
+    return null;
+  });
+  assert.equal(first, 'claude', 'ce que la fonction fait des lignes est rendu');
+  index.addMessages('codex:b', [
+    { role: 'assistant', uuid: 'a9', text: 'écrit après', parts: [], timestamp: '2026-09-03T10:00:00.000Z' },
+  ]);
+  assert.throws(
+    () =>
+      index.statisticsRows({}, () => {
+        throw new Error('lecture ratée');
+      }),
+    /lecture ratée/
+  );
+  index.addMessages('codex:b', [
+    { role: 'assistant', uuid: 'a10', text: 'et encore', parts: [], timestamp: '2026-09-03T11:00:00.000Z' },
+  ]);
+  assert.equal([...index.statisticsRows()].length, 5, 'les deux écritures ont eu lieu');
 });

@@ -13,6 +13,7 @@ const path = require('path');
 const {
   app,
   BrowserWindow,
+  dialog,
   Menu,
   shell,
   session,
@@ -276,7 +277,7 @@ function createWindow() {
     if (action.startsWith('text-')) {
       const step = { 'text-bigger': 1, 'text-smaller': -1, 'text-reset': 0 }[action];
       const size = stepSize(textSize() ?? 100, step);
-      saveTextSize(size);
+      saveTextSize(size).catch(carryOn);
       win.webContents.setZoomFactor(size / 100);
     } else if (action === 'quit') app.quit();
     else if (action === 'close') win.close();
@@ -286,7 +287,7 @@ function createWindow() {
 
   // External links open in the user's browser; nothing navigates in-app.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:$/.test(safeProtocol(url))) shell.openExternal(url);
+    if (/^https?:$/.test(safeProtocol(url))) shell.openExternal(url).catch(carryOn);
     return { action: 'deny' };
   });
 
@@ -311,10 +312,17 @@ function applyTextSize(win) {
   let size = textSize();
   if (size === null) {
     size = nearestSize(win.webContents.getZoomFactor() * 100);
-    if (size !== 100) saveTextSize(size);
+    if (size !== 100) saveTextSize(size).catch(carryOn);
   }
   win.webContents.setZoomFactor(size / 100);
 }
+
+/**
+ * No browser answered, a size could not be written: nothing to do but carry
+ * on. Left uncaught, the rejection became Electron's "A JavaScript error
+ * occurred" box — for a click on a link.
+ */
+function carryOn() {}
 
 function safeProtocol(url) {
   try {
@@ -372,19 +380,28 @@ if (!app.requestSingleInstanceLock()) {
     win.focus();
   });
 
-  app.whenReady().then(() => {
-    applyCsp();
-    // No menu on Linux and Windows, a minimal one on macOS (text-size.js).
-    const template = menuTemplate({ platform: process.platform, packaged: app.isPackaged });
-    Menu.setApplicationMenu(template ? Menu.buildFromTemplate(template) : null);
-    windowState = new WindowState(app.getPath('userData'));
-    registerIpc({ userDataDir: app.getPath('userData'), onSplashClose: dismissSplash });
-    createWindow();
+  app
+    .whenReady()
+    .then(() => {
+      applyCsp();
+      // No menu on Linux and Windows, a minimal one on macOS (text-size.js).
+      const template = menuTemplate({ platform: process.platform, packaged: app.isPackaged });
+      Menu.setApplicationMenu(template ? Menu.buildFromTemplate(template) : null);
+      windowState = new WindowState(app.getPath('userData'));
+      registerIpc({ userDataDir: app.getPath('userData'), onSplashClose: dismissSplash });
+      createWindow();
 
-    app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+      app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) createWindow();
+      });
+    })
+    .catch((error) => {
+      // An index that cannot open, a migration that failed: say so, and quit —
+      // a process left without a window would keep the single-instance lock,
+      // and every later launch would run into it.
+      dialog.showErrorBox('Ariane', String((error && error.message) || error));
+      app.exit(1);
     });
-  });
 
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();

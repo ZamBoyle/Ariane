@@ -1163,10 +1163,18 @@ class Index {
    * them; the command only on notices. Filtered like everything else the
    * sidebar describes: the hidden assistants, and a period.
    *
+   * Streamed, not a 49 000-row array — through `consume`, which gets the live
+   * cursor and returns what it makes of it. The cursor is closed here, whatever
+   * `consume` does: while one is open the connection refuses every write, an
+   * indexing pass's included. The statistics used to hold one across an
+   * `await`, and a pass that wrote in that window lost its adapter (found
+   * 26 September 2026).
+   *
    * @param {{hidden?: string[], since?: string|null}} [opts]
-   * @returns {IterableIterator<object>} Streamed, not a 49 000-row array.
+   * @param {(rows: IterableIterator<object>) => any} [consume] By default the
+   *   rows are collected.
    */
-  statisticsRows({ hidden = [], since = null } = {}) {
+  statisticsRows({ hidden = [], since = null } = {}, consume = (rows) => [...rows]) {
     const hiding = hidingOn('s.agent_id', hidden);
     const sql = `
       SELECT m.session_id AS sessionId, s.agent_id AS agentId, f.path AS folderPath,
@@ -1186,7 +1194,12 @@ class Index {
       WHERE m.is_copy = 0${hiding.where}${since != null ? ` AND ${MESSAGE_TIME_SQL} >= ?` : ''}`;
     const params = since != null ? [...hiding.params, since] : hiding.params;
     const statement = this.#dynamic(`statistics:${hiding.params.length}:${since != null}`, sql);
-    return statement.iterate(...params);
+    const rows = statement.iterate(...params);
+    try {
+      return consume(rows);
+    } finally {
+      rows.return();
+    }
   }
 
   /**

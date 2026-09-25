@@ -68,7 +68,7 @@ require.cache[require.resolve('electron')] = {
   exports: electronStub,
 };
 
-const { registerIpc, disposeIpc, asInt, asId, clamp } = require('../src/main/ipc');
+const { registerIpc, disposeIpc, asInt, asId, clamp, saveTextSize } = require('../src/main/ipc');
 
 // ── Harness ──────────────────────────────────────────────────────────────
 
@@ -372,6 +372,26 @@ test.describe('showing and hiding assistants', () => {
     assert.deepEqual(after.agents.map((a) => a.agentId), ['claude'], 'l’assistant masqué ne compte plus');
   });
 
+  test('the starred conversations follow too', async (t) => {
+    const ctx = setupIpc();
+    t.after(ctx.teardown);
+    await twoAgents(ctx);
+    const folders = (await invoke('folders:list')).data;
+    const ids = [];
+    for (const folder of folders) {
+      for (const session of (await invoke('sessions:list', { folderId: folder.id })).data) ids.push(session.id);
+    }
+    for (const id of ids) await invoke('session:mark', { id, favorite: true });
+    assert.equal((await invoke('sessions:favorites')).data.length, 2);
+
+    await invoke('agents:hide', { ids: ['codex'] });
+    assert.deepEqual(
+      (await invoke('sessions:favorites')).data.map((s) => s.id),
+      ['claude:s1'],
+      'une étoile ne fait pas revenir un assistant masqué'
+    );
+  });
+
   test('the sidebar, the footer and the search all follow', async (t) => {
     const ctx = setupIpc();
     t.after(ctx.teardown);
@@ -615,6 +635,18 @@ test.describe('the language', () => {
     assert.equal(electronStub.nativeTheme.themeSource, 'system', 'back to the system’s');
   });
 
+  // Une taille reprise de Chromium au lancement s'écrit avant que les mots de la
+  // langue soient chargés : l'aide de settings.json était écrite en identifiants.
+  test('the text size saved at launch waits for the words of the help', async (t) => {
+    const ctx = setupIpc();
+    t.after(ctx.teardown);
+    ctx.start();
+    await saveTextSize(120);
+    const file = JSON.parse(fs.readFileSync(path.join(ctx.userDataDir, 'settings.json'), 'utf8'));
+    assert.equal(file.textSize, 120);
+    assert.ok(file._aide.length > 0 && file._aide.every((line) => !/^settings-file-/.test(line)), file._aide[0]);
+  });
+
   test('the text size is applied at once to the window that asked, and kept', async (t) => {
     const ctx = setupIpc();
     t.after(ctx.teardown);
@@ -734,6 +766,11 @@ test.describe('the settings', () => {
     assert.deepEqual(sh, { ok: true, executable: exe, chosen: true });
     const relative = (await invoke('settings:check', { id: 'claude', command: 'bin/claude' })).data;
     assert.equal(relative.reason, 'setting-not-absolute');
+    // Ce qui revient est ce qui a été tapé, jamais le chemin développé : sous
+    // Windows, %NOM% y est remplacé par la valeur de la variable — une clé
+    // d'API, par exemple.
+    const missing = (await invoke('settings:check', { id: 'claude', command: '~/nulle-part/claude' })).data;
+    assert.deepEqual(missing, { ok: false, reason: 'setting-unusable', detail: '~/nulle-part/claude' });
   });
 
   test('the file picker starts where the CLI would be, and shows hidden folders', async (t) => {
@@ -821,14 +858,24 @@ test.describe('the settings', () => {
   });
 });
 
-test('shell:openFolder refuses a path that does not exist', async (t) => {
+// shell.openPath ouvre un dossier — et, sous Windows et macOS, LANCE un .exe,
+// un .app ou un .command. Seul un dossier qui existe lui parvient.
+test('shell:openFolder opens a folder, and nothing else', async (t) => {
   const ctx = setupIpc();
   t.after(ctx.teardown);
   ctx.start();
 
-  const reply = await invoke('shell:openFolder', { path: '/definitely/not/here' });
-  assert.equal(reply.ok, false);
-  assert.equal(openPathCalls.length, 1, 'the path still goes through shell.openPath, never a shell');
+  const missing = await invoke('shell:openFolder', { path: '/definitely/not/here' });
+  assert.equal(missing.ok, false);
+  const file = path.join(ctx.userDataDir, 'programme.exe');
+  fs.writeFileSync(file, 'MZ');
+  const program = await invoke('shell:openFolder', { path: file });
+  assert.equal(program.ok, false, 'un fichier n’est pas un dossier');
+  assert.deepEqual(openPathCalls, [], 'ni l’un ni l’autre n’atteint shell.openPath');
+
+  const folder = await invoke('shell:openFolder', { path: ctx.userDataDir });
+  assert.equal(folder.ok, true);
+  assert.deepEqual(openPathCalls, [ctx.userDataDir]);
 });
 
 test.describe('end to end through the bridge', () => {

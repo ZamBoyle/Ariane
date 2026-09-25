@@ -11,6 +11,7 @@
 
 const { ipcMain, shell, clipboard, dialog, BrowserWindow, app, nativeTheme } = require('electron');
 
+const fs = require('fs');
 const path = require('path');
 
 const paths = require('../core/paths');
@@ -253,8 +254,9 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
     for (const [id] of starred) {
       const session = state.index.session(id);
       // A star on a conversation the index no longer holds is kept in the file
-      // — its transcript may come back — but there is nothing to show yet.
-      if (session) sessions.push({ ...session, ...marks[id] });
+      // — its transcript may come back — but there is nothing to show yet. Nor
+      // for an assistant the person hid: a star does not bring it back.
+      if (session && !state.hidden.includes(session.agentId)) sessions.push({ ...session, ...marks[id] });
     }
     return sessions.sort((a, b) => String(b.lastAt || '').localeCompare(String(a.lastAt || '')));
   });
@@ -433,8 +435,10 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
    */
   handle('stats:get', async (_event, payload) => {
     const since = periodStart(payload && payload.period != null ? payload.period : 'all');
-    const rows = state.index.statisticsRows({ hidden: state.hidden, since });
-    const figures = summarize(rows, await screenRules());
+    const rules = await screenRules();
+    const figures = state.index.statisticsRows({ hidden: state.hidden, since }, (rows) =>
+      summarize(rows, rules)
+    );
     // The usage limits, as the assistants wrote them: readings, never summed.
     return { ...figures, quotas: state.index.quotas({ hidden: state.hidden, since }) };
   });
@@ -633,8 +637,16 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
   handle('shell:openFolder', async (_event, payload) => {
     const target = typeof (payload && payload.path) === 'string' ? payload.path : '';
     if (!target) throw new TypeError('path must be a non-empty string');
-    // openPath refuses anything that is not an existing local path, and cannot
-    // be steered into executing a command.
+    // A folder, and nothing else: on Windows and macOS openPath LAUNCHES what it
+    // is given — an .exe, an .app, a .command — and this path comes from the
+    // window, which is untrusted, or from whatever cwd a transcript recorded.
+    let folder = false;
+    try {
+      folder = fs.statSync(target).isDirectory();
+    } catch {
+      folder = false;
+    }
+    if (!folder) throw new Error('not a folder');
     const problem = await shell.openPath(target);
     if (problem) throw new Error(problem);
     return true;
@@ -842,10 +854,16 @@ function textSize() {
   return state.settings ? state.settings.textSize() : null;
 }
 
-/** Keep a size chosen from the keyboard, as the settings window would. */
-function saveTextSize(size) {
+/**
+ * Keep a size chosen from the keyboard, as the settings window would — once
+ * the words are there: the file's help is written in the app's language, and
+ * a size taken up from Chromium at launch comes before they are loaded.
+ */
+async function saveTextSize(size) {
   if (!state.settings) return;
-  state.settings.setTextSize(asTextSize(size), detectAll());
+  const value = asTextSize(size);
+  await state.localeReady;
+  if (state.settings) state.settings.setTextSize(value, detectAll());
 }
 
 function asUpdateCheck(value) {

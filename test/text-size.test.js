@@ -121,8 +121,8 @@ test('le menu : aucun sous Linux et Windows, le strict nécessaire sous macOS', 
   const mac = menuTemplate({ platform: 'darwin', packaged: true });
   assert.deepEqual(
     mac.map((item) => item.role),
-    ['appMenu', 'editMenu', 'windowMenu'],
-    'l’édition, sans laquelle copier-coller ne marche pas sous macOS ; pas de menu Affichage, dont le zoom contournerait le réglage'
+    ['appMenu', 'fileMenu', 'editMenu', 'windowMenu'],
+    'Fichier, qui porte Cmd+W — le menu Fenêtre ne ferme rien sous macOS ; l’édition, sans laquelle copier-coller ne marche pas ; pas de menu Affichage, dont le zoom contournerait le réglage'
   );
   const flat = JSON.stringify(menuTemplate({ platform: 'darwin', packaged: true }));
   assert.ok(!/reload|DevTools|zoom/i.test(flat.replace('windowMenu', '')), flat);

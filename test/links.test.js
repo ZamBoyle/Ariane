@@ -74,3 +74,20 @@ test('la fenêtre ne navigue jamais hors de l’application', () => {
     'un clic sans target=_blank ne doit pas remplacer Ariane par la page'
   );
 });
+
+// Sans navigateur qui réponde, openExternal rejette : non rattrapé, c'était la
+// boîte « A JavaScript error occurred » d'Electron pour un simple clic.
+test('un navigateur qui ne s’ouvre pas ne fait pas une erreur de l’application', () => {
+  assert.match(openHandler(), /shell\.openExternal\(url\)\.catch\(/);
+});
+
+// Une base illisible au lancement : sans ce catch, le processus gardait le
+// verrou d'instance unique sans jamais ouvrir de fenêtre, et chaque nouveau
+// lancement s'y heurtait.
+test('un démarrage raté ne garde pas le verrou sans fenêtre', () => {
+  const start = MAIN.search(/app\s*\.whenReady\(\)/);
+  assert.ok(start !== -1, 'main.js démarre par app.whenReady()');
+  const chain = MAIN.slice(start, MAIN.indexOf("app.on('window-all-closed'", start));
+  assert.match(chain, /\.catch\(/, 'le démarrage rattrape son échec');
+  assert.match(chain, /app\.exit\(1\)/, 'et rend le verrou');
+});

@@ -91,6 +91,8 @@ function menuTemplate({ platform = process.platform, packaged = true } = {}) {
   if (platform !== 'darwin') return null;
   return [
     { role: 'appMenu' },
+    // Cmd+W: on macOS closing a window belongs to File; Window does not do it.
+    { role: 'fileMenu' },
     { role: 'editMenu' },
     { role: 'windowMenu' },
     ...(packaged
