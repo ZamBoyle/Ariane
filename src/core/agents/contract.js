@@ -289,4 +289,11 @@ function globalSessionId(agentId, sessionId) {
  */
 const UNKNOWN_FOLDER = '(?)';
 
-module.exports = { assertAdapter, globalSessionId, usageOf, REQUIRED, USAGE_FIELDS, UNKNOWN_FOLDER };
+module.exports = {
+  assertAdapter,
+  globalSessionId,
+  usageOf,
+  REQUIRED,
+  USAGE_FIELDS,
+  UNKNOWN_FOLDER,
+};

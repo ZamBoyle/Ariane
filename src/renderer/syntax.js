@@ -96,7 +96,11 @@ function shell(hljs) {
     end: /^[ \t]*([A-Za-z_]\w*)(?=[ \t]*$)/,
     relevance: 0,
   });
-  return { ...grammar, keywords, contains: [heredoc, command, ...grammar.contains] };
+  // `<<<` is a here-string: one word follows, not a body running to a
+  // delimiter. Taken first, so neither heredoc rule — this one or the
+  // grammar's own — reads its first two `<` as theirs.
+  const hereString = { match: /<<</, relevance: 0 };
+  return { ...grammar, keywords, contains: [hereString, heredoc, command, ...grammar.contains] };
 }
 
 const GRAMMARS = {

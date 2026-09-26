@@ -136,8 +136,10 @@ test.describe('escaping is the security boundary', () => {
   });
 
   test('a language tag cannot break out of the attribute', () => {
-    const html = F.renderMarkdown('```js" onload="alert(1)\ncode\n```');
-    assert.ok(!/onload="alert/.test(html));
+    // No space: the whole word is the language, and only escaping holds it in.
+    const html = F.renderMarkdown('```js"onload="alert(1)"\ncode\n```');
+    assert.ok(html.includes('data-lang="js&quot;onload=&quot;alert(1)&quot;"'), html);
+    assert.ok(!html.includes('"onload="'), 'la langue est sortie de son attribut');
   });
 });
 
@@ -204,6 +206,91 @@ test.describe('markdown subset', () => {
   test('mixes prose and code in order', () => {
     const html = F.renderMarkdown('avant\n\n```\ncode\n```\n\napres');
     assert.equal(html, '<p>avant</p><pre class="code"><code>code</code></pre><p>apres</p>');
+  });
+
+  // -- les blocs de code, comme CommonMark les lit (26 septembre 2026) --------
+
+  test('a fence opens only at the start of a line, and the rest of that line names the language', () => {
+    assert.ok(!F.renderMarkdown('Écris ```bash devant').includes('<pre'), 'une clôture au milieu d’une ligne');
+    assert.equal(
+      F.renderMarkdown('```python title=x \nprint(1)\n```'),
+      '<pre class="code" data-lang="python"><code>print(1)</code></pre>'
+    );
+  });
+
+  test('a fence indented under an item stays in it, without its indentation', () => {
+    assert.equal(
+      F.renderMarkdown('1. Lancer :\n   ```bash\n   npm test\n     --watch\n   ```\n2. Lire'),
+      '<ol><li>Lancer :<br><pre class="code" data-lang="bash"><code>npm test\n  --watch</code></pre></li>' +
+        '<li>Lire</li></ol>'
+    );
+  });
+
+  test('a block is never inside a paragraph', () => {
+    assert.equal(
+      F.renderMarkdown('Voici :\n```\nx\n```\nFin'),
+      '<p>Voici :</p><pre class="code"><code>x</code></pre><p>Fin</p>'
+    );
+  });
+
+  test('a longer fence holds a shorter one, and one never closed runs to the end', () => {
+    assert.equal(
+      F.renderMarkdown('````md\n```js\nx\n```\n````'),
+      '<pre class="code" data-lang="md"><code>```js\nx\n```</code></pre>'
+    );
+    assert.equal(F.renderMarkdown('avant\n```\na\n\nb'), '<p>avant</p><pre class="code"><code>a\n\nb</code></pre>');
+  });
+
+  test('Windows line endings are line endings', () => {
+    assert.equal(
+      F.renderMarkdown('a\r\nb\r\n\r\n```\r\nx\r\n```'),
+      '<p>a<br>b</p><pre class="code"><code>x</code></pre>'
+    );
+  });
+
+  test('a NUL in the text cannot forge a block', () => {
+    assert.equal(
+      F.renderMarkdown('```\nx\n```\n\n\u0000BLOCK0\u0000'),
+      '<pre class="code"><code>x</code></pre><p>BLOCK0</p>'
+    );
+  });
+
+  test('inline code opened by two backticks may hold one, or three', () => {
+    assert.equal(F.renderMarkdown('`` ```bash ``'), '<p><code>```bash</code></p>');
+    assert.equal(F.renderMarkdown('`a` puis ``b`c``'), '<p><code>a</code> puis <code>b`c</code></p>');
+  });
+
+  test('a star beside a space is not italic: a pointer stays a pointer', () => {
+    assert.equal(
+      F.renderMarkdown('const char *ssid, const char *password'),
+      '<p>const char *ssid, const char *password</p>'
+    );
+    assert.equal(F.renderMarkdown('x * y * z'), '<p>x * y * z</p>');
+  });
+
+  test('bold holds italic, and three stars are both', () => {
+    assert.equal(F.renderMarkdown('**a *b* c**'), '<p><strong>a <em>b</em> c</strong></p>');
+    assert.equal(F.renderMarkdown('***x***'), '<p><em><strong>x</strong></em></p>');
+    // Qui s'est ouvert en premier se ferme en dernier.
+    assert.equal(F.renderMarkdown('**le *site***'), '<p><strong>le <em>site</em></strong></p>');
+    assert.equal(F.renderMarkdown('*vitamine **B12***'), '<p><em>vitamine <strong>B12</strong></em></p>');
+  });
+
+  test('bold stays lenient about spaces, as its writer meant it', () => {
+    assert.equal(F.renderMarkdown('**Note **'), '<p><strong>Note </strong></p>');
+    assert.equal(F.renderMarkdown('**a** et **b**'), '<p><strong>a</strong> et <strong>b</strong></p>');
+  });
+
+  test('a rule may be spaced', () => {
+    assert.equal(F.renderMarkdown('* * *'), '<hr>');
+    assert.equal(F.renderMarkdown('- - -'), '<hr>');
+  });
+
+  test('code where a url should be is code, not a link that drops it', () => {
+    assert.equal(
+      F.renderMarkdown('[docs](`https://a.test`)'),
+      '<p>[docs](<code>https://a.test</code>)</p>'
+    );
   });
 });
 
@@ -579,6 +666,10 @@ test.describe('display helpers', () => {
   test('folderLabel survives a root or empty path', () => {
     assert.deepEqual(F.folderLabel('/'), { name: '/', parent: '' });
     assert.deepEqual(F.folderLabel(''), { name: '/', parent: '' });
+    assert.deepEqual(F.folderLabel('/home'), { name: 'home', parent: '/' });
+    // La racine d'un disque Windows n'a pas « / » pour parent.
+    assert.deepEqual(F.folderLabel('C:\\'), { name: 'C:', parent: '' });
+    assert.deepEqual(F.folderLabel('\\\\serveur\\partage'), { name: 'partage', parent: 'serveur' });
   });
 
   test('preview collapses whitespace and truncates', () => {
@@ -978,6 +1069,14 @@ test.describe('finding a word in the open conversation', () => {
   test('characters outside the basic plane keep their place', () => {
     const text = '🎉 café 🎉 CAFE';
     assert.deepEqual(F.findRanges(text, 'cafe').map(([a, b]) => text.slice(a, b)), ['café', 'CAFE']);
+  });
+
+  // Un mot grec en capitales finit par Σ : entier, il se replie en « ς » final ;
+  // lettre à lettre, en « σ ». La barre comptait le message et n'y marquait rien.
+  test('a Greek word ending in Σ is found and marked, whole or letter by letter', () => {
+    const text = 'ΟΔΟΣ ΚΑΙ οδός';
+    assert.deepEqual(F.findRanges(text, 'ΟΔΟΣ').map(([a, b]) => text.slice(a, b)), ['ΟΔΟΣ', 'οδός']);
+    assert.ok(F.foldForSearch(text).includes(F.foldForSearch('οδοσ')), 'la barre ne compterait pas le message');
   });
 
   test('nothing to find, nothing found', () => {

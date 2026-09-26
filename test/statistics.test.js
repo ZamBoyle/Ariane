@@ -261,7 +261,13 @@ test('la requête filtre par période et par assistant, comme la barre latérale
   });
   assert.equal(first, 'claude', 'ce que la fonction fait des lignes est rendu');
   index.addMessages('codex:b', [
-    { role: 'assistant', uuid: 'a9', text: 'écrit après', parts: [], timestamp: '2026-09-03T10:00:00.000Z' },
+    {
+      role: 'assistant',
+      uuid: 'a9',
+      text: 'écrit après',
+      parts: [],
+      timestamp: '2026-09-03T10:00:00.000Z',
+    },
   ]);
   assert.throws(
     () =>
@@ -271,7 +277,27 @@ test('la requête filtre par période et par assistant, comme la barre latérale
     /lecture ratée/
   );
   index.addMessages('codex:b', [
-    { role: 'assistant', uuid: 'a10', text: 'et encore', parts: [], timestamp: '2026-09-03T11:00:00.000Z' },
+    {
+      role: 'assistant',
+      uuid: 'a10',
+      text: 'et encore',
+      parts: [],
+      timestamp: '2026-09-03T11:00:00.000Z',
+    },
   ]);
   assert.equal([...index.statisticsRows()].length, 5, 'les deux écritures ont eu lieu');
+});
+
+// L'échelle des colonnes : on compte des conversations, des messages, des
+// jetons — rien qui se coupe en deux. Pour un maximum de 2, le pas valait 0,5
+// et les graduations, arrondies, se lisaient « 0 1 1 2 2 ».
+test('les graduations d’un compte sont des nombres entiers', async () => {
+  const { scale } = await import('../src/renderer/stats-view.js');
+  for (const max of [1, 2, 3, 7]) {
+    const { ticks } = scale(max);
+    assert.ok(ticks.every(Number.isInteger), `max ${max} : ${ticks.join(' ')}`);
+    assert.ok(ticks.at(-1) >= max, `max ${max} : la dernière graduation couvre le maximum`);
+  }
+  assert.deepEqual(scale(1128).ticks, [0, 500, 1000, 1500], 'les grands nombres ne changent pas');
+  assert.deepEqual(scale(0), { top: 1, ticks: [0, 1] });
 });

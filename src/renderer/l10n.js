@@ -70,6 +70,7 @@ export function directionOf(language) {
  */
 /** SI prefixes for a count, largest first. */
 const COMPACT_UNITS = [
+  [1e12, 'T'],
   [1e9, 'G'],
   [1e6, 'M'],
   [1e3, 'K'],
@@ -77,7 +78,8 @@ const COMPACT_UNITS = [
 
 /** [the shortened number, its prefix] — [646, ''], [7.5, 'K'], [1, 'M']. */
 function compactParts(n) {
-  if (Math.abs(n) < 999.5) return [Math.round(n), ''];
+  // `|| 0`: a count rounded to nothing is 0, not "-0".
+  if (Math.abs(n) < 999.5) return [Math.round(n) || 0, ''];
   for (let i = 0; i < COMPACT_UNITS.length; i++) {
     const [size, unit] = COMPACT_UNITS[i];
     if (Math.abs(n) < size * 0.9995 && i < COMPACT_UNITS.length - 1) continue;
@@ -253,9 +255,13 @@ export function createLocalizer({ language, sources, pseudo = false, onProblem =
     ago(iso, now = Date.now()) {
       const value = toDate(iso);
       if (!value) return '';
-      const seconds = Math.max(1, Math.floor((now - value.getTime()) / 1000));
+      // A moment ahead of this clock — another machine's, set a little fast —
+      // is said as ahead, "in 2 hours", never as "1 second ago".
+      const elapsed = Math.floor((now - value.getTime()) / 1000);
+      const sign = elapsed < 0 ? 1 : -1;
+      const seconds = Math.max(1, Math.abs(elapsed));
       for (const [limit, unit, size] of RELATIVE_STEPS) {
-        if (seconds < limit) return wrap(relative.format(-Math.max(1, Math.floor(seconds / size)), unit));
+        if (seconds < limit) return wrap(relative.format(sign * Math.max(1, Math.floor(seconds / size)), unit));
       }
       return wrap(dates.format(value));
     },
@@ -265,7 +271,7 @@ export function createLocalizer({ language, sources, pseudo = false, onProblem =
     },
 
     /**
-     * "646", "7.5K", "190K", "14.5M", "2.2G" — "7,5K" in French. K, M and G
+     * "646", "7.5K", "190K", "14.5M", "2.2G" — "7,5K" in French. K, M, G and T
      * whatever the language, with the language's own decimal mark: a count of
      * tokens is read in SI prefixes, as the person asked. Intl's compact
      * notation was not used: it writes "7,5 k" in French, leaves thousands
@@ -301,7 +307,14 @@ export function createLocalizer({ language, sources, pseudo = false, onProblem =
     /** "12 KB", "12 Ko", "12 kB": the unit as this language writes it. */
     bytes(value) {
       const n = Number(value) || 0;
-      const [unit, size] = n < 1024 ? ['byte', 1] : n < 1024 * 1024 ? ['kilobyte', 1024] : ['megabyte', 1024 * 1024];
+      const [unit, size] =
+        n < 1024
+          ? ['byte', 1]
+          : n < 1024 ** 2
+            ? ['kilobyte', 1024]
+            : n < 1024 ** 3
+              ? ['megabyte', 1024 ** 2]
+              : ['gigabyte', 1024 ** 3];
       return wrap(
         new Intl.NumberFormat(language, {
           style: 'unit',

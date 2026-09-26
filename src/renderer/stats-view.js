@@ -375,12 +375,17 @@ function months(data, ctx) {
   return section;
 }
 
-/** A round number just above the largest value, and the ticks up to it. */
-function scale(max) {
+/** A round number just above the largest value, and the ticks up to it. Exported for the tests. */
+export function scale(max) {
   if (max <= 0) return { top: 1, ticks: [0, 1] };
   const rough = max / 4;
   const power = 10 ** Math.floor(Math.log10(rough));
-  const step = [1, 2, 5, 10].map((m) => m * power).find((s) => s >= rough);
+  // Everything drawn here is counted, whole — conversations, messages, tokens,
+  // percents out of 100: a step below one only repeats a tick once rounded.
+  const step = Math.max(
+    1,
+    [1, 2, 5, 10].map((m) => m * power).find((s) => s >= rough)
+  );
   const top = Math.ceil(max / step) * step;
   const ticks = [];
   for (let v = 0; v <= top + step / 2; v += step) ticks.push(v);

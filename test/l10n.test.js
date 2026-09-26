@@ -155,9 +155,14 @@ test.describe('the words, in French and in English', () => {
     assert.equal(fr.ago('2026-09-17T11:59:30Z', now), 'il y a 30 secondes');
     assert.equal(en.ago('2025-01-02T12:00:00Z', now), 'Jan 2, 2025', 'a month on, the date itself');
     assert.equal(fr.ago('pas une date'), '');
+    // Un instant en avance sur cette horloge (celle d'une autre machine) :
+    // « dans 2 heures », jamais « il y a 1 seconde ».
+    assert.equal(fr.ago('2026-09-17T14:00:00Z', now), 'dans 2 heures');
+    assert.equal(en.ago('2026-09-19T12:00:00Z', now), 'in 2 days');
     assert.equal(fr.dateTime(null), '');
     assert.equal(en.bytes(512), '512 byte');
     assert.match(fr.bytes(3 * 1024 * 1024), /^3\sMo$/, 'the unit as French writes it, non-breaking space included');
+    assert.match(fr.bytes(5 * 1024 ** 3), /^5\sGo$/, 'au-delà du millier de Mo, des Go');
     assert.equal(en.list(['a', 'b', 'c']), 'a, b, and c');
     assert.equal(fr.list(['a', 'b', 'c']), 'a, b et c');
   });
@@ -172,6 +177,8 @@ test.describe('the words, in French and in English', () => {
     assert.equal(fr.compact(14510696), '14,5M');
     assert.equal(en.compact(2278555911), '2.3G', 'a count in the billions');
     assert.equal(en.compact(0), '0', 'a measured zero is shown');
+    assert.equal(en.compact(1.2e12), '1.2T', 'past a thousand G, T');
+    assert.equal(en.compact(-0.2), '0', 'rien de négatif pour un compte arrondi à zéro');
     assert.equal(en.compact(null), '', 'an absence is not a zero');
     assert.equal(en.compact('12'), '', 'only a number is a count');
   });

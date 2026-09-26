@@ -140,7 +140,10 @@ export class TranscriptView {
     if (!lastWasPainted) return; // still to come: the slices will paint the new tail
 
     const tail = groups.slice(keep).map((group) => this.renderGroup(group));
-    keepUnfolded(this.newestFirst ? this.container.firstElementChild : this.container.lastElementChild, tail[0]);
+    keepUnfolded(
+      this.newestFirst ? this.container.firstElementChild : this.container.lastElementChild,
+      tail[0]
+    );
     if (this.newestFirst) {
       // The newest rows are at the top: the old last group is the first child.
       this.container.firstElementChild?.remove();

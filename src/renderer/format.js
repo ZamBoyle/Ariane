@@ -55,20 +55,18 @@ export function renderSnippet(snippet) {
 export function renderMarkdown(text, { colour = null } = {}) {
   if (!text) return '';
 
+  // One kind of line ending, and no NUL: the placeholders below are made of it,
+  // and a message could otherwise forge one.
+  const source = String(text).replace(/\r\n?/g, '\n').replace(/\u0000/g, '');
   const blocks = [];
-  const withPlaceholders = String(text).replace(
-    /```([\w+-]*)\n?([\s\S]*?)```/g,
-    (_match, lang, code) => {
-      const index = blocks.length;
-      const body = code.replace(/\n$/, '');
-      const coloured = colour && lang ? colour(body, lang.toLowerCase()) : null;
-      blocks.push(
-        `<pre class="code"${lang ? ` data-lang="${escapeHtml(lang)}"` : ''}>` +
-          `<code>${coloured ?? escapeHtml(body)}</code></pre>`
-      );
-      return `\u0000BLOCK${index}\u0000`;
-    }
-  );
+  const withPlaceholders = extractFences(source, (lang, body) => {
+    const coloured = colour && lang ? colour(body, lang.toLowerCase()) : null;
+    blocks.push(
+      `<pre class="code"${lang ? ` data-lang="${escapeHtml(lang)}"` : ''}>` +
+        `<code>${coloured ?? escapeHtml(body)}</code></pre>`
+    );
+    return `\u0000BLOCK${blocks.length - 1}\u0000`;
+  });
 
   const html = withPlaceholders
     .split(/\n{2,}/)
@@ -77,6 +75,46 @@ export function renderMarkdown(text, { colour = null } = {}) {
     .join('');
 
   return html.replace(/\u0000BLOCK(\d+)\u0000/g, (_m, i) => blocks[Number(i)] || '');
+}
+
+/** A line opening a fenced block: three backticks or more, then its info string. */
+const FENCE_OPEN = /^([ \t]*)(`{3,})([^`]*)$/;
+/** A line that is nothing but a block's placeholder. */
+const BLOCK_LINE = /^\s*\u0000BLOCK\d+\u0000$/;
+
+/**
+ * Fenced code as CommonMark reads it: a LINE opening with three backticks or
+ * more — however indented, as it is inside a list item — then every line up to
+ * one closing with at least as many, or up to the end of the message when none
+ * does. The language is the first word after the fence; the rest of that line
+ * (`python title=x`, a trailing space) is not code. The fence's own
+ * indentation is taken off each line of the block. Each block becomes one
+ * placeholder line, indented as its fence was, so an item keeps its block.
+ *
+ * Measured on 11 916 messages (26 September 2026): 29 indented fences kept
+ * their indentation in every line before this, 13 fences opened mid-line.
+ */
+function extractFences(text, block) {
+  const lines = text.split('\n');
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const open = FENCE_OPEN.exec(lines[i]);
+    if (!open) {
+      out.push(lines[i]);
+      continue;
+    }
+    const [, indent, fence, info] = open;
+    const closing = new RegExp(`^\\s*\`{${fence.length},}\\s*$`);
+    let end = i + 1;
+    while (end < lines.length && !closing.test(lines[end])) end++;
+    const body = lines
+      .slice(i + 1, end)
+      .map((line) => line.replace(new RegExp(`^[ \\t]{0,${indent.length}}`), ''))
+      .join('\n');
+    out.push(indent + block(info.trim().split(/\s+/)[0], body));
+    i = end; // the closing line, or past the end
+  }
+  return out.join('\n');
 }
 
 function renderParagraph(raw) {
@@ -107,8 +145,8 @@ function dedent(lines) {
 
 /** A heading, on a line of its own: "# " to "#### ". */
 const HEADING = /^(#{1,4})\s+(.*)$/;
-/** A thematic break: three or more of the same mark, alone on its line. */
-const RULE = /^\s{0,3}(?:-{3,}|\*{3,}|_{3,})$/;
+/** A thematic break: three or more of the same mark, alone on its line, spaced or not. */
+const RULE = /^\s{0,3}(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$/;
 /** A bullet item: "- ", "* " or "+ " opening a line. */
 const BULLET = /^(\s*)[-*+]\s+/;
 /** An ordered item: "1. " or "1) ". Nine digits at most, as in CommonMark. */
@@ -148,6 +186,15 @@ function renderLines(lines) {
     const line = lines[i];
     if (!line.trim()) {
       if (run && run.kind === 'p') run.lines.push(line);
+      continue;
+    }
+
+    // A code block stands on its own, never inside a paragraph (a <pre> in a
+    // <p> is split in two by the parser) — unless it is indented under a list
+    // item, which is where it was written.
+    if (BLOCK_LINE.test(line) && !(run && run.kind === 'list' && /^\s/.test(line))) {
+      close();
+      out.push(line.trim());
       continue;
     }
 
@@ -345,8 +392,19 @@ function looksLikeDiff(lines) {
  */
 const KEPT = /\u0003(\d+)\u0003/g;
 
+/**
+ * Inline code as CommonMark reads it: a run of backticks, then everything up
+ * to a run of exactly as many — so `` ```bash `` shows its three backticks.
+ */
+const CODE_SPAN = /(?<!`)(`+)(?!`)([^\n]*?[^`\n])\1(?!`)/g;
+
+/** One space each side is padding, when both are there and it is not all spaces. */
+const spanContent = (code) => (/^ .*[^ ].* $/.test(code) ? code.slice(1, -1) : code);
+
 /** A link: [label](url). One level of parentheses inside the url, for Wikipedia. */
-const LINK = /\[([^\]\n]+)\]\(((?:[^\s()]|\([^\s()]*\))+)\)/g;
+// A url holds no kept markup: `[a](`b`)` is text around code, not a link that
+// would drop the code with its target.
+const LINK = /\[([^\]\n]+)\]\(((?:[^\s()\u0003]|\([^\s()\u0003]*\))+)\)/g;
 
 /**
  * A url written bare. It must follow a space, an opening bracket, a quote or
@@ -376,7 +434,7 @@ function inline(raw) {
   const text = emphasis(
     escapeHtml(raw)
       .replace(/\u0003/g, '')
-      .replace(/`([^`\n]+)`/g, (_m, code) => keep(`<code>${code}</code>`))
+      .replace(CODE_SPAN, (_m, _ticks, code) => keep(`<code>${spanContent(code)}</code>`))
       .replace(LINK, (_m, label, url) =>
         WEB.test(url) ? keep(anchor(url, emphasis(label))) : label
       )
@@ -389,10 +447,27 @@ function inline(raw) {
   return restore(text);
 }
 
+/**
+ * Bold, italic and struck. Italic is delimited as GFM does it: a `*` that
+ * opens is not followed by a space, one that closes is not preceded by one — so
+ * the two pointers of `const char *ssid, const char *password` stay stars (31
+ * messages lost both). Bold is left lenient: `**Note **` is bold as its writer
+ * meant it (GFM would print the stars; 27 messages here), and it may hold an
+ * italic, `**a *b* c**` (28 printed their stars). Measured 26 September 2026,
+ * old against new on 11 916 messages: 192 had tags crossing each other, or a
+ * block inside a paragraph; none do now, and no word was lost.
+ */
 function emphasis(s) {
   return s
-    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/(^|[\s(])\*([^*\n]+)\*/g, '$1<em>$2</em>')
+    .replace(/\*\*\*(?!\*)([^*\n]+?)\*\*\*(?!\*)/g, '<em><strong>$1</strong></em>')
+    .replace(/\*\*(?!\*)([^\n]+?)\*\*(?!\*)/g, (_m, inner) =>
+      // `***` closing both: its odd star closes an italic opened INSIDE the
+      // bold (`**a *b***`) or one opened before it (`*a **b***`).
+      inner.endsWith('*') && inner.split('*').length % 2 === 0
+        ? `<strong>${inner.slice(0, -1)}</strong>*`
+        : `<strong>${inner}</strong>`
+    )
+    .replace(/(^|[\s(>])\*(?![\s*])([^*\n]*?[^\s*])\*/g, '$1<em>$2</em>')
     .replace(/~~([^~\n]+)~~/g, '<del>$1</del>');
 }
 
@@ -543,7 +618,8 @@ export function folderLabel(fullPath) {
   if (parts.length === 0) return { name: value || '/', parent: '' };
   return {
     name: parts[parts.length - 1],
-    parent: parts.slice(0, -1).join('/') || '/',
+    // Only a POSIX path hangs from "/": a drive (`C:\`) hangs from nothing.
+    parent: parts.slice(0, -1).join('/') || (value.startsWith('/') ? '/' : ''),
   };
 }
 
@@ -551,12 +627,17 @@ export function folderLabel(fullPath) {
  * Text folded for searching: no case, no accents — the same leniency as the
  * index's own search (unicode61, remove_diacritics), so "numero" finds
  * "numéro" in the open conversation just as it does across all of them.
+ *
+ * A final sigma folds as any sigma, as Unicode case folding does: lowercased
+ * whole, "ΟΔΟΣ" ends in "ς", and letter by letter in "σ" — findRanges folds
+ * letter by letter, so the two must agree.
  */
 export function foldForSearch(text) {
   return String(text || '')
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/ς/g, 'σ');
 }
 
 /**

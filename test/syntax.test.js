@@ -219,4 +219,12 @@ test.describe('une commande shell', () => {
     );
     assert.deepEqual(commands('ifconfig eth0'), ['ifconfig'], 'if n’est un mot-clé qu’entier');
   });
+
+  test('<<< donne une chaîne, pas un heredoc : les lignes suivantes restent des commandes', () => {
+    assert.deepEqual(
+      commands('grep x <<< foo\nls -la\nfoo\ncat x'),
+      ['grep', 'ls', 'foo', 'cat'],
+      'un <<< a avalé la suite comme le corps d’un heredoc'
+    );
+  });
 });
