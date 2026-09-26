@@ -359,6 +359,25 @@ const SCRIPT = `(async () => {
     calls: liveStrip() ? liveStrip().querySelectorAll('.tool-run-body > details.fold').length : 0,
   };
 
+  // Pendant qu'une passe redemande les listes des dossiers ouverts, on en
+  // ouvre un et on en ferme un autre : ce choix-là est le plus récent.
+  const folderBtn = (where) => [...tree.querySelectorAll('.folder-btn')].find((b) => b.title === where);
+  window.mock.slowSessions(400);
+  document.getElementById('refresh').click();
+  await sleep(150);
+  folderBtn('/home/zam/grosse').click();
+  folderBtn('/home/zam/projet').click();
+  await sleep(900);
+  window.mock.slowSessions(0);
+  const duringPass = {
+    opened: folderBtn('/home/zam/grosse').getAttribute('aria-expanded'),
+    closed: folderBtn('/home/zam/projet').getAttribute('aria-expanded'),
+  };
+  // Remise en état : celui du projet ouvert, l'autre fermé.
+  if (duringPass.opened === 'true') folderBtn('/home/zam/grosse').click();
+  if (duringPass.closed === 'false') folderBtn('/home/zam/projet').click();
+  await sleep(300);
+
   // The reading order: by default the latest message at the top; each
   // conversation can be flipped to its first message, on its own.
   const order = document.getElementById('order');
@@ -557,6 +576,34 @@ const SCRIPT = `(async () => {
   await typeFind('profond');
   const retyped = { count: findCount(), id: hitId() };
 
+  // Enter pressed twice before the typing pause is over: both act on what the
+  // box says now, not on the hits of the word typed before.
+  findInput.value = 'numero';
+  findInput.dispatchEvent(new Event('input', { bubbles: true }));
+  press('Enter');
+  press('Enter');
+  await sleep(350);
+  const quickEnter = { count: findCount(), id: hitId() };
+
+  // A word no message holds yet, then a message holding it arrives: the count
+  // says one, and that one is marked where it stands.
+  await typeFind('pendant');
+  const noneYet = findCount();
+  window.mock.addBigMessage(102001, 'arrivé pendant la recherche');
+  document.getElementById('refresh').click();
+  await sleep(700);
+  const arrived = {
+    before: noneYet, count: findCount(), id: hitId(),
+    marks: transcript.querySelectorAll('mark.find-hit').length,
+  };
+
+  // The file rewritten without it: the bar follows the conversation on
+  // screen, not the hits of the one that was.
+  window.mock.dropBigMessage(102001);
+  document.getElementById('refresh').click();
+  await sleep(700);
+  const rewritten = { count: findCount(), rows: transcript.querySelectorAll('[data-message-id="102001"]').length };
+
   press('Escape');
   await sleep(50);
   const escaped = {
@@ -637,6 +684,22 @@ const SCRIPT = `(async () => {
   altKey('ArrowUp');
   await sleep(50);
   const viaKeys = { firstDown, backUp: topRowId() };
+
+  // A message arriving while the latest is shown first moves every row down
+  // one. Near the end, where the message just reached stays on screen, Alt+↓
+  // must step on from it — not land on it again.
+  const targetId = () => (transcript.querySelector('.msg.is-target') || { dataset: {} }).dataset.messageId;
+  ticks()[ticks().length - 1].click();
+  await sleep(100);
+  altKey('ArrowUp');
+  await sleep(50);
+  const reached = targetId();
+  window.mock.addBigMessage(102002, 'arrivé pendant les sauts');
+  document.getElementById('refresh').click();
+  await sleep(700);
+  altKey('ArrowDown');
+  await sleep(50);
+  const afterArrival = { reached, next: targetId() };
 
   document.getElementById('home').click();
   await sleep(100);
@@ -917,6 +980,46 @@ const SCRIPT = `(async () => {
     noteShown: !noteBar.hidden,
   };
 
+  // Une étoile dont la réponse revient après qu'une autre conversation a été
+  // ouverte : elle va à celle qu'on a étoilée, pas à celle qui est à l'écran.
+  window.mock.slowMarks(700);
+  await openByName('Session Codex B');
+  star.click();
+  await openByName('Session Codex A');
+  const lateTitle = document.getElementById('convo-title').textContent;
+  await sleep(800);
+  window.mock.slowMarks(0);
+  marksCheck.lateStar = {
+    title: lateTitle,
+    pressed: star.getAttribute('aria-pressed'),
+    storedB: Boolean((window.mock.marks()['codex:c2'] || {}).favorite),
+  };
+  await openByName('Session Codex B');
+  star.click(); // remise en état
+  await sleep(250);
+
+  // Une note écrite puis quittée : enregistrée en partant, et c'est la
+  // conversation quittée qui le dit, pas celle qu'on vient d'ouvrir.
+  window.mock.slowMarks(700);
+  document.getElementById('note-toggle').click();
+  await sleep(100);
+  noteInput.value = 'note de B';
+  noteInput.dispatchEvent(new Event('input', { bubbles: true }));
+  // Ce que fait le clic dans la barre latérale avant d'ouvrir ; une fenêtre
+  // cachée n'envoie pas l'évènement d'elle-même.
+  noteInput.dispatchEvent(new FocusEvent('blur'));
+  await openByName('Session Codex A');
+  await sleep(800);
+  window.mock.slowMarks(0);
+  marksCheck.lateNote = {
+    status: document.getElementById('note-status').textContent,
+    storedB: (window.mock.marks()['codex:c2'] || {}).note,
+  };
+  await openByName('Session Codex B');
+  noteInput.value = '';
+  noteInput.dispatchEvent(new Event('input', { bubbles: true }));
+  await sleep(900); // remise en état
+
   // Where a CLI lives: the gear opens a window listing the assistants that
   // matter here, each path checked as it is typed, the others offered under
   // « Ajouter », and the JSON file one click away.
@@ -1172,6 +1275,22 @@ const SCRIPT = `(async () => {
     search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await sleep(500);
     highlightCheck.byKeyboard = marksNow().length;
+
+    // Échap dans la boîte, la liste fermée : elle se vide, et le surlignage
+    // qu'elle avait causé s'éteint, comme si on l'avait effacée à la main.
+    search.focus();
+    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await sleep(100);
+    highlightCheck.afterEscape = { value: search.value, marks: marksNow().length };
+
+    // Et une réponse lente arrivée après cet Échap ne rouvre pas la liste.
+    search.value = 'lentement';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(250);
+    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await sleep(700);
+    highlightCheck.staleAfterEscape = !document.getElementById('results').hidden;
+    search.blur();
     search.value = '';
     search.dispatchEvent(new Event('input', { bubbles: true }));
     await sleep(400);
@@ -1211,14 +1330,15 @@ const SCRIPT = `(async () => {
     costCheck,
     marksCheck,
     settingsCheck,
-    outlineCheck: { smallTicks, onBig, widths, viaTick, nearEnd, viaKeys, outlineOnHome },
-    findCheck: { opens, accents, wrapped, retyped, escaped, inert },
+    outlineCheck: { smallTicks, onBig, widths, viaTick, nearEnd, viaKeys, afterArrival, outlineOnHome },
+    findCheck: { opens, accents, wrapped, retyped, quickEnter, arrived, rewritten, escaped, inert },
     bigCheck: { opened, allRows, homeDuringSlices, deep, extended },
     forgetCheck: { onLive, onSaved, afterOneClick, afterTwoClicks },
     orderCheck: { byDefault, flipped, otherConversation, backOnFirst, restored, liveOnTop },
     afterAuto,
     afterManual,
     stripKept,
+    duringPass,
     messages,
     sessionRows,
     sessionLists,
@@ -1533,7 +1653,7 @@ async function languageChange() {
  * Le vrai réglage vit dans le processus principal : ici on n'éprouve que ce
  * que la fenêtre fait d'une réponse.
  */
-async function updateWindow(version, script) {
+async function updateWindow(version, script, extra = {}) {
   const win = new BrowserWindow({
     width: 1100,
     height: 760,
@@ -1546,7 +1666,7 @@ async function updateWindow(version, script) {
       partition: `render-update-${version || 'aucune'}`,
     },
   });
-  const query = version ? { lang: 'fr', update: version } : { lang: 'fr' };
+  const query = version ? { lang: 'fr', update: version, ...extra } : { lang: 'fr', ...extra };
   await win.loadFile(INDEX, { query });
   const result = await win.webContents.executeJavaScript(script);
   win.destroy();
@@ -2030,6 +2150,8 @@ async function run() {
     `aria-expanded=${r.afterManual.folderOpen}, chargement=${r.afterManual.loading}, ${r.afterManual.listed} sessions`);
   check('un bandeau d’outils qui continue pendant qu’on le lit reste déplié',
     r.stripKept.exists && r.stripKept.open && r.stripKept.calls === 2, JSON.stringify(r.stripKept));
+  check('un dossier ouvert pendant une passe reste ouvert, un dossier fermé reste fermé',
+    r.duringPass.opened === 'true' && r.duringPass.closed === 'false', JSON.stringify(r.duringPass));
 
   // -- reading order ---------------------------------------------------------
   const o = r.orderCheck;
@@ -2209,6 +2331,11 @@ async function run() {
     mk.reopened.pressed === 'true' && mk.reopened.noteShown
       && mk.reopened.note === 'le calcul de <ponder()> est ici',
     JSON.stringify(mk.reopened));
+  check('une étoile dont la réponse arrive tard va à la conversation étoilée, pas à celle ouverte depuis',
+    mk.lateStar.title === 'Session Codex A' && mk.lateStar.pressed === 'false' && mk.lateStar.storedB,
+    JSON.stringify(mk.lateStar));
+  check('une note enregistrée en partant ne se dit pas enregistrée dans la conversation suivante',
+    mk.lateNote.status === '' && mk.lateNote.storedB === 'note de B', JSON.stringify(mk.lateNote));
   check('the starred view stays out of the way until something is starred',
     mk.hiddenAtFirst === true && mk.starred.favVisible === true);
   check('and then says how many, beside its star',
@@ -2238,6 +2365,10 @@ async function run() {
     hl.byKeyboard > 0, `${hl.byKeyboard} marque(s)`);
   check('une réponse de recherche arrivée trop tard ne rouvre pas la liste',
     hl.staleShown === false, JSON.stringify(hl.staleShown));
+  check('Échap vide la boîte et éteint le surlignage qu’elle avait causé',
+    hl.afterEscape.value === '' && hl.afterEscape.marks === 0, JSON.stringify(hl.afterEscape));
+  check('une réponse lente arrivée après Échap ne rouvre pas la liste',
+    hl.staleAfterEscape === false, JSON.stringify(hl.staleAfterEscape));
   check('la consigne d’un sous-agent trouvée par la recherche n’est signée par personne',
     hl.briefingSpeaker === '', JSON.stringify(hl.briefingSpeaker));
 
@@ -2354,6 +2485,9 @@ async function run() {
   check('Alt+↓ and Alt+↑ step through the person’s own messages',
     ol.viaKeys.firstDown === '101998' && ol.viaKeys.backUp === '101998',
     `↓ ${ol.viaKeys.firstDown}, ↓↑ ${ol.viaKeys.backUp}`);
+  check('a message arriving above does not send Alt+↓ back to the message just reached',
+    ol.afterArrival.reached === '100002' && ol.afterArrival.next === '100000',
+    `atteint ${ol.afterArrival.reached}, puis ${ol.afterArrival.next}`);
   check('the outline leaves with the conversation', ol.outlineOnHome === true);
 
   // -- finding in the open conversation -------------------------------------
@@ -2361,13 +2495,21 @@ async function run() {
   check('Ctrl+F opens a find bar on the open conversation',
     fd.opens.visible && fd.opens.focused, `visible=${fd.opens.visible} focus=${fd.opens.focused}`);
   check('it ignores accents, counts messages from the top, and marks the word as written',
-    fd.accents.count === '1 / 1999' && fd.accents.mark === 'numéro' && fd.accents.first === '101999',
+    fd.accents.count === '1 / 1\u202f999' && fd.accents.mark === 'numéro' && fd.accents.first === '101999',
     `${fd.accents.count}, marque « ${fd.accents.mark} », premier=${fd.accents.first}`);
   check('previous from the first wraps to the far end, painted and shown',
-    fd.wrapped.count === '1999 / 1999' && fd.wrapped.id === '100000' && fd.wrapped.inView,
+    fd.wrapped.count === '1\u202f999 / 1\u202f999' && fd.wrapped.id === '100000' && fd.wrapped.inView,
     `${fd.wrapped.count}, ligne ${fd.wrapped.id}, visible=${fd.wrapped.inView}`);
   check('a new search goes to its own first hit',
     fd.retyped.count === '1 / 1' && fd.retyped.id === '100007', `${fd.retyped.count}, ligne ${fd.retyped.id}`);
+  check('Entrée pressée deux fois avant la fin de la frappe agit sur le mot tapé',
+    fd.quickEnter.count === '2 / 1\u202f999' && fd.quickEnter.id === '101998',
+    `${fd.quickEnter.count}, ligne ${fd.quickEnter.id}`);
+  check('un message arrivé qui contient le mot : compté, et marqué là où il est',
+    fd.arrived.before === 'aucun' && fd.arrived.count === '1 / 1' && fd.arrived.id === '102001' && fd.arrived.marks > 0,
+    JSON.stringify(fd.arrived));
+  check('la conversation réécrite : la barre suit ce qui est à l’écran',
+    fd.rewritten.count === 'aucun' && fd.rewritten.rows === 0, JSON.stringify(fd.rewritten));
   check('Échap closes the bar, clears its marks, and stays in the conversation',
     fd.escaped.hidden && fd.escaped.stillOpen && fd.escaped.marksLeft === 0,
     `fermée=${fd.escaped.hidden} conversation=${fd.escaped.stillOpen} marques=${fd.escaped.marksLeft}`);
@@ -2447,6 +2589,27 @@ async function run() {
     annonce.toast, `toast caché=${annonce.toast}`);
   check('un clic ouvre la page, et rien d\'autre ne part',
     annonce.opened === 1, `ouvertures : ${annonce.opened}`);
+
+  // Une liste de dossiers qui échoue au lancement : le reste du démarrage
+  // a lieu quand même, et « Actualiser » la redemande.
+  const FOLDERS_FAIL = `(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const button = document.getElementById('update');
+    for (let i = 0; i < 80 && button.hidden; i++) await sleep(50);
+    const toast = document.getElementById('toast');
+    const said = toast.hidden ? '' : toast.textContent;
+    const tree = document.getElementById('tree');
+    const before = tree.querySelectorAll('.folder-btn').length;
+    document.getElementById('refresh').click();
+    for (let i = 0; i < 60 && !tree.querySelector('.folder-btn'); i++) await sleep(50);
+    return { updateShown: !button.hidden, said, before, after: tree.querySelectorAll('.folder-btn').length };
+  })()`;
+  const sansDossiers = await updateWindow('0.9.9', FOLDERS_FAIL, { folders: 'fail' });
+  check('une liste de dossiers qui échoue au lancement est dite, et le démarrage va quand même au bout',
+    sansDossiers.updateShown && sansDossiers.said.includes('liste des dossiers impossible'),
+    `bouton de version=${sansDossiers.updateShown} message « ${sansDossiers.said} »`);
+  check('« Actualiser » redemande la liste', sansDossiers.before === 0 && sansDossiers.after > 0,
+    `${sansDossiers.before} dossier(s), puis ${sansDossiers.after}`);
 
   const silence = await updateWindow(null, WAIT_UPDATE);
   check('à jour, le bouton n\'apparaît jamais',

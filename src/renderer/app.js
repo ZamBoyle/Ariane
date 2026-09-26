@@ -157,7 +157,7 @@ const state = {
    * Finding in the open conversation: the messages whose text holds the
    * words, in the order they stand on screen, and which one is shown.
    */
-  find: { hits: [], index: -1 },
+  find: { hits: [], index: -1, query: '' },
   /**
    * The words a search was made of, kept while the conversation it led to is
    * open. They are marked wherever they appear, not only in the message the
@@ -277,7 +277,9 @@ async function init() {
   if (needsIndex) {
     await refresh();
   } else {
-    await loadFolders();
+    // Said, and left to the next pass: the rest of the start — the passes
+    // themselves, the favourites — must not hang on one listing.
+    await loadFolders().catch((error) => toast(error.message, true));
     setStats(status.stats);
   }
 
@@ -458,7 +460,11 @@ function wireEvents() {
     const star = event.target.closest('.msg-star');
     if (star) onToggleMessageStar(star);
   });
-  el.findInput.addEventListener('input', debounce(() => runFind(), FIND_DEBOUNCE_MS));
+  el.findInput.addEventListener(
+    'input',
+    // Enter may have looked it up already, and moved on from the first hit.
+    debounce(() => findIsStale() && runFind(), FIND_DEBOUNCE_MS)
+  );
   el.findInput.addEventListener('keydown', onFindKeydown);
   el.findNext.addEventListener('click', () => moveFind(1));
   el.findPrev.addEventListener('click', () => moveFind(-1));
@@ -816,13 +822,21 @@ async function loadFolders() {
     open.map((id) => api.sessions(id).then((sessions) => [id, sessions], () => [id, null]))
   );
 
-  state.sessionsByFolder.clear();
-  state.expanded = new Set();
-  for (const [id, sessions] of lists) {
-    if (!sessions) continue; // a failed list collapses, as in toggleFolder
-    state.expanded.add(id);
-    state.sessionsByFolder.set(id, sessions);
+  // A folder opened or closed while those lists were on their way was the
+  // reader's latest word: one closed stays closed, one opened keeps the list
+  // it fetched itself (or is still fetching).
+  const fetched = new Map(lists);
+  const kept = new Map();
+  const expanded = new Set();
+  for (const id of state.expanded) {
+    if (!known.has(id) || fetched.get(id) === null) continue; // a failed list collapses, as in toggleFolder
+    expanded.add(id);
+    const sessions = fetched.get(id) || state.sessionsByFolder.get(id);
+    if (sessions) kept.set(id, sessions);
   }
+  state.expanded = expanded;
+  state.sessionsByFolder.clear();
+  for (const [id, sessions] of kept) state.sessionsByFolder.set(id, sessions);
 
   const scroll = el.tree.scrollTop;
   renderTree();
@@ -880,7 +894,7 @@ function renderFolder(folder) {
     node('span', 'chev'),
     names,
     marks,
-    node('span', 'count', String(folder.sessionCount))
+    node('span', 'count', l10n.number(folder.sessionCount))
   );
   button.addEventListener('click', () => toggleFolder(folder.id));
 
@@ -1416,8 +1430,12 @@ async function onToggleFavorite() {
   } catch (error) {
     return toast(error.message, true);
   }
-  state.favorite = mark.favorite;
-  paintFavorite();
+  // Another conversation may have been opened while this one was starred:
+  // the lists follow the id, the header only its own.
+  if (id === state.currentSessionId) {
+    state.favorite = mark.favorite;
+    paintFavorite();
+  }
   markInTree(id, mark);
   await loadFavorites();
   renderTree();
@@ -1448,12 +1466,15 @@ async function saveNote() {
   } catch (error) {
     return toast(error.message, true);
   }
-  state.note = mark.note;
-  el.noteStatus.textContent = t('mark-note-saved');
-  clearTimeout(state.noteTimer);
-  state.noteTimer = setTimeout(() => {
-    el.noteStatus.textContent = '';
-  }, 2000);
+  // Saved on the way out: the conversation open now has its own note.
+  if (id === state.currentSessionId) {
+    state.note = mark.note;
+    el.noteStatus.textContent = t('mark-note-saved');
+    clearTimeout(state.noteTimer);
+    state.noteTimer = setTimeout(() => {
+      el.noteStatus.textContent = '';
+    }, 2000);
+  }
   markInTree(id, mark);
   await loadFavorites();
   if (state.favoritesOnly) renderTree();
@@ -1698,12 +1719,14 @@ async function onToggleMessageStar(button) {
   } catch (error) {
     return toast(error.message, true);
   }
-  state.starred = new Set(starred);
-  // Only the row that changed: a conversation of six thousand stays untouched.
-  const row = el.transcript.querySelector(`.msg[data-message-id="${messageId}"]`);
-  const old = row && row.querySelector('.msg-star');
-  if (old) old.replaceWith(messageStar(messageId));
-  paintOutline();
+  if (id === state.currentSessionId) {
+    state.starred = new Set(starred);
+    // Only the row that changed: a conversation of six thousand stays untouched.
+    const row = el.transcript.querySelector(`.msg[data-message-id="${messageId}"]`);
+    const old = row && row.querySelector('.msg-star');
+    if (old) old.replaceWith(messageStar(messageId));
+    paintOutline();
+  }
   await loadFavorites();
   if (state.favoritesOnly) renderTree();
 }
@@ -1794,6 +1817,7 @@ async function refreshOpenConversation() {
   if (!grew) {
     paintTranscript(next);
     el.transcript.scrollTop = 0;
+    if (!el.find.hidden) runFind({ keep: true, quiet: true });
     return;
   }
 
@@ -1811,7 +1835,11 @@ async function refreshOpenConversation() {
   // very freeze this view exists to avoid.
   state.openMessages = next;
   state.openMessageCount = next.length;
+  const rowsBefore = view.progress.total;
   view.extend(groupMessages(next));
+  // Latest first, the new rows went in above: the message last jumped to now
+  // stands that many rows further down, and Alt+↓ must step on from there.
+  if (state.newestFirst && state.outlineAt !== null) state.outlineAt += view.progress.total - rowsBefore;
   paintOutline();
   if (!el.find.hidden) runFind({ keep: true, quiet: true });
 
@@ -2037,7 +2065,7 @@ function openFind() {
 
 function closeFind() {
   clearFindMarks();
-  state.find = { hits: [], index: -1 };
+  state.find = { hits: [], index: -1, query: '' };
   el.find.hidden = true;
   paintFindCount();
 }
@@ -2063,14 +2091,21 @@ function runFind({ keep = false, quiet = false } = {}) {
   if (state.newestFirst) hits.reverse();
 
   const kept = current === undefined ? -1 : hits.indexOf(current);
-  state.find = { hits, index: kept >= 0 ? kept : hits.length ? 0 : -1 };
+  state.find = { hits, index: kept >= 0 ? kept : hits.length ? 0 : -1, query: wanted };
 
   if (quiet) {
-    if (kept >= 0) markFindHit(false);
+    // Marked where it stands, the reader left where they are — a hit that
+    // only just arrived included: "1 / 1" must point at something.
+    markFindHit(false);
     paintFindCount();
     return;
   }
   showFindHit();
+}
+
+/** Whether the box says something other than what the hits were found for. */
+function findIsStale() {
+  return foldForSearch(el.findInput.value.trim()) !== state.find.query;
 }
 
 function moveFind(step) {
@@ -2179,7 +2214,11 @@ function clearFindMarks() {
 function paintFindCount() {
   const { hits, index } = state.find;
   const asked = el.findInput.value.trim();
-  el.findCount.textContent = hits.length ? `${index + 1} / ${hits.length}` : asked ? t('find-none') : '';
+  el.findCount.textContent = hits.length
+    ? `${l10n.number(index + 1)} / ${l10n.number(hits.length)}`
+    : asked
+      ? t('find-none')
+      : '';
 }
 
 function onFindKeydown(event) {
@@ -2187,7 +2226,7 @@ function onFindKeydown(event) {
     event.preventDefault();
     event.stopPropagation();
     // A query typed but not yet looked up: look it up first.
-    if (!state.find.hits.length) runFind();
+    if (!state.find.hits.length || findIsStale()) runFind();
     else moveFind(event.shiftKey ? -1 : 1);
   } else if (event.key === 'Escape') {
     // Close the bar, stay in the conversation: not the global "back home".
@@ -2596,7 +2635,13 @@ function hideResults() {
 
 function onSearchKeydown(event) {
   if (event.key === 'Escape') {
-    if (el.results.hidden) el.search.value = '';
+    // A search still on its way would reopen what Escape just closed.
+    searchAsked += 1;
+    if (el.results.hidden) {
+      // Emptied by a key, as by hand: the highlight it caused goes with it.
+      el.search.value = '';
+      clearSearchTerms();
+    }
     hideResults();
     return;
   }

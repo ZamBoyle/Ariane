@@ -259,6 +259,14 @@ const copyOf = (value) => JSON.parse(JSON.stringify(value));
  * window: 2 000 rows. Message 7 — near the START, so at the very END of the
  * newest-first display — is what a search finds.
  */
+/** How long a mark's answer takes to come back, once written: `slowMarks(ms)`. */
+let marksDelay = 0;
+/** How long a folder's list takes to come back: `slowSessions(ms)`. */
+let sessionsDelay = 0;
+
+let foldersWillFail =
+  new URLSearchParams(globalThis.location ? globalThis.location.search : '').get('folders') === 'fail';
+
 const BIG_ID = 'claude:big';
 const BIG = Array.from({ length: 2000 }, (_, i) => ({
   id: 100000 + i, seq: i, role: i % 2 ? 'assistant' : 'user',
@@ -487,6 +495,13 @@ contextBridge.exposeInMainWorld('api', {
       pending.big = null;
       indexed += 1;
     }
+    if (pending.dropBig) {
+      // The file was rewritten without it: the conversation SHRANK.
+      BIG.splice(BIG.findIndex((m) => m.id === pending.dropBig), 1);
+      BIG_SESSIONS[0].messageCount = BIG.length;
+      pending.dropBig = null;
+      indexed += 1;
+    }
     if (pending.message) {
       MESSAGES.push(pending.message);
       SESSIONS.find((x) => x.id === 'claude:s1').messageCount += 1;
@@ -502,9 +517,16 @@ contextBridge.exposeInMainWorld('api', {
   agents: async () => AGENTS,
   // The real one filters in SQL; here it is enough that hiding changes what
   // comes back, which is what the screen is checked against.
-  folders: async () =>
-    FOLDERS.filter((f) => String(f.agentIds).split(',').some((id) => !hiddenAgents.includes(id))),
+  folders: async () => {
+    // `?folders=fail`: the first listing fails, as a busy index can at launch.
+    if (foldersWillFail) {
+      foldersWillFail = false;
+      throw new Error('liste des dossiers impossible');
+    }
+    return FOLDERS.filter((f) => String(f.agentIds).split(',').some((id) => !hiddenAgents.includes(id)));
+  },
   sessions: async (folderId) => {
+    if (sessionsDelay) await new Promise((resolve) => setTimeout(resolve, sessionsDelay));
     if (folderId === 3) return BIG_SESSIONS.map(marked);
     if (folderId !== 2) return SESSIONS.filter((x) => !hiddenAgents.includes(x.agentId)).map(marked);
     if (fragileWillFail) {
@@ -526,6 +548,8 @@ contextBridge.exposeInMainWorld('api', {
     };
     if (!mark.favorite && !mark.note && mark.messages.length === 0) delete MARKS[id];
     else MARKS[id] = mark;
+    // Written at once; only the answer is late, as over a busy bridge.
+    if (marksDelay) await new Promise((resolve) => setTimeout(resolve, marksDelay));
     return { favorite: mark.favorite, note: mark.note };
   },
   markMessage: async (id, messageId, favorite) => {
@@ -767,12 +791,22 @@ contextBridge.exposeInMainWorld('mock', {
   },
   lastRefresh: () => lastRefresh,
   /** A new message at the end of the long conversation, found by the next pass. */
-  addBigMessage() {
+  addBigMessage(id = 102000, text = 'arrivé au bout de 2000 messages') {
     pending.big = {
-      id: 102000, seq: 2000, role: 'assistant', ts: '2026-09-02T12:00:00.000Z',
-      text: 'arrivé au bout de 2000 messages', thinking: '', parts: [],
+      id, seq: id - 100000, role: 'assistant', ts: '2026-09-02T12:00:00.000Z',
+      text, thinking: '', parts: [],
       isMeta: false, isNotice: false, isSidechain: false, command: null,
     };
+  },
+  /** The long conversation's file rewritten without message `id`, found by the next pass. */
+  dropBigMessage(id) {
+    pending.dropBig = id;
+  },
+  slowMarks(ms) {
+    marksDelay = ms;
+  },
+  slowSessions(ms) {
+    sessionsDelay = ms;
   },
   forgotten: () => forgotten.slice(),
   exportCalls: () => exportCalls.slice(),
