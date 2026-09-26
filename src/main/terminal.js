@@ -210,9 +210,10 @@ function resolveCommand(name, chosen = null) {
     const file = expandUserPath(chosen);
     if (!path.isAbsolute(file)) return { ok: false, reason: 'setting-not-absolute', detail: chosen };
     const executable = firstExecutable(file, process.platform);
-    // What was typed, not its expansion: on Windows %NAME% is replaced by the
-    // variable's value, and the answer goes back to the window.
-    if (!executable) return { ok: false, reason: 'setting-unusable', detail: chosen };
+    // What was typed, normalised for this system but not expanded: on Windows
+    // %NAME% is replaced by the variable's value, and the answer goes back to
+    // the window.
+    if (!executable) return { ok: false, reason: 'setting-unusable', detail: path.normalize(chosen) };
     return { ok: true, executable, chosen: true };
   }
   const found = findExecutable(name);

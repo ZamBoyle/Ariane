@@ -663,6 +663,19 @@ test.describe('display helpers', () => {
       { name: 'repos', parent: 'C:/Users/zam' });
   });
 
+  // L'échelle des colonnes : on compte des conversations, des messages, des
+  // jetons — rien qui se coupe en deux. Pour un maximum de 2, le pas valait 0,5
+  // et les graduations, arrondies, se lisaient « 0 1 1 2 2 ».
+  test('a chart counting whole things has whole ticks', () => {
+    for (const max of [1, 2, 3, 7]) {
+      const { ticks } = F.chartScale(max);
+      assert.ok(ticks.every(Number.isInteger), `max ${max} : ${ticks.join(' ')}`);
+      assert.ok(ticks.at(-1) >= max, `max ${max} : la dernière graduation couvre le maximum`);
+    }
+    assert.deepEqual(F.chartScale(1128).ticks, [0, 500, 1000, 1500], 'les grands nombres ne changent pas');
+    assert.deepEqual(F.chartScale(0), { top: 1, ticks: [0, 1] });
+  });
+
   test('folderLabel survives a root or empty path', () => {
     assert.deepEqual(F.folderLabel('/'), { name: '/', parent: '' });
     assert.deepEqual(F.folderLabel(''), { name: '/', parent: '' });

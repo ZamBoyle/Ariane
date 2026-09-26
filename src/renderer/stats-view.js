@@ -19,6 +19,8 @@
  * band the palette validator allows.
  */
 
+import { chartScale } from './format.js';
+
 const SVG = 'http://www.w3.org/2000/svg';
 
 /** The three measures the month chart can show, one at a time. */
@@ -375,23 +377,6 @@ function months(data, ctx) {
   return section;
 }
 
-/** A round number just above the largest value, and the ticks up to it. Exported for the tests. */
-export function scale(max) {
-  if (max <= 0) return { top: 1, ticks: [0, 1] };
-  const rough = max / 4;
-  const power = 10 ** Math.floor(Math.log10(rough));
-  // Everything drawn here is counted, whole — conversations, messages, tokens,
-  // percents out of 100: a step below one only repeats a tick once rounded.
-  const step = Math.max(
-    1,
-    [1, 2, 5, 10].map((m) => m * power).find((s) => s >= rough)
-  );
-  const top = Math.ceil(max / step) * step;
-  const ticks = [];
-  for (let v = 0; v <= top + step / 2; v += step) ticks.push(v);
-  return { top, ticks };
-}
-
 function monthChart(rows, measure, { t, l10n }) {
   const format = (v) => (measure.compact ? l10n.compact(v) : l10n.number(v));
   return columnChart(rows, {
@@ -421,7 +406,7 @@ function columnChart(
   const plotW = W - pad.left - pad.right;
   const plotH = H - pad.top - pad.bottom;
   const values = rows.map(value);
-  const { top, ticks } = scale(fixedTop ?? Math.max(...values));
+  const { top, ticks } = chartScale(fixedTop ?? Math.max(...values));
   const slot = plotW / rows.length;
   const barW = Math.max(2, Math.min(24, slot * 0.62));
   const y = (v) => pad.top + plotH - (v / top) * plotH;

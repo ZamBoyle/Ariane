@@ -608,6 +608,23 @@ export function subagentTokens(session) {
 export const UNKNOWN_FOLDER = '(?)';
 
 /**
+ * A chart's scale: a round number just above the largest value, and the ticks
+ * up to it. Everything the statistics draw is counted whole — conversations,
+ * messages, tokens, percents out of 100 — so the step is never below one: for
+ * a largest value of 2 it was 0.5, and the ticks, rounded, read "0 1 1 2 2".
+ */
+export function chartScale(max) {
+  if (max <= 0) return { top: 1, ticks: [0, 1] };
+  const rough = max / 4;
+  const power = 10 ** Math.floor(Math.log10(rough));
+  const step = Math.max(1, [1, 2, 5, 10].map((m) => m * power).find((s) => s >= rough));
+  const top = Math.ceil(max / step) * step;
+  const ticks = [];
+  for (let v = 0; v <= top + step / 2; v += step) ticks.push(v);
+  return { top, ticks };
+}
+
+/**
  * Split a path into its last segment and its parent, for a two-line label.
  * The unknown folder has neither: `unknown` tells the caller to name it.
  */

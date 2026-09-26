@@ -766,11 +766,18 @@ test.describe('the settings', () => {
     assert.deepEqual(sh, { ok: true, executable: exe, chosen: true });
     const relative = (await invoke('settings:check', { id: 'claude', command: 'bin/claude' })).data;
     assert.equal(relative.reason, 'setting-not-absolute');
-    // Ce qui revient est ce qui a été tapé, jamais le chemin développé : sous
-    // Windows, %NOM% y est remplacé par la valeur de la variable — une clé
-    // d'API, par exemple.
+    // Ce qui revient est ce qui a été tapé — normalisé pour le système, jamais
+    // développé : sous Windows, %NOM% y serait remplacé par la valeur de la
+    // variable, une clé d'API par exemple.
     const missing = (await invoke('settings:check', { id: 'claude', command: '~/nulle-part/claude' })).data;
-    assert.deepEqual(missing, { ok: false, reason: 'setting-unusable', detail: '~/nulle-part/claude' });
+    assert.deepEqual(missing, {
+      ok: false,
+      reason: 'setting-unusable',
+      detail: path.normalize('~/nulle-part/claude'),
+    });
+    const variable = (await invoke('settings:check', { id: 'claude', command: '%APPDATA%/nulle-part/claude' }))
+      .data;
+    assert.ok(variable.detail.startsWith('%APPDATA%'), `la variable a été développée : ${variable.detail}`);
   });
 
   test('the file picker starts where the CLI would be, and shows hidden folders', async (t) => {
