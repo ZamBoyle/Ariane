@@ -39,6 +39,61 @@ Voici à quelle version chacune appartient.
 
 ---
 
+## 26 septembre 2026
+
+### La relecture de tout le code
+
+**Demandé** : « Analyse tout le projet pour d'éventuels bugs non vus. Ne revois pas les tests juste
+le code », puis « Corrige tout ». Six lectures en parallèle ; chaque trouvaille relue sur le code et,
+quand c'était possible, sur les vrais fichiers, en lecture seule. Chaque correction qui se voit a
+son test, et chaque test a échoué avant elle.
+
+**L'index — le plus grave d'abord.**
+- Les statistiques ouvraient un curseur SQLite puis attendaient un import : pendant ce temps, toute
+  écriture de la passe échouait, et un assistant manquait à l'appel. Le curseur se ferme désormais
+  quoi qu'il arrive, et l'import a lieu avant.
+- Une ligne entière dont le retour à la ligne n'était pas encore écrit était stockée, puis relue
+  finie à la passe suivante : deux fois pour une ligne sans identifiant, et le coût de la réponse
+  perdu. Elle n'est plus lue avant d'être finie — 608 transcriptions sur 608 finissent par un retour
+  à la ligne une fois écrites.
+- Chaque conversation se lit dans une transaction : une lecture coupée la laisse telle que son
+  curseur le dit. Un fichier revenu illisible ou vide ne détruit plus la seule copie archivée.
+- **Copilot comptait chaque appel d'outil deux fois** (439 sur 439) : sur la réponse qui le demande,
+  puis au démarrage de l'outil. Une seule fois maintenant.
+- « Oublier » oublie aussi les sous-agents — index, archive, marques.
+- Ce que les fichiers déclarent (`continued-in`, `forked_from_id`) décide de l'original d'une copie ;
+  une session faite des seules invites survit à une reconstruction comme ce qu'elle est.
+- Le titre choisi avec `/rename` est lu ; un seul dossier inconnu, nommé dans la langue de la
+  personne (il s'appelait « (dossier inconnu) » ou « (inconnu) », en français partout) ; les balises
+  du harnais ne sont plus retirées des réponses qui les citent.
+- **Le schéma passe à 20** : l'index se reconstruit à la prochaine ouverture. Vérifié sur une copie
+  de l'index réel : 38 archives gardées, aucune erreur ; passe complète 12,5 à 13,4 s contre 13,4 à
+  14,9 s pour la 0.8.1, mêmes lignes.
+
+**L'écran.** Le rafraîchissement de 30 s effaçait la note qu'on écrivait ; Échap dans la note
+fermait la conversation sans l'écrire ; depuis les favoris, un message étoilé de plus de 160
+caractères ramenait au premier ; un coût caché passait sur la réponse d'un tour précédent ; une
+réponse de recherche en retard écrasait la nouvelle ; une étoile ou une note dont la réponse arrivait
+après qu'on avait ouvert une autre conversation s'affichait dans celle-ci ; un dossier ouvert pendant
+une passe se refermait ; Alt+↓ revenait sur le message atteint quand d'autres arrivaient au-dessus ;
+Ctrl+F comptait un résultat sans le marquer. Tous corrigés, chacun avec sa scène dans la suite de
+rendu.
+
+**Windows et macOS.** VS Code sous Windows : `file:///c%3A/…` devenait `/c:/…`, donné pour exact ;
+« Ouvrir le dossier » n'accepte plus qu'un dossier — `shell.openPath` lance un exécutable ; la
+vérification d'un chemin ne renvoie plus un `%NOM%` développé ; macOS : Cmd+W ferme la fenêtre.
+
+**Le Markdown, lu comme CommonMark.** Une clôture de code n'ouvre un bloc qu'en début de ligne ;
+indentée dans un élément de liste, elle y reste, sans son indentation ; le premier mot après elle
+est la langue. L'italique suit GFM — `const char *ssid, const char *password` garde ses deux étoiles
+(31 messages les perdaient) —, le gras reste tolérant et peut contenir de l'italique (28 messages
+montraient leurs `**`). **Comparé sur 11 916 messages, ancien contre nouveau** : 192 avaient des
+balises croisées ou un bloc dans un paragraphe, aucun maintenant, et aucun mot perdu.
+
+**Un veto.** Le mémo des `.meta.json` des sous-agents, calé sur la transcription, n'a pas été
+changé : la méta est écrite au lancement du sous-agent, avant sa première ligne ; le cas d'une méta
+arrivée après est presque impossible, et le titre ne se rafraîchirait pas pour autant.
+
 ## 25 septembre 2026
 
 ### Les commandes reconnues, comme dans Claude Desktop

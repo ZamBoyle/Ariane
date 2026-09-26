@@ -103,7 +103,9 @@ therefore never touch `window` or `document`.
    - different → the adapter re-reads, resuming from the stored `cursor`.
 3. **Extraction.** Raw records go through `extract.js` (Claude) or the agent’s own `*-extract.js`,
    which decides what counts as conversation.
-4. **Writing.** Messages are inserted, the folder created or found, the session updated.
+4. **Writing.** Messages are inserted, the folder created or found, the session updated — each
+   conversation in one transaction: a read cut short (a file that fails, the app closed mid-pass)
+   leaves it exactly as its stored `cursor` says, never half-written with the old one.
 5. **Archive.** A session seen to have vanished is saved; a session that came back whole has its
    copy removed (§ 6).
 6. **Copies.** When anything changed, `Index.markCopies()` flags every message an earlier
@@ -140,7 +142,10 @@ Defined and documented in `src/core/agents/contract.js`. Three functions:
 Two opaque strings carry all the resume state, and are **never interpreted by the caller**:
 `fingerprint` (has it changed?) and `cursor` (where to resume). A JSONL adapter puts `size:mtime`
 and a byte offset in them; a SQLite adapter would put a row id. An adapter that cannot resume
-ignores the `cursor` and yields everything: correctness never depends on it, only speed does.
+ignores the `cursor` and yields everything: correctness never depends on it, only speed does. An
+adapter that resumes reads with `readRecords(file, { start, unfinished: false })`: a last line whose
+newline is not written yet is not yielded at all — stored, then read again once finished, it came
+in twice when it carried no id, and a reply's cost was lost.
 
 `ctx.memo` (`src/core/memo.js`) survives from one pass to the next: any header read must go through
 it, stamped with the file’s size and mtime. That is what makes a pass with nothing changed cost one
@@ -233,8 +238,9 @@ the OLD one in the new header (`forked_from_id` → `continues_from`, but not fo
 **Copies.** What does open a new file now is a **resume**: the new session begins by copying the
 conversation since its last compaction, same uuids, same times. Codex does the same on a fork, with
 the times rewritten, and its 2025 snapshots each repeated the whole conversation before them. A
-message an **earlier** conversation of the same agent already holds is flagged `is_copy` — earlier
-by first line, then last, then id — and is then shown, counted and searched only where it came
+message an **earlier** conversation of the same agent already holds is flagged `is_copy` — what
+the files declare decides first (a resume's `continued-in`, a fork's `forked_from_id`), then first
+line, last line, id — and is then shown, counted and searched only where it came
 from; a conversation holding nothing but copies is not listed. Only for agents whose ids are
 global (`globalIds` in the contract): Copilot and Gemini number tool calls per session. The
 parent/child lookups of `chain()` skip copies, or a resume would pass for the part before its own
@@ -297,7 +303,9 @@ copy left. The rules, each held up by a test:
 - **the archive format is migrated, never dropped** — version 3 removes the two echoes of § 3.4,
   and where the file's proof (`dequeue`) is gone, only a queued copy delivered within two seconds
   goes: a copy that waited longer stays twice, rather than risk a word typed once;
-- **“Forget” really forgets**: `secure_delete`, FTS segment merge, `wal_checkpoint`.
+- **“Forget” really forgets**: `secure_delete`, FTS segment merge, `wal_checkpoint` — and the
+  conversation's subagents with it, index, archive and marks: their briefing is the person's own
+  request.
 
 ---
 

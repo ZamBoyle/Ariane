@@ -105,7 +105,10 @@ trois fichiers ne doivent donc jamais toucher `window` ni `document`.
    - différent → l'adaptateur relit, en repartant du `cursor` stocké.
 3. **Extraction.** Les enregistrements bruts passent par `extract.js` (Claude) ou par le
    `*-extract.js` de l'agent, qui décide ce qui est de la conversation.
-4. **Écriture.** Les messages sont insérés, le dossier créé ou retrouvé, la session mise à jour.
+4. **Écriture.** Les messages sont insérés, le dossier créé ou retrouvé, la session mise à jour —
+   chaque conversation dans une transaction : une lecture coupée (un fichier qui échoue, l'app
+   fermée pendant la passe) la laisse telle que son `cursor` enregistré le dit, jamais à moitié
+   écrite avec l'ancien.
 5. **Archive.** Une session vue disparue est sauvegardée ; une session revenue entière voit sa
    copie supprimée (§ 6).
 6. **Copies.** Si quelque chose a changé, `Index.markCopies()` marque chaque message qu'une
@@ -143,7 +146,10 @@ Deux chaînes opaques portent tout l'état de reprise, et **ne sont jamais inter
 l'appelant** : `fingerprint` (a-t-elle changé ?) et `cursor` (où reprendre). Un adaptateur sur
 JSONL y met « taille:mtime » et un décalage d'octets ; un adaptateur sur SQLite y mettrait un
 identifiant de ligne. Un adaptateur incapable de reprendre ignore le `cursor` et renvoie tout :
-la correction n'en dépend pas, seule la vitesse en dépend.
+la correction n'en dépend pas, seule la vitesse en dépend. Un adaptateur qui reprend lit avec
+`readRecords(file, { start, unfinished: false })` : une dernière ligne dont le retour à la ligne
+n'est pas encore écrit n'est pas lue du tout — stockée, puis relue une fois finie, elle entrait
+deux fois quand elle n'avait pas d'identifiant, et le coût d'une réponse se perdait.
 
 `ctx.memo` (`src/core/memo.js`) survit d'une passe à l'autre : toute lecture d'en-tête doit y
 passer, estampillée par la taille et la date du fichier. C'est ce qui fait qu'une passe sans
@@ -245,8 +251,9 @@ qui l'écrit : Claude Code nomme la NOUVELLE transcription dans l'ancienne (`con
 session commence par recopier la conversation depuis sa dernière compaction, mêmes uuid, mêmes
 heures. Codex fait de même quand on duplique une session, heures réécrites, et ses instantanés de
 2025 répétaient chacun toute la conversation qui les précédait. Un message qu'une conversation
-**plus ancienne** du même agent contient déjà est marqué `is_copy` — plus ancienne par sa première
-ligne, puis sa dernière, puis son identifiant — et n'est plus montré, compté ni cherché que là d'où
+**plus ancienne** du même agent contient déjà est marqué `is_copy` — ce que les fichiers déclarent
+décide d'abord (le `continued-in` d'une reprise, le `forked_from_id` d'un fork), puis la première
+ligne, la dernière, l'identifiant — et n'est plus montré, compté ni cherché que là d'où
 il vient ; une conversation faite uniquement de copies n'est pas listée. Seulement pour les agents
 dont les identifiants valent partout (`globalIds` dans le contrat) : Copilot et Gemini numérotent
 leurs appels d'outils par session. Les recherches de parent et d'enfant de `chain()` ignorent les
@@ -314,7 +321,9 @@ seule copie. Les règles, chacune tenue par un test :
   § 3.4, et là où la preuve du fichier (le `dequeue`) n'existe plus, seule part une copie de la file
   livrée en moins de deux secondes : une copie qui a attendu plus longtemps reste en double, plutôt
   que risquer un mot tapé une seule fois ;
-- **« Oublier » efface pour de bon** : `secure_delete`, fusion des segments FTS, `wal_checkpoint`.
+- **« Oublier » efface pour de bon** : `secure_delete`, fusion des segments FTS, `wal_checkpoint` —
+  et les sous-agents de la conversation avec elle, index, archive et marques : leur consigne, c'est
+  la demande de la personne.
 
 ---
 
