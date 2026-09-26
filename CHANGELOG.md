@@ -18,6 +18,7 @@ Voici à quelle version chacune appartient.
 
 | Version | Date | Ce qu'elle apporte |
 |---|---|---|
+| [0.8.2](https://github.com/ZamBoyle/Ariane/releases/tag/v0.8.2) | 26 sept. 2026 | la relecture de tout le code : un index sûr quand une lecture est coupée, les appels de Copilot comptés une fois, la note qu'on écrit gardée, le Markdown lu comme CommonMark — l'index se reconstruit au premier lancement |
 | [0.8.1](https://github.com/ZamBoyle/Ariane/releases/tag/v0.8.1) | 26 sept. 2026 | chaque commande shell en couleur, comme dans Claude Desktop ; le README montre l'application et ses statistiques |
 | [0.8.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.8.0) | 25 sept. 2026 | le code en couleurs — dans les réponses, dans ce qu'on colle, et les commandes des outils ; un en-tête rangé par question, avec le début, la fin et la durée ; la barre latérale dans le même esprit ; des textes lisibles à 4,5:1 |
 | [0.7.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.7.0) | 25 sept. 2026 | les limites d'utilisation de Codex et de Claude, lues et datées ; ce qu'a coûté une conversation, en haut d'elle ; vos mots une seule fois ; une conversation qui mettait 31 s à s'ouvrir s'ouvre aussitôt |
