@@ -1205,7 +1205,11 @@ const SCRIPT = `(async () => {
   };
 
   chips().find((b) => b.dataset.agent === 'codex').click();
-  await sleep(200);
+  // Attendre que le pied de page bouge, deux secondes au plus : 200 ms fixes
+  // ne suffisaient pas aux machines de la CI (macOS et Windows, 25 septembre).
+  const statsNow = () => document.getElementById('stats').textContent;
+  for (let i = 0; i < 40 && statsNow() === agentFilterCheck.start.stats; i++) await sleep(50);
+  await sleep(100);
   agentFilterCheck.hidden = {
     pressed: chips().map((b) => b.dataset.agent + '=' + b.getAttribute('aria-pressed')),
     stillListed: chips().map((b) => b.dataset.agent),
