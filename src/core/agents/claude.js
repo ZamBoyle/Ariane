@@ -28,7 +28,7 @@ const { readRecords } = require('../jsonl');
 const { extractRecord } = require('../extract');
 const { remember, stampOf } = require('../memo');
 const { claudeCachedQuota, claudeWeekAnchor, claudeDesktopQuota } = require('../quota');
-const { USAGE_FIELDS } = require('./contract');
+const { USAGE_FIELDS, withResent } = require('./contract');
 
 const ID = 'claude';
 
@@ -45,6 +45,9 @@ const adapter = {
   // A resumed session begins with a copy of the one it resumes, uuids and
   // times unchanged (contract.js).
   globalIds: true,
+  // Every compaction leaves a `compact_boundary`, stored as a notice: none
+  // is a measured zero (contract.js).
+  writesCompactions: true,
 
   root(ctx = {}) {
     return paths.configDir(ctx.env, ctx.home);
@@ -118,23 +121,37 @@ const adapter = {
     // delivery has not been read yet — in the cursor too, for a pass that
     // stops between the two.
     let sinceDequeue = resumed.sinceDequeue;
+    // The prompt of the last call, to tell what the next one sent again
+    // (contract.js, "What was sent again") — in the cursor as well.
+    let previous = resumed.previous;
 
     // A line still being written is left to the next pass (jsonl.js).
     for await (const record of readRecords(descriptor.filePath, { start, unfinished: false })) {
       let item = extractRecord(record.value);
       ({ item, sinceDequeue } = markDelivery(record.value, item, sinceDequeue));
+      // A compaction replaces the context: nothing after it is a resend of before.
+      if (isCompaction(record.value)) previous = null;
       const reply = replyIdOf(record.value);
       if (reply && item.kind === 'message' && item.usage) {
         if (reply !== counted) {
+          // A reply's later lines never change what its prompt was (17 693
+          // calls measured, only the output grows): its first line decides.
+          // An older transcript interleaved its subagents' calls with its own
+          // (none left on the machine measured): another context, not compared.
+          let usage = item.usage;
+          if (!item.isSidechain || descriptor.parentId) {
+            ({ usage, previous } = withResent(item.usage, previous));
+          }
           counted = reply;
-          seen = item.usage;
+          seen = usage;
+          item = { ...item, usage };
         } else {
           const usage = seen ? growth(item.usage, seen) : null;
           if (seen) seen = highest(item.usage, seen);
           item = { ...item, usage };
         }
       }
-      yield { item, cursor: makeCursor(record.endOffset, counted, seen, sinceDequeue) };
+      yield { item, cursor: makeCursor(record.endOffset, counted, seen, sinceDequeue, previous) };
     }
   },
 };
@@ -230,16 +247,28 @@ function highest(usage, seen) {
   return top;
 }
 
+/** Claude Code's record of a compaction: the context was replaced by a summary. */
+function isCompaction(raw) {
+  return Boolean(raw && raw.type === 'system' && raw.subtype === 'compact_boundary');
+}
+
 /**
- * "offset", "offset;msg_…" or "offset;msg_…;in,out,read,write,reasoning". A
- * cursor written before a part existed simply lacks it — and without the
- * counts, a later line of the same reply is not counted at all, as before.
+ * "offset", "offset;msg_…", "offset;msg_…;in,out,read,write,reasoning,resent",
+ * then "d<n>" while a dequeued message waits, then "p<n>", the last call's
+ * prompt. A cursor written before a part existed simply lacks it — and without
+ * the counts, a later line of the same reply is not counted at all, as before.
  */
-function makeCursor(offset, reply, seen, sinceDequeue = null) {
+function makeCursor(offset, reply, seen, sinceDequeue = null, previous = null) {
   const counts = seen
     ? USAGE_FIELDS.map((field) => (seen[field] == null ? '' : seen[field])).join(',')
     : '';
-  const parts = [offset, reply || '', counts, sinceDequeue == null ? '' : `d${sinceDequeue}`];
+  const parts = [
+    offset,
+    reply || '',
+    counts,
+    sinceDequeue == null ? '' : `d${sinceDequeue}`,
+    previous == null ? '' : `p${previous}`,
+  ];
   // Fields left empty at the end are dropped, so a cursor with nothing to carry
   // reads as it always has: an offset, then the reply, then its counts.
   while (parts.length > 1 && parts[parts.length - 1] === '') parts.pop();
@@ -247,8 +276,10 @@ function makeCursor(offset, reply, seen, sinceDequeue = null) {
 }
 
 function parseCursor(cursor) {
-  if (cursor == null) return { offset: 0, reply: null, seen: null, sinceDequeue: null };
-  const [offset, reply, counts, dequeue] = String(cursor).split(';');
+  if (cursor == null) {
+    return { offset: 0, reply: null, seen: null, sinceDequeue: null, previous: null };
+  }
+  const [offset, reply, counts, dequeue, prompt] = String(cursor).split(';');
   let seen = null;
   if (counts) {
     const values = counts.split(',');
@@ -257,7 +288,8 @@ function parseCursor(cursor) {
     );
   }
   const since = /^d\d+$/.test(dequeue || '') ? Number(dequeue.slice(1)) : null;
-  return { offset: Number(offset), reply: reply || null, seen, sinceDequeue: since };
+  const previous = /^p\d+$/.test(prompt || '') ? Number(prompt.slice(1)) : null;
+  return { offset: Number(offset), reply: reply || null, seen, sinceDequeue: since, previous };
 }
 
 // ── discovery ───────────────────────────────────────────────────────────────

@@ -154,7 +154,17 @@ it, stamped with the file’s size and mtime. That is what makes a pass with not
 Three optional flags describe what an adapter's data MEANS, and each was measured before being
 declared: `globalIds` (a message id is the same message wherever it appears — Claude, Codex; § 4,
 copies), `usagePerSession` (the agent only writes what a whole session cost — Copilot; § 10) and,
-on a descriptor, `parentId` / `continuesFrom` (a subagent, a fork; § 3.4, § 4).
+on a descriptor, `parentId` / `continuesFrom` (a subagent, a fork; § 3.4, § 4). A fourth,
+`writesCompactions` (Claude, Codex), says every compaction leaves a record, kept as a
+`compact-boundary` notice: there, a conversation holding none was never compacted.
+
+**What a call sent again** is worked out by the adapter, never read: no agent writes it. Each
+call's `resent` is the part of its prompt the call before had already sent and the cache no longer
+held — `min(input + cacheWrite, previous prompt − cacheRead)`, `withResent` in `contract.js`. The
+adapter carries the previous prompt in its cursor and forgets it at a compaction, on what the file
+says (`compact_boundary`, `compacted`): a compaction replaces the context rather than extending it.
+Copilot writes a session total, so its `resent` stays null and the screen shows what it sent,
+unsplit.
 
 **Usage limits** ride along rather than being an item of their own: any item may carry `quota`,
 the windows its record read (`src/core/quota.js`), and an adapter may offer `quotas(ctx)` for
@@ -211,7 +221,7 @@ of a full pass.
 | `folders` | one real folder, **shared between agents** | this is the heart of the product: one row per path, whatever conversations attach to it. `path_exact` never rises back to an approximation |
 | `agents` | one known assistant | — |
 | `sessions` | one conversation | id `agent:session`; `source` is `transcript`, `history` or `archive`; `continues_uuid` chains a compacted conversation to the one it continues; `parent_id` hangs a subagent's conversation off the one that launched it; `continued_in` / `continues_from` link a resumed or forked conversation to the one it continues |
-| `messages` | one message | `parts` as JSON; `is_notice` marks what nobody said; `is_copy` what another conversation already holds |
+| `messages` | one message | `parts` as JSON; `is_notice` marks what nobody said; `is_copy` what another conversation already holds; six `tok_*` columns what its call cost, `tok_resent` the part sent again (§ 3.3) |
 | `messages_fts` | full-text index | FTS5 as _external content_: only `text` goes in, the rows stay in `messages` |
 | `sources` | the incrementality state | `fingerprint` and `cursor`, both opaque |
 | `quota_windows` | one window of one usage limit — five hours, a week | its HIGHEST reading, first and last seen; found again by its end give or take 10 minutes (§ 10). Rebuilt from the files — and carried across that rebuild, since Claude Desktop keeps a month: the first pass puts back only the windows the files no longer give (`restoreCarriedQuotas`), so the files always win |
@@ -462,19 +472,38 @@ are masked reasoning, hidden by `hasContent`. So `groupMessages` gives every gro
 strip of tool calls, which adds up all of them — never to the person's message or a notice, and a
 count still pending when the person speaks again goes back to the reply before. None is shown
 where the adapter declares `usagePerSession` (Copilot): a session's total under one reply would
-read as that reply's cost. A subagent's figures say, on hover, that they are a floor.
+read as that reply's cost. A subagent's figures say, on hover, that they are a floor. A reply that
+sent the context again — after a pause, or a change of model — says so: `↑ 904K = 1.2K new + 903K
+resent`, but only where the resend is at least half of what it sent: Claude re-sends a few tokens
+at nearly every call (16,433 calls, 1 to 99 tokens, 45 K in all), which would clutter every reply.
 
-**Its id opens the header, on a row of its own** (`#convo-id`, `flex-basis: 100%`): in the title's
-column the action buttons cut it. As its assistant knows it — `bareId`, the rule the terminal
+**Its id sits beside its title** (`.convo-heading`, 28 September 2026): the two share the title's
+column, the title first and the id after it when there is room, below it otherwise — the column
+wraps rather than shrink either, so the buttons, which cut the id when it first sat there, cut
+neither. Two elements side by side, not one text: `#convo-title` stays the title. At 1 400 px, six
+labelled buttons leave the column 342 px, and a 30-character title sends the id below; the layout
+suite measures both cases. As its assistant knows it — `bareId`, the rule the terminal
 resume uses, applied in `session:get` — selectable, its meaning on hover.
 
 **Under the title, the facts are grouped by the question they answer** (`headerFacts` in
 `app.js`, chosen on screenshots on 25 September 2026 — option A, after C, icons alone, put too
 much on one line): who and where on a line (the assistant's mark, its name, the models; the folder
 by its name, the whole path on hover, the git branch as a tag), when and how long on the
-next, then how much on the last, the number of messages first, then what the conversation cost —
-each group led by an icon, never a string of dots. The cost's figures are named (`headerCost`, subagents apart; `session:get` adds
-`Index.sessionTokens`, the sidebar's definition). A group wraps whole, and one still too wide on a
+next, then how much: the number of messages, how many times its context was compacted (the
+`compact-boundary` notices, counted by `Index.sessionTokens`) and what was read back from the cache
+— the context, apart from the sums — each group led by an icon, never a string of dots; then each
+sum on a line of its own: `↑ 14.9M sent = 5.2M new + 9.7M resent`, then `↓ 3.1M received …`
+(`costParts`, `headerCost`, subagents apart;
+`session:get` adds `Index.sessionTokens`, the sidebar's definition). What came back splits the same
+way — `↓ 3.1M received = 1.8M answer + 1.2M reasoning` — only where every reply counted its
+reasoning (`reasoningMissing` is 0; Claude wrote no such count before August 2026, and an output of
+0 holds none). "Never compacted" shows only where the agent writes every compaction
+(`compactionsKnown`): Antigravity's "CHECKPOINT 0" follows the first message of 12 conversations
+of 15 and is not counted. Each sum is a `.cost-group` that wraps whole. Asked on 26 September 2026 for
+an audience, who would read 14.9M + 3.1M over a 1M window as eighteen compactions: there were five.
+The `=` and `+` are the accent colour, the only arithmetic on the line; each figure explains itself
+on hover — the cache, what it is and what it is for; the received, not to be added to the rest. A
+figure never breaks across two lines (`.cost-figure`), which the layout suite measures squeezed. A group wraps whole, and one still too wide on a
 line of its own ends in "…". The actions keep their labels, icons alone when narrow; « Oublier »
 shows its question while it waits for the second click. The layout suite measures the wrapping,
 the render suite the rows and that every shown action has a name.
@@ -629,6 +658,14 @@ copied into the database, and the disk waited on, every 4 MB — about a hundred
 since each page is written some four times (475 MB through the journal for a 117 MB index). Now:
 every 64 MB (journal peak 68 MB), emptied after each pass that wrote, and the full-text index built
 once when an empty index is filled. The pass with nothing changed stayed at about 80 ms.
+
+**On 26 September 2026**, what was sent again, measured on the raw files and then by the real
+indexer, to the token: the five-day conversation that asked for it sent 14,934,947 tokens, of which
+9,714,414 had been sent before — twenty calls, sixteen after a pause of more than an hour, four
+after a change of model, up to 903,939 each. Only 5,220,533 were new; Claude Code's own count agrees
+(4,736,140 dropped over five compactions, plus 458,519 still in context). Across the machine:
+Claude 68.8 M sent again of 109.6 M, Codex 13.8 M of 31.8 M (copies left out), Gemini 94 K of
+234 K. A full pass against 0.8.2, same files, both orders: 12.9–14.4 s against 13.0–14.3 s.
 | coverage of `terminal.js` | 95.5 % of lines | the only file that starts a process |
 
 These figures come from measurements, not estimates. Measure them again rather than copying them.
@@ -699,6 +736,7 @@ the output of `git status` — passed every unit test of `speakerOf()` while the
 | add a column to `messages` | `schema.sql`, the `INSERT` in `db.js`, **and both archive constants** — see § 4 |
 | touch the text size or the keys | `src/main/text-size.js` (the rules), `main.js` (applying them — once the window is shown, never before), `textSize` in `settings.js` |
 | touch what a reply shows it cost | `groupMessages` / `sumUsage` in `format.js` (the grouping), `replyCost` in `app.js` (the display), `usagePerSession` on the adapter |
+| touch what counts as sent again | `withResent` in `contract.js` (the rule), each adapter's reading loop and cursor (`claude.js`, `codex.js`, `gemini.js` — the previous prompt, forgotten at a compaction), `costFigures` / `costTitle` in `app.js` (the display) |
 | touch subagents | discovery in `claude.js` (`discoverSubagents`) and `codex.js` (the header), `parentId` in the contract, `LISTED` and `Index.subagents` in `db.js`, `paintSubagents` in `app.js` |
 | touch what counts as the person's echo | `markDelivery` in `claude.js` (the queue), `deliversQueued` in `indexer.js`, `echoOf` in `archive.js` (the `last-prompt` shape) |
 | touch what counts as a copy | `Index.markCopies` in `db.js` (the rule), `globalIds` on the adapter (who it applies to), `OWN_MESSAGES` (what is listed) |

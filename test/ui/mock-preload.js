@@ -185,12 +185,16 @@ const STATISTICS = {
   sessions: 363,
   folders: 52,
   speakers: { you: 2789, assistant: 23339, tools: 16156, notices: 626, empty: 6501, masked: 6093 },
-  tokens: { sent: 116105691, received: 16329338, cacheRead: 4777562277, measuredSessions: 37 },
+  // Sur les envoyés, 70,4M avaient déjà été envoyés : le cache perdu les a fait renvoyer.
+  tokens: { sent: 116105691, received: 16329338, cacheRead: 4777562277, resent: 70400000, measuredSessions: 37 },
   agents: [
     { agentId: 'claude', sessions: 73, you: 1647, replies: 14388, measuredSessions: 37,
-      sent: 116105691, received: 16329338, cacheRead: 4777562277 },
+      sent: 115383383, received: 16329300, cacheRead: 4777562277, resent: 70400000, split: true },
     { agentId: 'codex', sessions: 290, you: 1142, replies: 8951, measuredSessions: 0,
-      sent: null, received: null, cacheRead: null },
+      sent: null, received: null, cacheRead: null, resent: null, split: false },
+    // Copilot n'écrit qu'un total par conversation : ce qu'il a renvoyé n'est pas connu.
+    { agentId: 'copilot-cli', sessions: 3, you: 9, replies: 20, measuredSessions: 3,
+      sent: 722308, received: 38, cacheRead: 0, resent: null, split: false },
   ],
   models: [
     { model: 'claude-opus-5', replies: 3530 }, { model: 'gpt-6-astra', replies: 756 },
@@ -325,6 +329,12 @@ const SESSIONS = [
     tokOutput: 78235,
     tokCacheRead: 5933004,
     tokCacheWrite: 166489,
+    // Dont 120 000 déjà envoyés, renvoyés après une pause ; et deux compactages.
+    tokResent: 120000,
+    compactions: 2,
+    // Des 78 235 reçus, 28 235 de raisonnement : chaque réponse l'a compté.
+    tokReasoning: 28235,
+    reasoningMissing: 0,
     models: [{ model: 'claude-opus-5', replies: 1 }],
   },
   // Codex n'enregistre pas encore ses jetons dans Ariane : null, pas zéro.
@@ -364,8 +374,9 @@ const MESSAGES = [
         preview: '{"command":"git status && echo \\"$HOME\\"","description":"Voir l’état du dépôt","timeout":120000}' },
     ],
     isMeta: false, isNotice: false, isSidechain: false, command: null,
-    // Ce que cette réponse a coûté : 503 envoyés, 120 reçus, 24 000 relus.
-    usage: { input: 3, output: 120, cacheRead: 24000, cacheWrite: 500, reasoning: null },
+    // Ce que cette réponse a coûté : 503 envoyés, dont 400 renvoyés, 120 reçus,
+    // 24 000 relus.
+    usage: { input: 3, output: 120, cacheRead: 24000, cacheWrite: 500, reasoning: 70, resent: 400 },
   },
   // 3. THE BUG: the tool answers, and the format records it under role "user".
   {
@@ -408,7 +419,8 @@ const MESSAGES = [
     text: '', thinking: '',
     parts: [{ type: 'tool_use', id: 't3', name: 'Read', preview: '{"file":"a.js"}' }],
     isMeta: false, isNotice: false, isSidechain: false, command: null,
-    usage: { input: 1, output: 30, cacheRead: 25100, cacheWrite: 0, reasoning: null },
+    // Un jeton renvoyé : Claude en renvoie quelques-uns à presque chaque appel.
+    usage: { input: 1, output: 30, cacheRead: 25100, cacheWrite: 0, reasoning: null, resent: 1 },
   },
   {
     id: 13, seq: 13, role: 'user', ts: '2026-09-17T23:05:13.000Z',
@@ -630,6 +642,9 @@ contextBridge.exposeInMainWorld('api', {
       parent: null,
       // La partie B fait comme Copilot : un total par session, rien par réponse.
       usageByReply: id !== 'codex:c2',
+      // Comme session:get : Claude et Codex écrivent chaque compactage ; la
+      // partie B, qui fait comme Copilot, n'en dit rien.
+      compactionsKnown: id === 'claude:s1' || id === 'codex:c1',
       subagents: id === 'codex:c1'
         ? [{ id: SUBAGENT.id, title: SUBAGENT.title, firstPrompt: '', messageCount: 2,
           firstAt: SUBAGENT.firstAt, tokOutput: 1234 }]

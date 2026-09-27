@@ -67,15 +67,16 @@ session-summary = { $when } · { $count ->
     }
 
 session-models = { $model } +{ $more }
-session-tokens = ↑ { $sent } · ↓ { $received }
-    .title =
-        Envoyés : { $sentExact } jetons nouveaux dans les prompts
-        Reçus : { $receivedExact } jetons
-session-tokens-cached = ↑ { $sent } · ↓ { $received } · cache { $cached }
-    .title =
-        Envoyés : { $sentExact } jetons nouveaux dans les prompts
-        Reçus : { $receivedExact } jetons
-        Relus depuis le cache : { $cachedExact } jetons, le contexte renvoyé à chaque tour
+cost-new = { $value } nouveaux
+cost-sent = ↑ { $value }
+cost-resent = { $value } renvoyés
+cost-received = ↓ { $value }
+cost-cache = cache { $value }
+cost-line-sent = Envoyés : { $exact } jetons
+cost-line-split = = { $new } nouveaux + { $resent } renvoyés
+cost-line-received = Reçus : { $exact } jetons
+cost-line-received-split = = { $answer } de réponse + { $reasoning } de raisonnement
+cost-line-cache = Relus depuis le cache : { $exact } jetons
 session-tokens-subagents = { $count ->
     [one] Son sous-agent, en plus : { $sent } envoyés, au moins { $received } reçus, { $cached } relus depuis le cache
    *[other] Ses { $count } sous-agents, en plus : { $sent } envoyés, au moins { $received } reçus, { $cached } relus depuis le cache
@@ -128,15 +129,45 @@ convo-empty = Cette conversation ne contient aucun message affichable.
 convo-not-found = Conversation introuvable.
 convo-id =
     .title = L’identifiant de cette conversation — celui par lequel son assistant la reprend
-convo-tokens = ↑ { $sent } envoyés · ↓ { $received } reçus
+convo-cost-new = { $value } nouveaux
     .title =
-        Envoyés : { $sentExact } jetons nouveaux dans les prompts
-        Reçus : { $receivedExact } jetons
-convo-tokens-cached = ↑ { $sent } envoyés · ↓ { $received } reçus · { $cached } relus depuis le cache
+        Ce que chaque appel a ajouté au contexte : vos messages, les résultats des outils, les réponses d’avant.
+        { $exact } jetons
+convo-cost-resent = { $value } renvoyés
     .title =
-        Envoyés : { $sentExact } jetons nouveaux dans les prompts
-        Reçus : { $receivedExact } jetons
-        Relus depuis le cache : { $cachedExact } jetons, le contexte renvoyé à chaque tour
+        Du contexte déjà envoyé, envoyé une nouvelle fois parce que le cache l’avait perdu : il expire après une pause, et chaque modèle a le sien. Rien de nouveau dedans.
+        { $exact } jetons
+convo-cost-sent = ↑ { $value } envoyés
+    .title =
+        Tout ce que les prompts ont envoyé : ce qui était nouveau, plus ce qu’un appel précédent avait déjà envoyé et que le cache avait perdu.
+        { $exact } jetons
+convo-cost-sent-unsplit = ↑ { $value } envoyés
+    .title =
+        Ce que les prompts ont envoyé : l’entrée fraîche et ce qui a été écrit dans le cache. La part renvoyée n’est pas connue ici.
+        { $exact } jetons
+convo-cost-received = ↓ { $value } reçus
+    .title =
+        Ce que le modèle a écrit, raisonnement compris. Chaque réponse revient dans le contexte à l’appel suivant, où elle est comptée à nouveau : ne pas l’additionner au reste.
+        { $exact } jetons
+convo-cost-answer = { $value } de réponse
+    .title =
+        Ce que le modèle a répondu : son texte et ses appels d’outils — ce que montre la conversation.
+        { $exact } jetons
+convo-cost-reasoning = { $value } de raisonnement
+    .title =
+        Ce que le modèle a pensé avant de répondre : compté et facturé comme le reste, même quand l’assistant ne le garde pas lisible — Claude ne le garde plus que chiffré.
+        { $exact } jetons
+convo-cost-cache = { $value } relus depuis le cache
+    .title =
+        Le cache : à chaque appel, l’assistant envoie toute la conversation au modèle. Le fournisseur garde ce qu’il vient de traiter et le relit au lieu de le traiter à nouveau — plus vite, et facturé une fraction du prix.
+        Chaque appel relit tout ce qui le précède : ce chiffre grandit avec la longueur de la conversation, pas avec ce qui s’y dit.
+        { $exact } jetons
+convo-compactions = { $count ->
+        [0] contexte jamais compacté
+        [one] contexte compacté une fois
+       *[other] contexte compacté { $count } fois
+    }
+    .title = Un contexte a une taille maximale. Quand il est plein, l’assistant le remplace par un résumé et continue : c’est un compactage.
 convo-branch =
     .title = Branche git
 folder-unknown = Dossier inconnu
@@ -457,17 +488,25 @@ stats-records = La barre latérale compte { $records } enregistrements : { $empt
 stats-masked = Parmi eux, { $masked } sont des raisonnements que Claude ne garde plus que chiffrés : il n’en reste qu’une signature.
 stats-tokens = Jetons
 stats-sent = ↑ Envoyés
-    .title = Nouveaux dans les invites : l’entrée fraîche et ce qui a été écrit dans le cache
+    .title = Tout ce que les invites ont envoyé : l’entrée fraîche et ce qui a été écrit dans le cache — le nouveau, et ce qui avait déjà été envoyé
+stats-new = Nouveaux
+    .title = Ce que chaque appel a ajouté au contexte : les messages, les résultats des outils, les réponses d’avant
+stats-resent = Renvoyés
+    .title = Du contexte déjà envoyé, envoyé une nouvelle fois parce que le cache l’avait perdu — après une pause, ou un changement de modèle
 stats-received = ↓ Reçus
     .title = Ce que les assistants ont écrit, raisonnement compris
 stats-cache = Relus depuis le cache
-    .title = Le contexte renvoyé à chaque tour — tenu à part, jamais additionné au reste
+    .title = Le contexte relu à chaque appel au lieu d’être traité à nouveau — tenu à part, jamais additionné au reste
 stats-exact = { $value } jetons
 stats-coverage = Mesurés dans { $measured } conversations sur { $total }.
 stats-uncovered = { $agents } { $count ->
         [one] n’enregistre
        *[other] n’enregistrent
     } pas de jetons qu’Ariane sait lire.
+stats-unsplit = { $agents } { $count ->
+        [one] n’écrit qu’un total par conversation : ce qu’il a renvoyé n’est pas connu, et compte ici parmi les nouveaux.
+       *[other] n’écrivent qu’un total par conversation : ce qu’ils ont renvoyé n’est pas connu, et compte ici parmi les nouveaux.
+    }
 stats-subagents = { $count ->
     [one] Un sous-agent a en plus envoyé { $sent } jetons, en a reçu au moins { $received } et en a relu { $cached } depuis le cache. Il n'est pas compté ci-dessus : la transcription d'un sous-agent ne garde pas toujours son dernier compte.
    *[other] { $count } sous-agents ont en plus envoyé { $sent } jetons, en ont reçu au moins { $received } et en ont relu { $cached } depuis le cache. Ils ne sont pas comptés ci-dessus : la transcription d'un sous-agent ne garde pas toujours son dernier compte.

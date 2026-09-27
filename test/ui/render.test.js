@@ -138,7 +138,6 @@ const SCRIPT = `(async () => {
     meta: document.getElementById('convo-meta').textContent,
     modelLabels: transcript.querySelectorAll('.msg-model').length,
     cost: headCost ? headCost.textContent : null,
-    costTitle: headCost ? headCost.title : null,
     who: (document.querySelector('#convo-meta .meta-who .meta-strong') || {}).textContent || null,
     folder: (document.querySelector('#convo-meta .meta-folder') || {}).textContent || null,
     folderTitle: (document.querySelector('#convo-meta .meta-where') || {}).title || null,
@@ -148,7 +147,25 @@ const SCRIPT = `(async () => {
     rows: document.querySelectorAll('#convo-meta .meta-row').length,
     byRow: [...document.querySelectorAll('#convo-meta .meta-row')]
       .map((row) => [...row.querySelectorAll('.meta-group')].map((g) => g.className.replace('meta-group ', ''))),
-    costRow: (document.querySelector('#convo-meta .meta-cost') || {}).textContent || null,
+    sentRow: (document.querySelector('#convo-meta .meta-sent') || {}).textContent || null,
+    receivedRow: (document.querySelector('#convo-meta .meta-received') || {}).textContent || null,
+    cacheTitle: (document.querySelector('#convo-meta .meta-cache .cost-figure') || {}).title || null,
+    // Envoyés = nouveaux + renvoyés : les deux signes, dans la couleur d'accent,
+    // et chaque chiffre qui dit au survol ce qu'il est.
+    signs: [...document.querySelectorAll('#convo-meta .cost-sign')]
+      .map((sign) => ({ text: sign.textContent, color: getComputedStyle(sign).color })),
+    accent: (() => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--accent)';
+      document.body.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    })(),
+    figureColor: getComputedStyle(document.querySelector('#convo-meta .cost-figure') || document.body).color,
+    figureTitles: [...document.querySelectorAll('#convo-meta .cost-figure')].map((f) => f.title),
+    compactions: (document.querySelector('#convo-meta .meta-compactions') || {}).textContent || null,
+    compactionsTitle: (document.querySelector('#convo-meta .meta-compactions') || {}).title || null,
     amountRow: (document.querySelector('#convo-meta .meta-amount') || {}).textContent || null,
     when: (document.querySelector('#convo-meta .meta-when') || {}).textContent || null,
     whenTitle: (document.querySelector('#convo-meta .meta-when') || {}).title || null,
@@ -163,7 +180,7 @@ const SCRIPT = `(async () => {
     idTitle: document.getElementById('convo-id').title,
     idShown: !document.getElementById('convo-id').hidden,
     idSelectable: getComputedStyle(document.getElementById('convo-id')).userSelect,
-    idFirst: document.getElementById('convo-head').firstElementChild.id,
+    idAfterTitle: (document.getElementById('convo-title').nextElementSibling || {}).id || null,
   };
 
   // Open a session belonging to ANOTHER agent and read back who it credits.
@@ -182,6 +199,7 @@ const SCRIPT = `(async () => {
           title: document.getElementById('convo-title').textContent,
           modelLabels: [...transcript.querySelectorAll('.msg-model')].map((m) => m.textContent),
           cost: document.querySelector('#convo-meta .session-cost') ? 'présent' : null,
+          compactions: (document.querySelector('#convo-meta .meta-compactions') || {}).textContent || null,
           who: (document.querySelector('#convo-meta .meta-who .meta-strong') || {}).textContent || null,
         };
         break;
@@ -853,6 +871,7 @@ const SCRIPT = `(async () => {
   costCheck.codexA = transcript.querySelectorAll('.msg-cost').length;
   await openByName('Session Codex B');
   costCheck.codexB = transcript.querySelectorAll('.msg-cost').length;
+  costCheck.codexBCompactions = !!document.querySelector('#convo-meta .meta-compactions');
   await openByName('Session Codex A');
   subToggle.click();
   subList.querySelector('.subagent-btn').click();
@@ -1793,8 +1812,15 @@ async function run() {
     JSON.stringify(sv.tiles.slice(0, 2)));
   check('les jetons en K, M et G, le nombre exact au survol, le sens au survol du libellé',
     tile('↓ Reçus').value === '16,3M' && tile('↓ Reçus').title === '16\u202f329\u202f338\u00a0jetons'
-      && tile('Relus depuis le cache').value === '4,8G' && tile('↑ Envoyés').labelTitle.startsWith('Nouveaux dans les invites'),
+      && tile('Relus depuis le cache').value === '4,8G' && tile('↑ Envoyés').labelTitle.startsWith('Tout ce que les invites'),
     JSON.stringify(sv.tiles.slice(4)));
+  check('les envoyés, puis les mêmes en deux : nouveaux et renvoyés',
+    tile('↑ Envoyés').value === '116M' && tile('Nouveaux').value === '45,7M' && tile('Renvoyés').value === '70,4M'
+      && tile('Renvoyés').labelTitle.includes('le cache l’avait perdu'),
+    JSON.stringify(sv.tiles.slice(4)));
+  check('un assistant qui n’écrit qu’un total est nommé : ses renvois ne sont pas connus',
+    sv.notes.some((n) => /^Copilot.* n’écrit qu’un total par conversation/.test(n)),
+    sv.notes.join(' | '));
   check('la couverture est dite, et qui ne mesure rien est nommé',
     sv.notes.some((n) => n === 'Mesurés dans 37 conversations sur 363.')
       && sv.notes.some((n) => n.startsWith('Codex n’enregistre pas')),
@@ -1818,7 +1844,7 @@ async function run() {
       && sv.afterToggle.tableRows === 5,
     JSON.stringify(sv.afterToggle));
   check('par assistant : ce qui n’est pas mesuré s’écrit « — », pas « 0 »',
-    sv.agentRows.length === 2 && sv.agentRows[1][sv.agentRows[1].length - 1] === '—',
+    sv.agentRows.length === 3 && sv.agentRows[1][sv.agentRows[1].length - 1] === '—',
     JSON.stringify(sv.agentRows));
   check('au-delà de huit modèles, le reste tient en une ligne, nommé au survol',
     sv.modelRows.length === 9 && sv.modelRows[8] === '2 autres modèles' && sv.restTitle === 'kimi-k3 et grok-4.6',
@@ -1957,13 +1983,24 @@ async function run() {
   check('the header names the folder, its whole path on hover',
     r.claudeChrome.folder === 'projet' && r.claudeChrome.folderTitle === '/home/zam/projet', JSON.stringify(r.claudeChrome));
   check('l’en-tête range ses faits par question, une par ligne — qui et où, quand et combien de temps, combien',
-    JSON.stringify(r.claudeChrome.groups) === '["meta-who","meta-where","meta-when","meta-duration","meta-size"]'
-      && r.claudeChrome.rows === 3
-      && JSON.stringify(r.claudeChrome.byRow) === '[["meta-who","meta-where"],["meta-when","meta-duration"],["meta-size"]]',
+    JSON.stringify(r.claudeChrome.groups)
+        === '["meta-who","meta-where","meta-when","meta-duration","meta-size","meta-compactions","meta-cache"]'
+      && r.claudeChrome.rows === 5
+      && JSON.stringify(r.claudeChrome.byRow)
+        === '[["meta-who","meta-where"],["meta-when","meta-duration"],["meta-size","meta-compactions","meta-cache"],[],[]]',
     JSON.stringify(r.claudeChrome));
-  check('combien : les messages en tête de la dernière ligne, puis ce qu’ils ont coûté',
-    (r.claudeChrome.amountRow || '').replace(/\s/g, ' ') === '6 messages ↑ 167K envoyés · ↓ 78,2K reçus · 5,9M relus depuis le cache',
+  // Demandé le 28 septembre 2026 : le cache à côté des compactages — le
+  // contexte, à l'écart des deux sommes —, puis une ligne par somme.
+  check('combien : les messages, les compactages et le cache relu, à l’écart des sommes',
+    (r.claudeChrome.amountRow || '').replace(/\s/g, ' ') === '6 messages contexte compacté 2 fois 5,9M relus depuis le cache',
     JSON.stringify(r.claudeChrome.amountRow));
+  check('là où l’assistant écrit ses compactages, « jamais » se dit aussi ; ailleurs, rien',
+    r.otherAgent.compactions === 'contexte jamais compacté' && r.costCheck.codexBCompactions === false,
+    JSON.stringify([r.otherAgent.compactions, r.costCheck.codexBCompactions]));
+  check('un compactage se dit au survol : ce que c’est',
+    r.claudeChrome.compactions === 'contexte compacté 2 fois'
+      && (r.claudeChrome.compactionsTitle || '').startsWith('Un contexte a une taille maximale'),
+    JSON.stringify([r.claudeChrome.compactions, r.claudeChrome.compactionsTitle]));
   // 23:00 → 23:06 UTC : quel que soit le fuseau de la machine, le même jour, six minutes.
   check('l’en-tête dit quand la conversation a commencé et fini, comme un agenda : la date une fois, deux heures',
     /\d{4},\s\d{2}:\d{2}\s–\s\d{2}:\d{2}$/.test(r.claudeChrome.when || ''), JSON.stringify(r.claudeChrome.when));
@@ -2077,20 +2114,44 @@ async function run() {
   check('le cache relu est à part : jamais additionné aux envoyés',
     claudeRow && !/6(,|\.)\d?M/.test(claudeRow.tokens.split('·')[0]),
     claudeRow && claudeRow.tokens);
-  check('au survol, les chiffres exacts',
-    claudeRow && /166\u202f659/.test(claudeRow.tokensTitle) && /5\u202f933\u202f004/.test(claudeRow.tokensTitle),
+  check('au survol, les chiffres exacts, et les envoyés partagés en nouveaux et renvoyés',
+    claudeRow && /166\u202f659/.test(claudeRow.tokensTitle) && /5\u202f933\u202f004/.test(claudeRow.tokensTitle)
+      && claudeRow.tokensTitle.includes('= 46\u202f659 nouveaux + 120\u202f000 renvoyés'),
     claudeRow && JSON.stringify(claudeRow.tokensTitle));
-  check('en haut de la conversation, ce qu’elle a coûté, ses chiffres nommés',
-    r.claudeChrome.costRow === '↑ 167K envoyés · ↓ 78,2K reçus · 5,9M relus depuis le cache',
-    JSON.stringify(r.claudeChrome));
-  check('tout en haut, l’identifiant de la conversation, tel que son assistant le connaît, à copier',
-    r.claudeChrome.idShown && r.claudeChrome.id === 's1' && r.claudeChrome.idFirst === 'convo-id'
+  // Demandé le 26 septembre 2026 pour un auditoire : 14,9M envoyés + 3,1M reçus
+  // sur une fenêtre de 1M se lisaient comme dix-huit compactages ; il y en avait cinq.
+  check('en haut de la conversation, une ligne par somme : envoyés = nouveaux + renvoyés, puis reçus',
+    r.claudeChrome.sentRow === '↑ 167K envoyés = 46,7K nouveaux + 120K renvoyés'
+      && r.claudeChrome.receivedRow === '↓ 78,2K reçus = 50K de réponse + 28,2K de raisonnement',
+    JSON.stringify([r.claudeChrome.sentRow, r.claudeChrome.receivedRow]));
+  check('les signes des deux additions, et eux seuls, dans la couleur d’accent',
+    JSON.stringify(r.claudeChrome.signs.map((x) => x.text)) === '["=","+","=","+"]'
+      && r.claudeChrome.signs.every((x) => x.color === r.claudeChrome.accent)
+      && r.claudeChrome.figureColor !== r.claudeChrome.accent,
+    JSON.stringify([r.claudeChrome.signs, r.claudeChrome.accent, r.claudeChrome.figureColor]));
+  // Dans l'ordre de l'en-tête : le cache, sur la ligne des messages, puis les deux sommes.
+  const [cacheTitle, sentTitle, newTitle, resentTitle, receivedTitle, answerTitle, reasoningTitle] =
+    r.claudeChrome.figureTitles;
+  check('les reçus aussi : ce qui s’est lu, et le raisonnement, qu’on paie sans le lire',
+    (answerTitle || '').startsWith('Ce que le modèle a répondu') && /50\u202f000/.test(answerTitle || '')
+      && (reasoningTitle || '').includes('Claude ne le garde plus que chiffré') && /28\u202f235/.test(reasoningTitle || ''),
+    JSON.stringify([answerTitle, reasoningTitle]));
+  check('chaque chiffre dit au survol ce qu’il est, et son nombre exact',
+    r.claudeChrome.figureTitles.length === 7
+      && sentTitle.startsWith('Tout ce que les prompts ont envoyé') && /166\u202f659/.test(sentTitle)
+      && newTitle.startsWith('Ce que chaque appel a ajouté') && /46\u202f659/.test(newTitle)
+      && resentTitle.includes('le cache l’avait perdu') && /120\u202f000/.test(resentTitle)
+      && receivedTitle.includes('ne pas l’additionner') && /78\u202f235/.test(receivedTitle),
+    JSON.stringify(r.claudeChrome.figureTitles));
+  check('le cache, au survol : ce que c’est et à quoi il sert',
+    cacheTitle.startsWith('Le cache : à chaque appel, l’assistant envoie toute la conversation au modèle')
+      && cacheTitle.includes('plus vite') && /5\u202f933\u202f004/.test(cacheTitle),
+    cacheTitle);
+  check('à côté du titre, l’identifiant de la conversation, tel que son assistant le connaît, à copier',
+    r.claudeChrome.idShown && r.claudeChrome.id === 's1' && r.claudeChrome.idAfterTitle === 'convo-id'
       && r.claudeChrome.idSelectable === 'text'
       && r.claudeChrome.idTitle === 'L’identifiant de cette conversation — celui par lequel son assistant la reprend',
     JSON.stringify(r.claudeChrome));
-  check('et au survol, les chiffres exacts',
-    /166\u202f659/.test(r.claudeChrome.costTitle || '') && /5\u202f933\u202f004/.test(r.claudeChrome.costTitle || ''),
-    JSON.stringify(r.claudeChrome.costTitle));
   check('une conversation qui n’a rien mesuré n’en dit rien dans son en-tête non plus',
     r.otherAgent.cost === null, JSON.stringify(r.otherAgent));
   check('une conversation que son agent n’a pas mesurée ne montre rien, pas zéro',
@@ -2277,11 +2338,17 @@ async function run() {
   // -- what each reply cost, for a training ------------------------------------
   const co = r.costCheck;
   check('a reply shows what it cost, the three figures of the sidebar, exact on hover',
-    co.reply && co.reply.text === '↑ 503 · ↓ 120 · cache 24K'
-      && co.reply.title.includes('503') && /24\s000/.test(co.reply.title),
+    co.reply && co.reply.text === '↑ 503 = 103 nouveaux + 400 renvoyés · ↓ 120 · cache 24K'
+      && co.reply.title.includes('503') && /24\s000/.test(co.reply.title)
+      && co.reply.title.includes('= 50 de réponse + 70 de raisonnement'),
     JSON.stringify(co.reply));
   check('a strip of tool calls adds its calls up, and the hidden line before it',
     co.strip && co.strip.text === '↑ 104 · ↓ 90 · cache 74,6K', JSON.stringify(co.strip));
+  // Claude renvoie quelques jetons à presque chaque appel (16 433 appels, de 1 à
+  // 99) : le partage ne s'affiche que si le renvoi fait au moins la moitié.
+  check('un renvoi de quelques jetons reste au survol, sans encombrer la ligne',
+    co.strip && co.strip.title.includes('= 103 nouveaux + 1 renvoyés') && !co.strip.text.includes('='),
+    JSON.stringify(co.strip));
   check('the person\u2019s question carries no cost', co.question === null, JSON.stringify(co.question));
   check('where the agent counts per reply, each reply shows it', co.codexA === 1, String(co.codexA));
   check('where it counts only per session, no reply pretends to', co.codexB === 0, String(co.codexB));

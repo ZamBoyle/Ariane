@@ -28,6 +28,8 @@ const { WINDOW_SLACK, keeper } = require('./quota');
  * already stored. Raising this version drops the index and rebuilds it, which
  * takes about ten seconds.
  *
+ * 22: Codex's compactions kept as notices, as Claude's are
+ * 21: what each call sent again, after its cache was lost (contract.js)
  * 20: a Copilot call once; a reply's words kept whole; the title the person
  *     chose; one unknown folder; VS Code folders on Windows
  * 19: usage limits read (Codex's windows and credits, Claude's refused requests)
@@ -50,8 +52,8 @@ const { WINDOW_SLACK, keeper } = require('./quota');
  * 2: multi-agent schema
  * 1: initial
  */
-const SCHEMA_VERSION = 20;
-/** The five token columns of one message, from the contract's shape. */
+const SCHEMA_VERSION = 22;
+/** The six token columns of one message, from the contract's shape. */
 function usageColumns(usage) {
   const u = usage || {};
   return {
@@ -60,6 +62,7 @@ function usageColumns(usage) {
     tok_cache_read: u.cacheRead ?? null,
     tok_cache_write: u.cacheWrite ?? null,
     tok_reasoning: u.reasoning ?? null,
+    tok_resent: u.resent ?? null,
   };
 }
 
@@ -74,6 +77,7 @@ function usageFromRow(row) {
     cacheRead: row.tok_cache_read,
     cacheWrite: row.tok_cache_write,
     reasoning: row.tok_reasoning,
+    resent: row.tok_resent,
   };
   return USAGE_FIELDS.some((field) => usage[field] != null) ? usage : null;
 }
@@ -132,6 +136,7 @@ const ARCHIVE_MESSAGE_COLUMNS = [
   'tok_cache_read',
   'tok_cache_write',
   'tok_reasoning',
+  'tok_resent',
   'text',
   'thinking',
   'parts',
@@ -179,6 +184,7 @@ const ARCHIVED_MESSAGE_DEFAULTS = {
   tok_cache_read: null,
   tok_cache_write: null,
   tok_reasoning: null,
+  tok_resent: null,
 };
 
 /**
@@ -414,11 +420,11 @@ class Index {
       insertMessage: db.prepare(`
         INSERT INTO messages (session_id, seq, uuid, parent_uuid, role, ts, model,
                               tok_input, tok_output, tok_cache_read, tok_cache_write,
-                              tok_reasoning,
+                              tok_reasoning, tok_resent,
                               text, thinking, parts, is_meta, is_notice, is_sidechain, command)
         VALUES (@session_id, @seq, @uuid, @parent_uuid, @role, @ts, @model,
                 @tok_input, @tok_output, @tok_cache_read, @tok_cache_write,
-                @tok_reasoning,
+                @tok_reasoning, @tok_resent,
                 @text, @thinking, @parts, @is_meta, @is_notice, @is_sidechain, @command)
         ON CONFLICT(session_id, uuid) WHERE uuid IS NOT NULL AND uuid <> ''
         DO NOTHING
@@ -435,7 +441,9 @@ class Index {
           tok_cache_write = CASE WHEN @cacheWrite IS NULL THEN tok_cache_write
                             ELSE COALESCE(tok_cache_write, 0) + @cacheWrite END,
           tok_reasoning = CASE WHEN @reasoning IS NULL THEN tok_reasoning
-                          ELSE COALESCE(tok_reasoning, 0) + @reasoning END
+                          ELSE COALESCE(tok_reasoning, 0) + @reasoning END,
+          tok_resent = CASE WHEN @resent IS NULL THEN tok_resent
+                       ELSE COALESCE(tok_resent, 0) + @resent END
         WHERE id = (SELECT id FROM messages WHERE session_id = @session AND role = 'assistant'
                     ORDER BY seq DESC LIMIT 1)
       `),
@@ -650,7 +658,16 @@ class Index {
       // its own messages, copies left where they came from, subagents apart.
       tokenSums: db.prepare(`
         SELECT SUM(tok_input) AS tokInput, SUM(tok_output) AS tokOutput,
-               SUM(tok_cache_read) AS tokCacheRead, SUM(tok_cache_write) AS tokCacheWrite
+               SUM(tok_cache_read) AS tokCacheRead, SUM(tok_cache_write) AS tokCacheWrite,
+               SUM(tok_resent) AS tokResent, SUM(tok_reasoning) AS tokReasoning,
+               -- A reply whose output is counted but not its reasoning: Claude
+               -- wrote no reasoning count before August 2026, not even for the
+               -- 820 calls that thought. Then what came back cannot be split.
+               -- An output of 0 holds no reasoning either (the harness's own
+               -- <synthetic> lines, 96 of them): it is no gap.
+               SUM(tok_output > 0 AND tok_reasoning IS NULL) AS reasoningMissing,
+               -- How many times its context was compacted: the notices say it.
+               SUM(is_notice = 1 AND command LIKE '{"name":"compact-boundary"%') AS compactions
         FROM messages WHERE session_id = ? AND is_copy = 0
       `),
       ownSpan: db.prepare(`
@@ -660,14 +677,15 @@ class Index {
       subagentSums: db.prepare(`
         SELECT COUNT(DISTINCT sp.id) AS subagents,
                SUM(m.tok_input) AS subInput, SUM(m.tok_output) AS subOutput,
-               SUM(m.tok_cache_read) AS subCacheRead, SUM(m.tok_cache_write) AS subCacheWrite
+               SUM(m.tok_cache_read) AS subCacheRead, SUM(m.tok_cache_write) AS subCacheWrite,
+               SUM(m.tok_resent) AS subResent
         FROM sessions sp LEFT JOIN messages m ON m.session_id = sp.id AND m.is_copy = 0
         WHERE sp.parent_id = ?
       `),
       getMessages: db.prepare(`
         SELECT id, seq, uuid, parent_uuid AS parentUuid, role, ts, model,
                tok_input, tok_output, tok_cache_read, tok_cache_write, tok_reasoning,
-               text, thinking,
+               tok_resent, text, thinking,
                parts, is_meta AS isMeta, is_notice AS isNotice,
                is_sidechain AS isSidechain, command
         FROM messages WHERE session_id = ? AND is_copy = 0 ORDER BY seq
@@ -756,6 +774,7 @@ class Index {
       cacheRead: usage.cacheRead ?? null,
       cacheWrite: usage.cacheWrite ?? null,
       reasoning: usage.reasoning ?? null,
+      resent: usage.resent ?? null,
     });
     return changes > 0;
   }
@@ -1146,21 +1165,32 @@ class Index {
   messages(sessionId) {
     return this.s.getMessages
       .all(sessionId)
-      .map(({ tok_input, tok_output, tok_cache_read, tok_cache_write, tok_reasoning, ...m }) => ({
-        ...m,
-        usage: usageFromRow({
+      .map(
+        ({
           tok_input,
           tok_output,
           tok_cache_read,
           tok_cache_write,
           tok_reasoning,
-        }),
-        isMeta: Boolean(m.isMeta),
-        isNotice: Boolean(m.isNotice),
-        isSidechain: Boolean(m.isSidechain),
-        parts: safeParse(m.parts, []),
-        command: safeParse(m.command, null),
-      }));
+          tok_resent,
+          ...m
+        }) => ({
+          ...m,
+          usage: usageFromRow({
+            tok_input,
+            tok_output,
+            tok_cache_read,
+            tok_cache_write,
+            tok_reasoning,
+            tok_resent,
+          }),
+          isMeta: Boolean(m.isMeta),
+          isNotice: Boolean(m.isNotice),
+          isSidechain: Boolean(m.isSidechain),
+          parts: safeParse(m.parts, []),
+          command: safeParse(m.command, null),
+        })
+      );
   }
 
   /**
@@ -1226,6 +1256,7 @@ class Index {
              ${MESSAGE_TIME_SQL} AS at,
              m.tok_input AS tokInput, m.tok_output AS tokOutput,
              m.tok_cache_read AS tokCacheRead, m.tok_cache_write AS tokCacheWrite,
+             m.tok_resent AS tokResent,
              (s.parent_id IS NOT NULL) AS isSubagent
       FROM messages m
       JOIN sessions s ON s.id = m.session_id
@@ -1579,13 +1610,17 @@ function sessionsOfFolderSql(hidingWhere) {
     SELECT s.id, s.agent_id AS agentId, s.title, s.slug, s.git_branch AS gitBranch,
            s.first_prompt AS firstPrompt, s.message_count AS messageCount,
            s.first_at AS firstAt, s.last_at AS lastAt, s.source, s.file_path AS filePath,
-           u.tokInput, u.tokOutput, u.tokCacheRead, u.tokCacheWrite, md.models,
-           sa.subagents, sa.subInput, sa.subOutput, sa.subCacheRead, sa.subCacheWrite
+           u.tokInput, u.tokOutput, u.tokCacheRead, u.tokCacheWrite, u.tokResent,
+           u.tokReasoning, u.reasoningMissing, md.models,
+           sa.subagents, sa.subInput, sa.subOutput, sa.subCacheRead, sa.subCacheWrite,
+           sa.subResent
     FROM sessions s
     LEFT JOIN (
       SELECT session_id,
              SUM(tok_input) AS tokInput, SUM(tok_output) AS tokOutput,
-             SUM(tok_cache_read) AS tokCacheRead, SUM(tok_cache_write) AS tokCacheWrite
+             SUM(tok_cache_read) AS tokCacheRead, SUM(tok_cache_write) AS tokCacheWrite,
+             SUM(tok_resent) AS tokResent, SUM(tok_reasoning) AS tokReasoning,
+             SUM(tok_output > 0 AND tok_reasoning IS NULL) AS reasoningMissing
       FROM messages
       WHERE session_id IN (SELECT id FROM sessions WHERE folder_id = ?) AND is_copy = 0
       GROUP BY session_id
@@ -1606,7 +1641,8 @@ function sessionsOfFolderSql(hidingWhere) {
     LEFT JOIN (
       SELECT sp.parent_id, COUNT(DISTINCT sp.id) AS subagents,
              SUM(m.tok_input) AS subInput, SUM(m.tok_output) AS subOutput,
-             SUM(m.tok_cache_read) AS subCacheRead, SUM(m.tok_cache_write) AS subCacheWrite
+             SUM(m.tok_cache_read) AS subCacheRead, SUM(m.tok_cache_write) AS subCacheWrite,
+             SUM(m.tok_resent) AS subResent
       FROM sessions sp LEFT JOIN messages m ON m.session_id = sp.id AND m.is_copy = 0
       WHERE sp.parent_id IN (SELECT id FROM sessions WHERE folder_id = ?)
       GROUP BY sp.parent_id

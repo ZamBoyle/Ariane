@@ -141,6 +141,12 @@
  *           4 708 rows, 25 September 2026). Copilot and Gemini number tool
  *           calls per session — `bash_5` in two sessions is two different calls
  *           — and declaring it there would hide real messages.
+ * @property {boolean} [writesCompactions]
+ *           True when every compaction of the context leaves a record, read
+ *           as a `compact-boundary` notice: then a conversation holding none
+ *           was never compacted, and the screen may say so. Claude writes
+ *           `compact_boundary`, Codex `compacted` (51 records, 50 before a
+ *           prompt that fell by half). Elsewhere, none is not zero.
  */
 
 /**
@@ -169,6 +175,8 @@
  *   cacheRead   prompt tokens served from cache
  *   cacheWrite  prompt tokens written to cache for later turns
  *   reasoning   the part of `output` spent thinking
+ *   resent      the part of `input + cacheWrite` an earlier call had already
+ *               sent — no agent writes it; the adapter works it out (below)
  *
  * Gemini and Copilot need the same care, measured on 24 September 2026:
  *   - Gemini's `input` INCLUDES `cached` (total = input + output + thoughts +
@@ -209,16 +217,50 @@
  *                turn consumed. Reading them as usage yields numbers that look
  *                right and mean nothing. Do not.
  *
+ * ── What was sent again ─────────────────────────────────────────────────────
+ *
+ * Every call sends the whole conversation. What the provider still holds in
+ * its cache is READ (`cacheRead`); the rest is sent — fresh or written to the
+ * cache — and that is "↑ sent". But the cache does not last: after a pause it
+ * expires, and each model keeps its own. The next call then sends the whole
+ * context again, and "sent" counts it again, although not one word of it is
+ * new. Measured on 26 September 2026, on a Claude conversation of five days:
+ * 14 934 947 sent, of which 9 714 414 had been sent before — twenty calls
+ * after a pause of more than an hour or a change of model, up to 903 939 each.
+ * Only 5 220 533 were new, and Claude Code agrees from its own side: 4 736 140
+ * dropped over its five compactions, plus 458 519 still in context, is
+ * 5 194 659. Read naively — 14.9 M + 3.1 M received over a 1 M window — it
+ * looked like eighteen compactions. It was five.
+ *
+ * So each call's `resent` is the part of its prompt the call before had
+ * already sent, and the cache no longer held (`withResent`):
+ *
+ *   resent = min(input + cacheWrite, previous prompt − cacheRead), at least 0
+ *
+ * where a prompt is `input + cacheWrite + cacheRead` — what the model was
+ * given. A call that sent nothing (a line the harness wrote, all zeros) leaves
+ * the previous prompt as it was. A COMPACTION replaces the context rather than
+ * extending it, so the previous prompt is forgotten there — on what the file
+ * says: Claude's `compact_boundary` preceded 14 of 14 prompts that fell by
+ * half, Codex's `compacted` 50 of 51. "A prompt that shrank" would not do: 19
+ * Claude calls rebuilt a cache after a pause with a slightly smaller prompt,
+ * and that rule counted their 7.6 M as new.
+ *
+ * Claude, Codex and Gemini write each call's counts, so each call gets its
+ * `resent`. Copilot writes a session total, and its `resent` stays null: the
+ * split is not known, and the screen then shows what was sent, unsplit.
+ *
  * @typedef {object} Usage
  * @property {number|null} input
  * @property {number|null} output
  * @property {number|null} cacheRead
  * @property {number|null} cacheWrite
  * @property {number|null} reasoning
+ * @property {number|null} resent
  */
 
 /** The canonical fields, in the order the dictionary above lists them. */
-const USAGE_FIELDS = ['input', 'output', 'cacheRead', 'cacheWrite', 'reasoning'];
+const USAGE_FIELDS = ['input', 'output', 'cacheRead', 'cacheWrite', 'reasoning', 'resent'];
 
 /**
  * Build the canonical usage from what an adapter managed to read.
@@ -231,7 +273,7 @@ const USAGE_FIELDS = ['input', 'output', 'cacheRead', 'cacheWrite', 'reasoning']
 function usageOf(counts) {
   if (!counts || typeof counts !== 'object') return null;
 
-  const usage = { input: null, output: null, cacheRead: null, cacheWrite: null, reasoning: null };
+  const usage = Object.fromEntries(USAGE_FIELDS.map((field) => [field, null]));
   let recorded = false;
   for (const field of USAGE_FIELDS) {
     const value = counts[field];
@@ -240,6 +282,29 @@ function usageOf(counts) {
     recorded = true;
   }
   return recorded ? usage : null;
+}
+
+/** What the model was given in one call: fresh, written to cache, read from it. */
+function promptSize(usage) {
+  if (!usage) return 0;
+  return (usage.input || 0) + (usage.cacheWrite || 0) + (usage.cacheRead || 0);
+}
+
+/**
+ * One call's usage with its `resent` worked out (see "What was sent again").
+ *
+ * @param {Usage|null} usage  The call's counts, as the agent wrote them.
+ * @param {number|null} previous  The prompt of the call before; null for the
+ *   first call of a file, or the first after a compaction.
+ * @returns {{usage: Usage|null, previous: number|null}}  The usage, and the
+ *   prompt the NEXT call must be compared with.
+ */
+function withResent(usage, previous) {
+  const size = promptSize(usage);
+  if (!size) return { usage, previous };
+  const sent = (usage.input || 0) + (usage.cacheWrite || 0);
+  const before = previous == null ? 0 : previous - (usage.cacheRead || 0);
+  return { usage: { ...usage, resent: Math.max(0, Math.min(sent, before)) }, previous: size };
 }
 
 /** Every field an adapter must provide, checked at registration time. */
@@ -293,6 +358,7 @@ module.exports = {
   assertAdapter,
   globalSessionId,
   usageOf,
+  withResent,
   REQUIRED,
   USAGE_FIELDS,
   UNKNOWN_FOLDER,

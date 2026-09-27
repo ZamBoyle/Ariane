@@ -110,7 +110,33 @@ test('trois nombres, jamais un total : le cache relu reste à part', () => {
     ],
     F
   );
-  assert.deepEqual(s.tokens, { sent: 705, received: 150, cacheRead: 11000, measuredSessions: 1 });
+  assert.deepEqual(s.tokens, {
+    sent: 705,
+    received: 150,
+    cacheRead: 11000,
+    resent: 0,
+    measuredSessions: 1,
+  });
+  assert.equal(s.agents[0].split, false, 'aucun renvoi mesuré : rien ne se partage');
+  assert.equal(s.agents[0].resent, null, 'inconnu, pas zéro');
+});
+
+test('ce qui a été renvoyé se compte à part, et seulement où l’assistant le dit', () => {
+  const s = summarize(
+    [
+      row({ tokInput: 2, tokOutput: 100, tokCacheRead: 0, tokCacheWrite: 700, tokResent: 0 }),
+      row({ tokInput: 3, tokOutput: 50, tokCacheRead: 0, tokCacheWrite: 900, tokResent: 702 }),
+      // Copilot n'écrit qu'un total par conversation : ses renvois ne sont pas connus.
+      row({ sessionId: 'copilot-cli:c1', agentId: 'copilot-cli', tokInput: 400, tokOutput: 9 }),
+    ],
+    F
+  );
+  assert.equal(s.tokens.sent, 702 + 903 + 400, 'les envoyés restent entiers');
+  assert.equal(s.tokens.resent, 702, 'le second appel a renvoyé le prompt du premier');
+  const claude = s.agents.find((a) => a.agentId === 'claude');
+  const copilot = s.agents.find((a) => a.agentId === 'copilot-cli');
+  assert.deepEqual([claude.split, claude.resent], [true, 702]);
+  assert.deepEqual([copilot.split, copilot.resent], [false, null], 'la vue le nommera');
 });
 
 test('la couverture est dite : un assistant sans compte vaut null, pas zéro', () => {
@@ -197,7 +223,13 @@ test('rien à compter, rien d’inventé', () => {
   assert.equal(s.records, 0);
   assert.deepEqual(s.months, []);
   assert.deepEqual(s.agents, []);
-  assert.deepEqual(s.tokens, { sent: 0, received: 0, cacheRead: 0, measuredSessions: 0 });
+  assert.deepEqual(s.tokens, {
+    sent: 0,
+    received: 0,
+    cacheRead: 0,
+    resent: 0,
+    measuredSessions: 0,
+  });
 });
 
 // ── la requête ────────────────────────────────────────────────────────────

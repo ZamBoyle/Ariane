@@ -977,6 +977,13 @@ test.describe('end to end through the bridge', () => {
       false,
       'Copilot writes a running total per session: under one reply it would read as that reply’s cost'
     );
+    // Claude writes every compaction: none is a measured zero. Copilot says nothing of them.
+    assert.equal((await invoke('session:get', { id: SID })).data.compactionsKnown, true);
+    assert.equal(
+      (await invoke('session:get', { id: 'copilot-cli:sess-1' })).data.compactionsKnown,
+      false,
+      'where the agent writes no compaction, none is not zero'
+    );
   });
 
   test('searches within a period, counted from now', async (t) => {

@@ -80,21 +80,28 @@ session-summary = { $when } · { $count ->
        *[other] { $count } messages
     }
 
-# Under a conversation whose assistant recorded what its turns cost.
-# { $sent }, { $received } and { $cached } are already shortened ("7.5K",
-# "14.5M"); the *Exact ones are written out in full. The arrows are sent and received.
 # In the sidebar: the model that answered most, and how many others did.
 # { $model } is a model's id ("gpt-6-astra"); the full list is on hover.
 session-models = { $model } +{ $more }
-session-tokens = ↑ { $sent } · ↓ { $received }
-    .title =
-        Sent: { $sentExact } tokens new in the prompts
-        Received: { $receivedExact } tokens
-session-tokens-cached = ↑ { $sent } · ↓ { $received } · cache { $cached }
-    .title =
-        Sent: { $sentExact } tokens new in the prompts
-        Received: { $receivedExact } tokens
-        Read back from the cache: { $cachedExact } tokens, the context resent at every turn
+# Under a conversation whose assistant recorded what its turns cost, and
+# beside each reply. { $value } is already shortened ("7.5K", "14.5M");
+# { $exact } is written out in full. The arrows are sent and received.
+# What was sent is split in two where the assistant allows it: "↑ 904K =
+# 1.2K new + 903K resent". "New" is what each call added to the context;
+# "resent" is context an earlier call had already sent, sent again because
+# the cache had lost it. { $new } and { $resent } are written out in full.
+cost-new = { $value } new
+cost-sent = ↑ { $value }
+cost-resent = { $value } resent
+cost-received = ↓ { $value }
+cost-cache = cache { $value }
+# On hover, one line per figure.
+cost-line-sent = Sent: { $exact } tokens
+cost-line-split = = { $new } new + { $resent } resent
+cost-line-received = Received: { $exact } tokens
+cost-line-received-split = = { $answer } answer + { $reasoning } reasoning
+cost-line-cache = Read back from the cache: { $exact } tokens
+# On hover too, what its subagents cost, apart: the figures are written out in full.
 session-tokens-subagents = { $count ->
     [one] Its subagent, on top: { $sent } sent, at least { $received } received, { $cached } read back from the cache
    *[other] Its { $count } subagents, on top: { $sent } sent, at least { $received } received, { $cached } read back from the cache
@@ -149,15 +156,50 @@ convo-empty = This conversation holds no message that can be shown.
 convo-not-found = Conversation not found.
 convo-id =
     .title = This conversation’s id — the one its assistant resumes it by
-convo-tokens = ↑ { $sent } sent · ↓ { $received } received
+# The conversation's cost in its header: the same figures, named, each
+# explained on hover: "↑ 14.9M sent = 5.2M new + 9.7M resent". The "unsplit"
+# one stands alone, when the assistant writes only a total and the two parts
+# cannot be told apart.
+convo-cost-new = { $value } new
     .title =
-        Sent: { $sentExact } tokens new in the prompts
-        Received: { $receivedExact } tokens
-convo-tokens-cached = ↑ { $sent } sent · ↓ { $received } received · { $cached } read back from the cache
+        What each call added to the context: your messages, tool results, the replies before.
+        { $exact } tokens
+convo-cost-resent = { $value } resent
     .title =
-        Sent: { $sentExact } tokens new in the prompts
-        Received: { $receivedExact } tokens
-        Read back from the cache: { $cachedExact } tokens, the context resent at every turn
+        Context already sent, sent once more because the cache had lost it: it expires after a pause, and each model keeps its own. Nothing new in it.
+        { $exact } tokens
+convo-cost-sent = ↑ { $value } sent
+    .title =
+        Everything the prompts sent: what was new, plus what an earlier call had already sent and the cache had lost.
+        { $exact } tokens
+convo-cost-sent-unsplit = ↑ { $value } sent
+    .title =
+        What the prompts sent: fresh input, and what was written to the cache. How much of it was sent again is not known here.
+        { $exact } tokens
+convo-cost-received = ↓ { $value } received
+    .title =
+        What the model wrote, reasoning included. Each reply goes back into the context at the next call, where it is counted again: do not add it to the rest.
+        { $exact } tokens
+convo-cost-answer = { $value } answer
+    .title =
+        What the model answered: its text and its tool calls — what the conversation shows.
+        { $exact } tokens
+convo-cost-reasoning = { $value } reasoning
+    .title =
+        What the model thought before answering: counted and billed like the rest, even where the assistant does not keep it readable — Claude keeps it only encrypted.
+        { $exact } tokens
+convo-cost-cache = { $value } read back from the cache
+    .title =
+        The cache: at every call, the assistant sends the whole conversation to the model. The provider keeps what it has just processed and reads it back instead of processing it again — faster, and billed at a fraction of the price.
+        Every call reads back everything before it: this figure grows with the length of the conversation, not with what is said in it.
+        { $exact } tokens
+# How many times the context was full and replaced by a summary.
+convo-compactions = { $count ->
+        [0] context never compacted
+        [one] context compacted once
+       *[other] context compacted { $count } times
+    }
+    .title = A context has a maximum size. When it is full, the assistant replaces it with a summary and carries on: that is a compaction.
 convo-branch =
     .title = Git branch
 folder-unknown = Unknown folder
@@ -486,17 +528,25 @@ stats-records = The sidebar counts { $records } records: { $empty } of them hold
 stats-masked = Of these, { $masked } are reasoning that Claude now keeps only encrypted: nothing is left of it but a signature.
 stats-tokens = Tokens
 stats-sent = ↑ Sent
-    .title = New in the prompts: fresh input, and what was written to the cache
+    .title = Everything the prompts sent: fresh input and what was written to the cache — what was new, and what had been sent before
+stats-new = New
+    .title = What each call added to the context: messages, tool results, the replies before
+stats-resent = Resent
+    .title = Context already sent, sent once more because the cache had lost it — after a pause, or a change of model
 stats-received = ↓ Received
     .title = What the assistants wrote, reasoning included
 stats-cache = Read back from the cache
-    .title = The context sent again at every turn — kept apart, never added to the rest
+    .title = The context read back at every call instead of being processed again — kept apart, never added to the rest
 stats-exact = { $value } tokens
 stats-coverage = Measured in { $measured } of { $total } conversations.
 stats-uncovered = { $agents } { $count ->
         [one] does
        *[other] do
     } not record token counts that Ariane reads.
+stats-unsplit = { $agents } { $count ->
+        [one] records only one total per conversation: what it sent again is not known, and counts here as new.
+       *[other] record only one total per conversation: what they sent again is not known, and counts here as new.
+    }
 stats-subagents = { $count ->
     [one] One subagent also sent { $sent } tokens, received at least { $received } and read { $cached } back from the cache. It is not counted above: a subagent's transcript does not always keep its final count.
    *[other] { $count } subagents also sent { $sent } tokens, received at least { $received } and read { $cached } back from the cache. They are not counted above: a subagent's transcript does not always keep its final count.

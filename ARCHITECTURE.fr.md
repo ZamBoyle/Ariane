@@ -160,7 +160,17 @@ Trois indications facultatives disent ce que SIGNIFIENT les données d'un adapta
 été mesurée avant d'être déclarée : `globalIds` (un identifiant de message désigne le même message
 où qu'il apparaisse — Claude, Codex ; § 4, les copies), `usagePerSession` (l'agent n'écrit que ce
 qu'a coûté une session entière — Copilot ; § 10) et, sur un descripteur, `parentId` /
-`continuesFrom` (un sous-agent, une duplication ; § 3.4, § 4).
+`continuesFrom` (un sous-agent, une duplication ; § 3.4, § 4). Une quatrième, `writesCompactions`
+(Claude, Codex), dit que chaque compactage laisse un enregistrement, gardé comme avis
+`compact-boundary` : là, une conversation qui n'en a aucun n'a jamais été compactée.
+
+**Ce qu'un appel a renvoyé** est calculé par l'adaptateur, jamais lu : aucun agent ne l'écrit. Le
+`resent` de chaque appel est la part de son prompt que l'appel d'avant avait déjà envoyée et que le
+cache ne tenait plus — `min(input + cacheWrite, prompt précédent − cacheRead)`, `withResent` dans
+`contract.js`. L'adaptateur garde le prompt précédent dans son curseur et l'oublie à un compactage,
+sur ce que le fichier dit (`compact_boundary`, `compacted`) : un compactage remplace le contexte au
+lieu de l'allonger. Copilot n'écrit qu'un total par session : son `resent` reste null, et l'écran
+montre ce qu'il a envoyé, sans le partager.
 
 **Les limites d'utilisation** voyagent avec le reste plutôt que comme un élément à part : tout
 élément peut porter `quota`, les fenêtres que son enregistrement a lues (`src/core/quota.js`), et un
@@ -221,7 +231,7 @@ fois coûtait une demi-seconde d'une passe complète.
 | `folders` | un dossier réel, **partagé entre agents** | c'est le cœur du produit : une ligne par chemin, quelles que soient les conversations qui s'y rattachent. `path_exact` ne monte jamais vers l'approximation |
 | `agents` | un assistant connu | — |
 | `sessions` | une conversation | identifiant `agent:session` ; `source` vaut `transcript`, `history` ou `archive` ; `continues_uuid` chaîne une conversation compactée à celle qu'elle poursuit ; `parent_id` rattache la conversation d'un sous-agent à celle qui l'a lancé ; `continued_in` / `continues_from` relient une conversation reprise ou dupliquée à celle qu'elle continue |
-| `messages` | un message | `parts` en JSON ; `is_notice` marque ce que personne n'a dit ; `is_copy` ce qu'une autre conversation contient déjà |
+| `messages` | un message | `parts` en JSON ; `is_notice` marque ce que personne n'a dit ; `is_copy` ce qu'une autre conversation contient déjà ; six colonnes `tok_*` ce qu'a coûté son appel, `tok_resent` la part renvoyée (§ 3.3) |
 | `messages_fts` | index plein texte | FTS5 en _external content_ : seul `text` y entre, les lignes restent dans `messages` |
 | `sources` | l'état d'incrémentalité | `fingerprint` et `cursor`, opaques |
 | `quota_windows` | une fenêtre d'une limite d'utilisation — cinq heures, une semaine | son relevé le PLUS HAUT, vu la première et la dernière fois ; retrouvée par sa fin à dix minutes près (§ 10). Reconstruite depuis les fichiers — et emportée à travers cette reconstruction, puisque Claude Desktop ne garde qu'un mois : la première passe ne remet que les fenêtres que les fichiers ne redonnent plus (`restoreCarriedQuotas`), les fichiers gagnent toujours |
@@ -490,21 +500,42 @@ ligne masquée va à ce que la même réponse montre ensuite — sa prose, ou sa
 qui les additionne tous —, jamais au message de la personne ni à un avis, et un compte encore en
 route quand la personne reparle revient à la réponse d'avant. Rien ne s'affiche là où l'adaptateur
 déclare `usagePerSession` (Copilot) : le total d'une session sous une seule réponse passerait pour
-le coût de celle-ci. Les chiffres d'un sous-agent disent, au survol, qu'ils sont un minimum.
+le coût de celle-ci. Les chiffres d'un sous-agent disent, au survol, qu'ils sont un minimum. Une
+réponse qui a renvoyé le contexte — après une pause, ou un changement de modèle — le dit :
+`↑ 904K = 1,2K nouveaux + 903K renvoyés`, mais seulement si le renvoi fait au moins la moitié de ce
+qu'elle a envoyé : Claude renvoie quelques jetons à presque chaque appel (16 433 appels, de 1 à 99
+jetons, 45 K en tout), ce qui encombrerait chaque réponse.
 
-**Son identifiant ouvre l'en-tête, sur une ligne à lui** (`#convo-id`, `flex-basis: 100%`) : dans
-la colonne du titre, les boutons le coupaient. Tel que son assistant le connaît — `bareId`, la règle
+**Son identifiant se tient à côté du titre** (`.convo-heading`, 28 septembre 2026) : les deux
+partagent la colonne du titre, le titre d'abord, l'identifiant après lui s'il y a la place, dessous
+sinon — la colonne passe à la ligne plutôt que de rétrécir l'un ou l'autre, si bien que les boutons,
+qui coupaient l'identifiant quand il y était la première fois, ne coupent ni l'un ni l'autre. Deux
+éléments côte à côte, pas un seul texte : `#convo-title` reste le titre. À 1 400 px, six boutons avec
+libellés laissent 342 px à la colonne, et un titre de 30 caractères envoie l'identifiant dessous ; la
+suite de mise en page mesure les deux cas. Tel que son assistant le connaît — `bareId`, la règle
 de la reprise en terminal, appliquée dans `session:get` —, sélectionnable, son sens au survol.
 
 **Sous le titre, les faits sont groupés par la question qu'ils règlent** (`headerFacts` dans
 `app.js`, choisi sur captures le 25 septembre 2026 — l'option A, après que C, en icônes seules, eut
 mis trop de choses sur une ligne) : qui et où sur une ligne (la marque de l'assistant, son nom, les
 modèles ; le dossier par son nom, le chemin entier au survol, la branche git en étiquette), quand et
-combien de temps sur la suivante, puis combien sur la dernière, le nombre de messages d'abord, puis ce
-qu'a coûté la conversation — chaque groupe annoncé par une icône, jamais une chaîne de points. Les
-chiffres du coût sont nommés
-(`headerCost`, les sous-agents à part ; `session:get` ajoute `Index.sessionTokens`, la définition
-de la barre latérale). Un groupe passe entier à la ligne, et celui qui reste trop large seul sur la
+combien de temps sur la suivante, puis combien : le nombre de messages, combien de fois son
+contexte a été compacté (les avis `compact-boundary`, comptés par `Index.sessionTokens`) et ce qui a
+été relu depuis le cache — le contexte, à l'écart des sommes —, chaque groupe annoncé par une icône,
+jamais une chaîne de points ; puis chaque somme sur une ligne à elle : `↑ 14,9M envoyés = 5,2M
+nouveaux + 9,7M renvoyés`, puis `↓ 3,1M reçus …` (`costParts`, `headerCost`, les sous-agents à part ; `session:get` ajoute `Index.sessionTokens`,
+la définition de la barre latérale). Ce qui est revenu se décompose de même —
+`↓ 3,1M reçus = 1,8M de réponse + 1,2M de raisonnement` — seulement si chaque réponse a compté son
+raisonnement (`reasoningMissing` vaut 0 ; Claude n'écrivait pas ce compte avant août 2026, et une
+sortie de 0 n'en contient aucun). « Jamais compacté » ne s'affiche que là où l'assistant écrit chaque
+compactage (`compactionsKnown`) : le « CHECKPOINT 0 » d'Antigravity suit le premier message de 12
+conversations sur 15 et n'est pas compté. Chaque somme est un `.cost-group` qui passe à la ligne
+d'un bloc. Demandé le 26 septembre 2026 pour un auditoire, qui lirait
+14,9M + 3,1M sur une fenêtre de 1M comme dix-huit compactages : il y en avait cinq. Le `=` et le `+`
+sont dans la couleur d'accent, seul calcul de la ligne ; chaque chiffre s'explique au survol — le
+cache, ce qu'il est et à quoi il sert ; les reçus, qu'on ne les additionne pas au reste. Un chiffre
+ne se coupe jamais sur deux lignes (`.cost-figure`), ce que la suite de mise en page mesure en
+serrant. Un groupe passe entier à la ligne, et celui qui reste trop large seul sur la
 sienne finit par « … ». Les actions gardent leurs libellés, icônes seules quand c'est étroit ;
 « Oublier » montre sa question pendant qu'il attend le second clic. La suite de mise en page mesure
 le passage à la ligne, celle de rendu les lignes et que chaque action affichée a un nom.
@@ -669,6 +700,15 @@ attendu, tous les 4 Mo — une centaine de fois par reconstruction, puisque chaq
 quelque quatre fois (475 Mo passent par le journal pour un index de 117 Mo). Désormais : tous les
 64 Mo (journal au plus à 68 Mo), vidé après chaque passe qui a écrit, et l'index plein texte
 construit d'un coup quand un index vide se remplit. La passe sans changement est restée vers 80 ms.
+
+**Le 26 septembre 2026**, ce qui a été renvoyé, mesuré sur les fichiers bruts puis par l'indexeur
+réel, au jeton près : la conversation de cinq jours qui l'a demandé a envoyé 14 934 947 jetons, dont
+9 714 414 déjà envoyés — vingt appels, seize après plus d'une heure de pause, quatre après un
+changement de modèle, jusqu'à 903 939 chacun. Seuls 5 220 533 étaient nouveaux ; le compte de Claude
+Code concorde (4 736 140 effacés en cinq compactages, plus 458 519 encore en contexte). Sur toute la
+machine : Claude 68,8 M renvoyés sur 109,6 M, Codex 13,8 M sur 31,8 M (copies écartées), Gemini
+94 K sur 234 K. Passe complète contre la 0.8.2, mêmes fichiers, dans les deux ordres : 12,9–14,4 s
+contre 13,0–14,3 s.
 | couverture de `terminal.js` | 95,5 % des lignes | le seul fichier qui lance un processus |
 
 Ces chiffres viennent de mesures, pas d'estimations. Les remesurer plutôt que les recopier.
@@ -739,6 +779,7 @@ de `git status` — passait tous les tests unitaires de `speakerOf()` pendant qu
 | ajouter une colonne à `messages` | `schema.sql`, l'`INSERT` de `db.js`, **et les deux constantes d'archive** — voir § 4 |
 | toucher à la taille du texte ou aux touches | `src/main/text-size.js` (les règles), `main.js` (leur application — une fois la fenêtre montrée, jamais avant), `textSize` dans `settings.js` |
 | toucher à ce qu'une réponse montre de son coût | `groupMessages` / `sumUsage` dans `format.js` (le regroupement), `replyCost` dans `app.js` (l'affichage), `usagePerSession` sur l'adaptateur |
+| toucher à ce qui compte comme renvoyé | `withResent` dans `contract.js` (la règle), la boucle de lecture et le curseur de chaque adaptateur (`claude.js`, `codex.js`, `gemini.js` — le prompt précédent, oublié à un compactage), `costFigures` / `costTitle` dans `app.js` (l'affichage) |
 | toucher aux sous-agents | la découverte dans `claude.js` (`discoverSubagents`) et `codex.js` (l'en-tête), `parentId` dans le contrat, `LISTED` et `Index.subagents` dans `db.js`, `paintSubagents` dans `app.js` |
 | toucher à ce qui compte comme écho de la personne | `markDelivery` dans `claude.js` (la file), `deliversQueued` dans `indexer.js`, `echoOf` dans `archive.js` (la forme de `last-prompt`) |
 | toucher à ce qui compte comme copie | `Index.markCopies` dans `db.js` (la règle), `globalIds` sur l'adaptateur (à qui elle s'applique), `OWN_MESSAGES` (ce qui est listé) |

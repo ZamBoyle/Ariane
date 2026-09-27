@@ -85,6 +85,8 @@ test.describe('turn normalisation', () => {
       cacheRead: 8000,
       cacheWrite: null,
       reasoning: 300,
+      // What a reply sent again needs the reply before it: read() works it out.
+      resent: null,
     });
   });
 

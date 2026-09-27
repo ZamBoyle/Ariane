@@ -428,8 +428,9 @@ test.describe('tokens', () => {
     assert.deepEqual(
       usages.map((u) => u.usage),
       [
-        { input: 100, output: 10, cacheRead: 50, cacheWrite: 0, reasoning: 0 },
-        { input: 60, output: 15, cacheRead: 200, cacheWrite: 0, reasoning: 5 },
+        // A session total cannot tell what was sent again: unknown, not zero.
+        { input: 100, output: 10, cacheRead: 50, cacheWrite: 0, reasoning: 0, resent: null },
+        { input: 60, output: 15, cacheRead: 200, cacheWrite: 0, reasoning: 5, resent: null },
       ],
       'two differences, never the running total twice'
     );

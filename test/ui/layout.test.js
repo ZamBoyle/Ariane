@@ -187,26 +187,41 @@ async function run() {
     convoId.textContent = 'c9e63dac-5513-42fa-9e27-04175df3fdc5';
     const head = document.getElementById('convo-head');
     const labels = [...head.querySelectorAll('.convo-actions .ghost-btn .label')];
-    return {
+    const title = document.getElementById('convo-title');
+    const box = (el) => el.getBoundingClientRect();
+    const measured = {
       overflow: head.scrollWidth > head.clientWidth + 1,
       labelsShown: labels.filter((l) => getComputedStyle(l).display !== 'none').length,
       labels: labels.length,
-      title: Math.round(document.getElementById('convo-title').getBoundingClientRect().width),
+      // The room the buttons leave the title: its column, which the id shares.
+      title: Math.round(box(document.querySelector('.convo-heading')).width),
       window: innerWidth,
-      head: Math.round(head.getBoundingClientRect().width),
+      head: Math.round(box(head).width),
       idWhole: convoId.scrollWidth <= convoId.clientWidth + 1,
-      // Its own row, across the header — not a column the buttons can narrow.
-      idAcross: Math.abs(convoId.getBoundingClientRect().width - (head.clientWidth
-        - parseFloat(getComputedStyle(head).paddingLeft) - parseFloat(getComputedStyle(head).paddingRight))) < 2,
     };
+    // À droite du titre quand il y a la place (demandé le 28 septembre 2026) —
+    // un titre court la laisse ; à 1 400 px, six libellés ne laissent que
+    // 342 px à la colonne, et 'La réponse à la grande question' la prend.
+    title.textContent = 'Essai';
+    measured.idBeside = Math.abs(box(convoId).bottom - box(title).bottom) < 6 && box(convoId).left >= box(title).right;
+    // Un titre trop long pour partager sa ligne : l'identifiant passe dessous,
+    // entier — le 25 septembre, dans la colonne du titre, les boutons le coupaient.
+    title.textContent = 'Un titre bien trop long pour partager sa ligne avec l’identifiant, '.repeat(3);
+    measured.longIdWhole = convoId.scrollWidth <= convoId.clientWidth + 1;
+    measured.longIdBelow = box(convoId).top >= box(title).bottom - 1;
+    measured.longTitleCut = title.scrollWidth > title.clientWidth;
+    measured.longOverflow = head.scrollWidth > head.clientWidth + 1;
+    title.textContent = 'La réponse à la grande question';
+    return measured;
   })()`;
   // The facts under the title, with a folder name far too long for the window,
   // built as the app builds them: groups wrap whole, and one still too long on
   // a line of its own ends in "…" — it never runs out of the header. That last
   // part failed on macOS and Windows only, whose fonts are wider (d4b2b62).
-  const META = `(() => {
+  const META = (width = 0) => `(() => {
     document.getElementById('convo-head').hidden = false;
     const meta = document.getElementById('convo-meta');
+    meta.style.maxWidth = ${width} ? '${width}px' : '';
     const group = (cls, text) => {
       const g = document.createElement('span');
       g.className = 'meta-group ' + cls;
@@ -221,23 +236,46 @@ async function run() {
       r.append(...content);
       return r;
     };
-    const cost = document.createElement('span');
-    cost.className = 'session-cost meta-cost';
-    cost.textContent = '↑ 11,1M envoyés · ↓ 2,2M reçus · 1,1G relus depuis le cache';
+    // Ce qu'elle a coûté, sur sa propre ligne : envoyés = nouveaux + renvoyés,
+    // chaque chiffre insécable — la ligne passe à la suivante entre deux.
+    const piece = (cls, text) => {
+      const p = document.createElement('span');
+      p.className = cls;
+      p.textContent = text;
+      return p;
+    };
+    const costGroup = (...parts) => {
+      const g = document.createElement('span');
+      g.className = 'cost-group';
+      g.append(...parts);
+      return g;
+    };
+    // Une ligne par somme, comme headerFacts les range (28 septembre 2026).
+    const sent = costGroup(piece('cost-figure', '↑ 14,9M envoyés'), ' ', piece('cost-sign', '='), ' ',
+      piece('cost-figure', '5,2M nouveaux'), ' ', piece('cost-sign', '+'), ' ', piece('cost-figure', '9,7M renvoyés'));
+    const cost = costGroup(piece('cost-figure', '↓ 3,1M reçus'), ' ', piece('cost-sign', '='), ' ',
+      piece('cost-figure', '1,8M de réponse'), ' ', piece('cost-sign', '+'), ' ', piece('cost-figure', '1,2M de raisonnement'));
     const who = group('meta-who', 'Claude claude-opus-5, claude-opus-5-5 et gpt-6-astra');
     const where = group('meta-where', 'un-dossier-au-nom-vraiment-très-long-pour-une-fenêtre-étroite'.repeat(3));
     meta.replaceChildren(
       row('meta-context', who, ' ', where),
       row('meta-time', group('meta-when', '21 sept. 2026, 08:11 – 25 sept. 2026, 22:19'), ' ', group('meta-duration', '4 j et 14 h')),
-      row('meta-amount', group('meta-size', '8 251 messages'), ' ', cost));
+      row('meta-amount', group('meta-size', '10 314 messages'), ' ', group('meta-compactions', 'contexte compacté 5 fois'),
+        ' ', group('meta-cache', '1,6G relus depuis le cache')),
+      row('meta-cost meta-sent', sent),
+      row('meta-cost meta-received', cost));
     const groups = [...meta.querySelectorAll('.meta-group')];
     const box = (el) => el.getBoundingClientRect();
     const others = groups.filter((g) => !g.classList.contains('meta-where'));
-    return {
+    const measured = {
       inside: groups.every((g) => box(g).right <= box(meta).right + 1) && meta.scrollWidth <= meta.clientWidth + 1,
       othersWhole: others.every((g) => g.scrollWidth <= g.clientWidth + 1),
       wrapped: Math.round(box(who).top) !== Math.round(box(where).top),
       costWhole: cost.scrollWidth <= cost.clientWidth + 1,
+      figuresInside: [...meta.querySelectorAll('.cost-figure')]
+        .every((f) => box(f).right <= box(meta).right + 1 && f.getClientRects().length === 1),
+      // Whether the line had to break at all.
+      costLines: new Set([...cost.querySelectorAll('.cost-figure')].map((f) => Math.round(box(f).top))).size,
       // Toute la largeur de l'en-tête, sous les boutons aussi : serrés dans la
       // colonne du titre, les faits d'une conversation de plusieurs jours
       // prenaient cinq lignes à côté d'un vide.
@@ -248,6 +286,8 @@ async function run() {
         return Math.abs(box(meta).width - inner) < 2 && box(meta).top >= box(document.querySelector('.convo-actions')).bottom;
       })(),
     };
+    meta.style.maxWidth = '';
+    return measured;
   })()`;
   // The search bar with both lists at their widest real labels.
   const COMPOSER = `(() => {
@@ -309,10 +349,13 @@ async function run() {
   }
 
   const narrow = await win.webContents.executeJavaScript(HEADER);
-  const narrowMeta = await win.webContents.executeJavaScript(META);
+  const narrowMeta = await win.webContents.executeJavaScript(META());
   const narrowComposer = await win.webContents.executeJavaScript(COMPOSER);
   await resizeTo(win, 780, 480); // the window's minimum width (main.js)
   const narrowest = await win.webContents.executeJavaScript(COMPOSER);
+  // In French the cost line still fits the window's minimum width; a longer
+  // language or a larger text size breaks it. So the facts are held to 260 px.
+  const squeezedMeta = await win.webContents.executeJavaScript(META(260));
 
   // The settings window, five assistants long, in the smallest window allowed:
   // it must fit, keep its buttons in view, and scroll its list instead.
@@ -396,8 +439,14 @@ async function run() {
 
   // -- the conversation header: icons, and labels when there is room -------
   check('the facts under the title wrap by whole groups and never run out of the header',
-    narrowMeta.inside && narrowMeta.othersWhole && narrowMeta.wrapped && narrowMeta.costWhole,
+    narrowMeta.inside && narrowMeta.othersWhole && narrowMeta.wrapped && narrowMeta.costWhole
+      && narrowMeta.figuresInside,
     JSON.stringify(narrowMeta));
+  // « 9,7M renvoyés » coupé en fin de ligne se lirait « 9,7M » d'un côté et
+  // « renvoyés » de l'autre : la ligne passe à la suivante entre deux chiffres.
+  check('trop étroite, la ligne de coût passe à la ligne entre deux chiffres, jamais dans un chiffre',
+    squeezedMeta.costLines > 1 && squeezedMeta.figuresInside && squeezedMeta.costWhole,
+    JSON.stringify(squeezedMeta));
   check('les faits prennent toute la largeur de l’en-tête, sous le titre et sous les boutons',
     narrowMeta.across, JSON.stringify(narrowMeta));
 
@@ -414,9 +463,11 @@ async function run() {
 
   // Wide, the labelled buttons leave the title column narrowest: 260 px in the
   // real app, where the id was cut before it got a row of its own.
-  check('the conversation id at the top stays whole, narrow header or wide',
-    narrow.idWhole && wide.idWhole && narrow.idAcross && wide.idAcross,
-    JSON.stringify({ narrow: [narrow.idWhole, narrow.idAcross], wide: [wide.idWhole, wide.idAcross] }));
+  check('l’identifiant se tient à droite du titre s’il y a la place, dessous sinon, et reste entier',
+    narrow.idWhole && wide.idWhole && wide.idBeside && narrow.idBeside
+      && narrow.longIdWhole && narrow.longIdBelow && narrow.longTitleCut && !narrow.longOverflow
+      && wide.longIdWhole && wide.longIdBelow && !wide.longOverflow,
+    JSON.stringify({ narrow, wide }));
   // Choice A, 25 September 2026: the labels stay, the facts under the title
   // take three lines — C, icons alone, put too much on one.
   check('a wide header shows each label beside its icon',

@@ -125,6 +125,8 @@ const state = {
   // (a subagent's transcript does not always keep its final count).
   usageByReply: false,
   usageIsFloor: false,
+  // Whether a conversation holding no compaction was never compacted.
+  compactionsKnown: false,
   results: [],
   activeResult: -1,
   filter: '',
@@ -1091,51 +1093,126 @@ function sessionFact(iconName, words) {
 }
 
 /**
- * "↑ 11.3M · ↓ 2.4M" under a conversation's name: what was sent and received.
- * The cache read back — the long figure that was cut on every row — is on
- * hover with the exact ones, and in the conversation's header; its subagents'
- * cost too, apart. Nothing when its assistant measured nothing.
+ * "↑ 14.9M · ↓ 3.1M" under a conversation's name: what was sent and received.
+ * What was new and what was sent again, and the cache read back — the long
+ * figure that was cut on every row — are on hover with the exact ones, and in
+ * the conversation's header; its subagents' cost too, apart. Nothing when its
+ * assistant measured nothing.
  */
 function sidebarCost(session) {
   const usage = sessionTokens(session);
   if (!usage) return null;
-  const short = (n) => (n === null ? '—' : l10n.compact(n));
-  const exact = (n) => (n === null ? '—' : l10n.number(n));
-  const args = {
-    sent: short(usage.sent),
-    received: short(usage.received),
-    cached: short(usage.cacheRead),
-    sentExact: exact(usage.sent),
-    receivedExact: exact(usage.received),
-    cachedExact: exact(usage.cacheRead),
-  };
-  const cost = nodeFrom('span', 'session-cost', 'session-tokens', args);
-  if (usage.cacheRead !== null) {
-    cost.title = l10n.message('session-tokens-cached', args).attributes.title || cost.title;
-  }
+  const cost = costFigures(usage, { split: false, cache: false });
   const sub = subagentTokens(session);
-  if (sub) cost.title = [cost.title, subagentCost(sub)].filter(Boolean).join('\n');
+  cost.title = [costTitle(usage), sub && subagentCost(sub)].filter(Boolean).join('\n');
   return cost;
 }
 
 /**
- * "↑ 167K · ↓ 78.2K · cache 5.9M", the exact figures on hover — or nothing,
- * when its assistant recorded no usage. Nothing is not "0": an agent that
- * measured nothing did not spend nothing.
+ * "↑ 904K = 1.2K new + 903K resent · ↓ 2K · cache 5.9M" for one reply, the
+ * exact figures on hover — or nothing, when its assistant recorded no usage. Nothing is not
+ * "0": an agent that measured nothing did not spend nothing.
  */
 function tokenLine(usage) {
   if (!usage) return null;
-  const short = (n) => (n === null ? '—' : l10n.compact(n));
-  const exact = (n) => (n === null ? '—' : l10n.number(n));
-  const id = usage.cacheRead === null ? 'session-tokens' : 'session-tokens-cached';
-  return nodeFrom('span', 'session-cost', id, {
-    sent: short(usage.sent),
-    received: short(usage.received),
-    cached: short(usage.cacheRead),
-    sentExact: exact(usage.sent),
-    receivedExact: exact(usage.received),
-    cachedExact: exact(usage.cacheRead),
+  // A reply shows what it sent again only where that is most of what it sent:
+  // where ↑ would otherwise read as new material. Claude re-sends a few tokens
+  // at nearly every call — 16 433 calls, 1 to 99 tokens each, 45 K in all,
+  // 26 September 2026 — which would put "+ 2 resent" on almost every reply.
+  const cost = costFigures(usage, {
+    split: usage.resent !== null && usage.resent * 2 >= usage.sent,
   });
+  cost.title = costTitle(usage);
+  return cost;
+}
+
+/**
+ * A cost, each figure in a span of its own so that each can say on hover what
+ * it is: ↑ what was sent « = » what was new « + » what was sent again, ↓ what
+ * came back « = » its answer « + » its reasoning (the header only), then the
+ * cache read back. Asked 26 September 2026 for an
+ * audience: "↑ 14.9M sent · ↓ 3.1M received" over a 1M window read as
+ * eighteen compactions, where there were five — 9.7M of the 14.9M had been
+ * sent before (contract.js, "What was sent again"). The two signs are the
+ * accent colour: they are the only arithmetic on the line, and the figures
+ * they join the only ones that add up.
+ *
+ * Where the agent's counts cannot tell new from sent again (a session total,
+ * an archive saved before they were), ↑ stands alone. So it does when nothing
+ * was sent again: "= 50K new + 0 resent" would say nothing.
+ *
+ * @param {object} usage  From sessionTokens.
+ * @param {{words?: boolean, split?: boolean, cache?: boolean}} [options]
+ *   `words`: the header's named figures, each with its own explanation on
+ *   hover; otherwise the short forms, the title left to the caller.
+ */
+function costFigures(usage, { split = true, cache = true } = {}) {
+  const parts = costParts(usage, { split });
+  const line = node('span', 'session-cost');
+  line.append(parts.sent, ' · ', parts.received);
+  if (cache && parts.cache) line.append(' · ', parts.cache);
+  return line;
+}
+
+/**
+ * The same figures, apart, for whoever lays them out: the sum of what was sent,
+ * the sum of what came back, the cache read back (null when unmeasured). The
+ * header gives each its own place (headerFacts); a line joins them.
+ */
+function costParts(usage, { words = false, split = true } = {}) {
+  const figure = (id, value) =>
+    nodeFrom('span', 'cost-figure', words ? `convo-${id}` : id, {
+      value: value === null ? '—' : l10n.compact(value),
+      exact: value === null ? '—' : l10n.number(value),
+    });
+  // In the text, for whoever copies it: a sign drawn by CSS alone is not copied.
+  const sign = (text) => node('span', 'cost-sign', text);
+
+  // Each sum is a group that wraps whole, as the header's facts do: a line
+  // breaks between "↑ … = … + …" and "↓ … = … + …", never inside one that fits.
+  const group = (...parts) => {
+    const g = node('span', 'cost-group');
+    g.append(...parts);
+    return g;
+  };
+  const sum = (total, [a, aValue], [b, bValue]) =>
+    group(total, ' ', sign('='), ' ', figure(a, aValue), ' ', sign('+'), ' ', figure(b, bValue));
+
+  const known = usage.fresh !== null;
+  const sent = figure(words && !known ? 'cost-sent-unsplit' : 'cost-sent', usage.sent);
+  // What came back is split in the header only: its answer, and its reasoning.
+  const received = figure('cost-received', usage.received);
+  return {
+    sent:
+      split && known && usage.resent > 0
+        ? sum(sent, ['cost-new', usage.fresh], ['cost-resent', usage.resent])
+        : group(sent),
+    received:
+      words && usage.reasoning > 0
+        ? sum(received, ['cost-answer', usage.answer], ['cost-reasoning', usage.reasoning])
+        : group(received),
+    cache: usage.cacheRead === null ? null : figure('cost-cache', usage.cacheRead),
+  };
+}
+
+/** The exact figures of a cost, one per line, for a hover. */
+function costTitle(usage) {
+  const exact = (n) => (n === null ? '—' : l10n.number(n));
+  const lines = [t('cost-line-sent', { exact: exact(usage.sent) })];
+  if (usage.fresh !== null) {
+    lines.push(t('cost-line-split', { new: exact(usage.fresh), resent: exact(usage.resent) }));
+  }
+  lines.push(t('cost-line-received', { exact: exact(usage.received) }));
+  if (usage.reasoning !== null) {
+    lines.push(
+      t('cost-line-received-split', {
+        answer: exact(usage.answer),
+        reasoning: exact(usage.reasoning),
+      })
+    );
+  }
+  if (usage.cacheRead !== null) lines.push(t('cost-line-cache', { exact: exact(usage.cacheRead) }));
+  return lines.join('\n');
 }
 
 /**
@@ -1210,43 +1287,58 @@ function headerFacts(session, theme) {
     }
   }
 
-  // How much: its messages, then what they cost — one question, one line
-  // (asked 25 September 2026: the count sat with the dates). What is left of
-  // it, when its file is gone, closes the line.
+  // How much: its messages, how many times its context was compacted and what
+  // was read back from the cache — the context, apart from the sums — then what
+  // was sent and what came back, each sum on a line of its own (asked 26 and
+  // 28 September 2026). What is left of it, when its file is gone, closes the
+  // first line.
+  const cost = headerCost(session);
   const amount = node('span', 'meta-row meta-amount');
   amount.append(group('meta-size', 'bubble', t('convo-message-count', { n: session.messageCount })));
-  const cost = headerCost(session);
-  if (cost) amount.append(' ', cost);
+  // How many times its context was compacted — "never" too — only where the
+  // agent writes every compaction (contract.js, writesCompactions). Elsewhere
+  // nothing is said: Antigravity writes a "CHECKPOINT 0" after the first
+  // message of 12 conversations of 15, three messages long for some — no
+  // compaction a reader would recognise.
+  const compactions = state.compactionsKnown ? session.compactions || 0 : null;
+  if (compactions !== null) {
+    const args = { count: compactions };
+    const compacted = group('meta-compactions', 'compress', t('convo-compactions', args));
+    compacted.title = l10n.message('convo-compactions', args).attributes.title;
+    amount.append(' ', compacted);
+  }
+  if (cost && cost.cache) amount.append(' ', group('meta-cache', 'cache', cost.cache));
   if (session.source === 'history') amount.append(' ', text('meta-badge', t('convo-purged')));
   if (session.source === 'archive') amount.append(' ', text('meta-badge', t('convo-saved')));
 
-  return time.childNodes.length ? [context, time, amount] : [context, amount];
+  const rows = time.childNodes.length ? [context, time, amount] : [context, amount];
+  if (cost) {
+    for (const [className, sum] of [['meta-sent', cost.sent], ['meta-received', cost.received]]) {
+      const row = node('span', `meta-row meta-cost ${className}`);
+      row.append(sum);
+      rows.push(row);
+    }
+  }
+  return rows;
 }
 
 /**
- * The conversation's own cost, for its header: the sidebar's figures, named —
- * « envoyés », « reçus » — since the header has the room; exact on hover, with
- * its subagents' cost apart and, for a subagent, the reminder that its figures
- * are a floor.
+ * The conversation's own cost, for its header: the figures named — « envoyés =
+ * nouveaux + renvoyés », « reçus », « relus depuis le cache » — since the
+ * header has the room, each explained on hover with its exact count; its subagents' cost apart
+ * and, for a subagent, the reminder that its figures are a floor.
  */
 function headerCost(session) {
   const usage = sessionTokens(session);
   if (!usage) return null;
-  const short = (n) => (n === null ? '—' : l10n.compact(n));
-  const exact = (n) => (n === null ? '—' : l10n.number(n));
-  const id = usage.cacheRead === null ? 'convo-tokens' : 'convo-tokens-cached';
-  const cost = nodeFrom('span', 'session-cost meta-cost', id, {
-    sent: short(usage.sent),
-    received: short(usage.received),
-    cached: short(usage.cacheRead),
-    sentExact: exact(usage.sent),
-    receivedExact: exact(usage.received),
-    cachedExact: exact(usage.cacheRead),
-  });
+  const parts = costParts(usage, { words: true });
   const sub = subagentTokens(session);
-  const notes = [cost.title, sub && subagentCost(sub), state.usageIsFloor && t('usage-floor')];
-  cost.title = notes.filter(Boolean).join('\n');
-  return cost;
+  const notes = [sub && subagentCost(sub), state.usageIsFloor && t('usage-floor')].filter(Boolean);
+  for (const part of [parts.sent, parts.received, parts.cache].filter(Boolean)) {
+    const figures = part.classList.contains('cost-figure') ? [part] : part.querySelectorAll('.cost-figure');
+    for (const figure of figures) figure.title = [figure.title, ...notes].filter(Boolean).join('\n');
+  }
+  return parts;
 }
 
 function subagentCost(sub) {
@@ -1542,6 +1634,7 @@ async function openSession(sessionId, highlightMessageId = null, { starred = nul
   state.origin = originOf(payload);
   state.subagents = payload.subagents || [];
   state.usageByReply = payload.usageByReply === true;
+  state.compactionsKnown = payload.compactionsKnown === true;
   state.usageIsFloor = Boolean(payload.parent);
   state.currentSessionId = session.id;
   state.currentFolderId = session.folderId;
@@ -1613,6 +1706,8 @@ function replyCost(usage) {
       tokOutput: usage.output,
       tokCacheRead: usage.cacheRead,
       tokCacheWrite: usage.cacheWrite,
+      tokResent: usage.resent,
+      tokReasoning: usage.reasoning,
     })
   );
   if (!cost) return null;

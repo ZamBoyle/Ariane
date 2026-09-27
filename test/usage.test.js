@@ -53,8 +53,15 @@ test('un zéro mesuré reste un zéro, jamais une absence', () => {
   assert.equal(usage.output, null, "ce que l'agent n a pas dit reste null");
 });
 
-test('les cinq champs canoniques, et pas un de plus', () => {
-  const usage = usageOf({ input: 1, output: 2, cacheRead: 3, cacheWrite: 4, reasoning: 5 });
+test('les six champs canoniques, et pas un de plus', () => {
+  const usage = usageOf({
+    input: 1,
+    output: 2,
+    cacheRead: 3,
+    cacheWrite: 4,
+    reasoning: 5,
+    resent: 6,
+  });
   assert.deepEqual(Object.keys(usage), USAGE_FIELDS, 'la forme est celle du contrat');
 });
 
@@ -82,8 +89,8 @@ test('Claude : usage traduit dans les mots du contrat', () => {
 
   assert.deepEqual(
     item.usage,
-    { input: 2, output: 3421, cacheRead: 24641, cacheWrite: 36019, reasoning: 2741 },
-    'les cinq champs viennent des cinq bons endroits'
+    { input: 2, output: 3421, cacheRead: 24641, cacheWrite: 36019, reasoning: 2741, resent: null },
+    'les cinq champs viennent des cinq bons endroits ; le renvoi, seul l’adaptateur le connaît'
   );
   assert.equal(item.model, 'claude-opus-5', 'le modèle voyage avec le coût');
 });
@@ -114,14 +121,21 @@ test('un message de la personne ne porte jamais de coût', () => {
 
 test('un usage stocké revient identique', (t) => {
   const index = indexWithSession(t);
-  const usage = { input: 2, output: 3421, cacheRead: 24641, cacheWrite: 36019, reasoning: 2741 };
+  const usage = {
+    input: 2,
+    output: 3421,
+    cacheRead: 24641,
+    cacheWrite: 36019,
+    reasoning: 2741,
+    resent: 30000,
+  };
 
   index.addMessages('claude:s1', [
     { role: 'assistant', uuid: 'a', text: 'avec', parts: [], model: 'claude-opus-5', usage },
   ]);
 
   const [message] = index.messages('claude:s1');
-  assert.deepEqual(message.usage, usage, 'les cinq comptes traversent la base sans bouger');
+  assert.deepEqual(message.usage, usage, 'les six comptes traversent la base sans bouger');
 });
 
 test('un message sans usage revient avec null, pas avec des zéros', (t) => {

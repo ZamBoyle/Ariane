@@ -24,7 +24,7 @@ const path = require('path');
 const { readRecords } = require('../jsonl');
 const { remember, stampOf } = require('../memo');
 const { extractCodexRecord } = require('./codex-extract');
-const { usageOf, UNKNOWN_FOLDER } = require('./contract');
+const { usageOf, withResent, UNKNOWN_FOLDER } = require('./contract');
 
 const ID = 'codex';
 
@@ -46,6 +46,8 @@ const adapter = {
   // A fork copies the history under the API's own ids, and each old snapshot
   // repeated the whole conversation before it (contract.js).
   globalIds: true,
+  // Every compaction leaves a `compacted` record, kept as a notice below.
+  writesCompactions: true,
   root,
 
   detect(ctx = {}) {
@@ -122,15 +124,33 @@ const adapter = {
     // The model of the turn in progress: Codex names it in turn_context only,
     // never on the reply itself, so every reply gets the one in force.
     let model = resumed.model;
+    // The prompt of the last call, to tell what the next one sent again
+    // (contract.js, "What was sent again").
+    let previous = resumed.previous;
 
     // A line still being written is left to the next pass (jsonl.js).
     for await (const record of readRecords(descriptor.filePath, { start, unfinished: false })) {
       const item = extractCodexRecord(record.value);
+      // A compaction replaces the context: nothing after it is a resend of before.
+      // What it replays is not read (codex-extract.js); THAT it happened is
+      // kept, as Claude's is, so a conversation says how many times its
+      // context was compacted. 51 records, 50 before a prompt that fell by
+      // half; a fork's are its own (5 in 1 of 8, all after its first call).
+      if (record.value && record.value.type === 'compacted') {
+        previous = null;
+        yield {
+          item: compactionNotice(str(record.value.timestamp)),
+          cursor: makeCursor(record.endOffset, total, model, previous),
+        };
+        continue;
+      }
 
       if (item.kind === 'usage') {
         const repeat = total !== null && sameCounts(item.total, total);
         total = item.total;
-        const next = makeCursor(record.endOffset, total, model);
+        let usage = null;
+        if (!repeat) ({ usage, previous } = withResent(usageOfCodex(item.last), previous));
+        const next = makeCursor(record.endOffset, total, model, previous);
         // A repeated count is not counted again; its limits are still read.
         const reading = item.quota ? { quota: item.quota } : {};
         yield repeat
@@ -143,12 +163,12 @@ const adapter = {
               },
               cursor: next,
             }
-          : { item: { kind: 'usage', usage: usageOfCodex(item.last), ...reading }, cursor: next };
+          : { item: { kind: 'usage', usage, ...reading }, cursor: next };
         continue;
       }
 
       if (item.kind === 'meta' && item.model) model = item.model;
-      const next = makeCursor(record.endOffset, total, model);
+      const next = makeCursor(record.endOffset, total, model, previous);
 
       if (item.kind === 'meta') continue; // cwd was resolved during discovery
 
@@ -225,27 +245,31 @@ function usageOfCodex(counts) {
 }
 
 /**
- * "offset", "offset;in,cached,write,out,reasoning" or
- * "offset;in,cached,write,out,reasoning;model" — the last running total seen,
- * then the model in force. Either half may be empty; a cursor written before
- * they existed is a bare offset.
+ * "offset", "offset;in,cached,write,out,reasoning[,prompt]" or the same with
+ * ";model" — the last running total seen, the last call's prompt when one is
+ * known (contract.js, withResent), then the model in force. Either half may be
+ * empty; a cursor written before they existed is a bare offset. The prompt
+ * rides with the counts because the model, last, may hold anything.
  */
-function makeCursor(offset, total, model = '') {
-  const counts = total ? COUNTED.map((k) => Number(total[k]) || 0).join(',') : '';
+function makeCursor(offset, total, model = '', previous = null) {
+  let counts = total ? COUNTED.map((k) => Number(total[k]) || 0).join(',') : '';
+  if (counts && previous != null) counts += `,${previous}`;
   if (!counts && !model) return String(offset);
   return model ? `${offset};${counts};${model}` : `${offset};${counts}`;
 }
 
 function parseCursor(cursor) {
-  if (cursor == null) return { offset: 0, total: null, model: '' };
+  if (cursor == null) return { offset: 0, total: null, model: '', previous: null };
   const [offset, counts = '', ...rest] = String(cursor).split(';');
   const model = rest.join(';');
-  if (!counts) return { offset: Number(offset), total: null, model };
-  const values = counts.split(',').map(Number);
+  if (!counts) return { offset: Number(offset), total: null, model, previous: null };
+  const values = counts.split(',');
+  const prompt = values[COUNTED.length];
   return {
     offset: Number(offset),
-    total: Object.fromEntries(COUNTED.map((k, i) => [k, values[i] || 0])),
+    total: Object.fromEntries(COUNTED.map((k, i) => [k, Number(values[i]) || 0])),
     model,
+    previous: prompt ? Number(prompt) : null,
   };
 }
 
@@ -370,6 +394,32 @@ function timestampFromName(file) {
 
 function withFallbackTime(item, descriptor) {
   return item.timestamp ? item : { ...item, timestamp: descriptor.startedAt || '' };
+}
+
+/**
+ * That the context was compacted here, as Claude's `compact_boundary` says it:
+ * a notice nobody wrote, under the code the screen names in every language.
+ */
+function compactionNotice(timestamp) {
+  const text = 'Conversation compacted';
+  return {
+    kind: 'message',
+    role: 'assistant',
+    uuid: '',
+    parentUuid: null,
+    timestamp,
+    cwd: '',
+    gitBranch: '',
+    version: '',
+    model: '',
+    text,
+    thinking: '',
+    parts: [{ type: 'text', text }],
+    isMeta: false,
+    isNotice: true,
+    isSidechain: false,
+    command: { name: 'compact-boundary', args: '' },
+  };
 }
 
 function toolMessage(part, timestamp) {

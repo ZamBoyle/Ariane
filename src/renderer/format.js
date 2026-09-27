@@ -556,11 +556,18 @@ export function modelMarks(messages) {
  * What a conversation cost, as three figures that each mean one thing — or
  * null when its assistant recorded nothing at all.
  *
- *   sent       input + cacheWrite: what was new in the prompts. Fresh input
+ *   sent       input + cacheWrite: what the prompts sent. Fresh input
  *              alone is a few hundred tokens for a whole conversation
  *              (median 170) because Claude sends nearly everything new through
  *              the cache; its writes are the real material (median 166 K).
- *   received   output, reasoning included (median 78 K).
+ *              Split in two where the agent allows it: `resent`, what an
+ *              earlier call had already sent and the lost cache made it send
+ *              again, and `fresh`, the rest. On a five-day conversation, 9.7 M
+ *              of 14.9 M were sent again; only 5.2 M were new.
+ *   received   output, reasoning included (median 78 K). Split too, where
+ *              every reply counted it: `answer`, what the conversation shows,
+ *              and `reasoning`, what the model thought first — often more than
+ *              half, and for Claude kept only encrypted.
  *   cacheRead  the context read back at every call — kept apart on purpose.
  *              It is 97.8 % of the total (median 5.9 M, up to 1.01 G); folded
  *              into "sent", it would claim a billion were sent. That is the
@@ -576,10 +583,20 @@ export function sessionTokens(session) {
   const output = measured(session.tokOutput);
   const cacheRead = measured(session.tokCacheRead);
   const cacheWrite = measured(session.tokCacheWrite);
+  const resent = measured(session.tokResent);
   if ([input, output, cacheRead, cacheWrite].every((v) => v === null)) return null;
 
   const sent = input === null && cacheWrite === null ? null : (input ?? 0) + (cacheWrite ?? 0);
-  return { sent, received: output, cacheRead, input, cacheWrite };
+  // What was new, once what was sent again is taken out — known only where the
+  // agent writes each call's counts (contract.js, "What was sent again").
+  const fresh = sent !== null && resent !== null ? Math.max(0, sent - resent) : null;
+  // What came back, split the same way — its answer, and its reasoning — only
+  // when every reply counted its reasoning: Claude wrote no such count before
+  // August 2026, not even for replies that thought, and an absence is not zero.
+  const counted = measured(session.tokReasoning);
+  const reasoning = counted !== null && !session.reasoningMissing && output !== null ? counted : null;
+  const answer = reasoning !== null ? Math.max(0, output - reasoning) : null;
+  return { sent, received: output, cacheRead, input, cacheWrite, resent, fresh, reasoning, answer };
 }
 
 /**
@@ -593,6 +610,7 @@ export function subagentTokens(session) {
     tokOutput: session.subOutput,
     tokCacheRead: session.subCacheRead,
     tokCacheWrite: session.subCacheWrite,
+    tokResent: session.subResent,
   });
   return {
     count: session.subagents,
@@ -901,7 +919,7 @@ export function groupMessages(messages) {
   return out;
 }
 
-const USAGE_KEYS = ['input', 'output', 'cacheRead', 'cacheWrite', 'reasoning'];
+const USAGE_KEYS = ['input', 'output', 'cacheRead', 'cacheWrite', 'reasoning', 'resent'];
 
 /** Two counts added field by field; a field neither measured stays null. */
 export function sumUsage(a, b) {

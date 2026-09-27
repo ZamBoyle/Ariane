@@ -37,7 +37,7 @@ const path = require('path');
 
 const { readRecords } = require('../jsonl');
 const { extractGenAiContent } = require('./genai-extract');
-const { usageOf } = require('./contract');
+const { usageOf, withResent } = require('./contract');
 const { remember, stampOf } = require('../memo');
 
 const ID = 'gemini';
@@ -140,8 +140,17 @@ const adapter = {
       ? await readLegacyMessages(descriptor.filePath)
       : await replayLog(descriptor.filePath);
 
+    // The prompt of the last reply, to tell what the next one sent again
+    // (contract.js, "What was sent again"). Gemini writes no compaction that
+    // Ariane knows of, and none of its prompts was seen to shrink.
+    let previous = null;
     for (const raw of messages) {
-      const item = toItem(raw, descriptor);
+      let item = toItem(raw, descriptor);
+      if (item && item.usage) {
+        let usage;
+        ({ usage, previous } = withResent(item.usage, previous));
+        item = { ...item, usage };
+      }
       if (item) yield { item, cursor: null };
     }
   },

@@ -644,6 +644,41 @@ test.describe('what a conversation cost', () => {
     const usage = F.sessionTokens({ tokInput: 0, tokOutput: 0, tokCacheRead: 0, tokCacheWrite: 0 });
     assert.deepEqual([usage.sent, usage.received, usage.cacheRead], [0, 0, 0]);
   });
+
+  // The conversation that asked for it, 26 September 2026: 14.9 M sent, of
+  // which 9.7 M had been sent before — five compactions, not eighteen.
+  test('what was sent splits into what was new and what was sent again', () => {
+    const usage = F.sessionTokens({
+      tokInput: 6508, tokOutput: 3058823, tokCacheRead: 1569198435, tokCacheWrite: 14928439,
+      tokResent: 9714414,
+    });
+    assert.equal(usage.sent, 14934947, 'the total stays what it was');
+    assert.equal(usage.resent, 9714414);
+    assert.equal(usage.fresh, 5220533, 'new is what is left once the resend is taken out');
+  });
+
+  // Ours, 26 September 2026: 229 966 received, 109 675 of them reasoning.
+  test('what came back splits into its answer and its reasoning, where every reply counted it', () => {
+    const usage = F.sessionTokens({
+      tokInput: 1, tokOutput: 229966, tokCacheRead: 5, tokCacheWrite: 7,
+      tokReasoning: 109675, reasoningMissing: 0,
+    });
+    assert.equal(usage.reasoning, 109675);
+    assert.equal(usage.answer, 120291, 'the answer is what is left once the reasoning is out');
+    // Claude wrote no reasoning count before August 2026, even for replies that thought.
+    const partial = F.sessionTokens({ tokOutput: 229966, tokReasoning: 109675, reasoningMissing: 3 });
+    assert.equal(partial.reasoning, null, 'one reply silent on it, and the split would be a guess');
+    assert.equal(partial.answer, null);
+    assert.equal(F.sessionTokens({ tokOutput: 10 }).reasoning, null, 'never counted is not zero');
+  });
+
+  test('where the agent cannot tell them apart, nothing is split', () => {
+    // Copilot writes a session total; an archive saved before the column had none.
+    const usage = F.sessionTokens({ tokInput: 100, tokOutput: 20, tokCacheRead: 5, tokCacheWrite: 7 });
+    assert.equal(usage.sent, 107);
+    assert.equal(usage.resent, null, 'unknown, not zero');
+    assert.equal(usage.fresh, null, 'and so no figure claims to be only what was new');
+  });
 });
 
 test.describe('display helpers', () => {
@@ -874,6 +909,7 @@ test.describe('grouping tool machinery', () => {
       cacheRead: 600,
       cacheWrite: 30,
       reasoning: null,
+      resent: null,
     });
   });
 
@@ -935,6 +971,7 @@ test.describe('grouping tool machinery', () => {
       cacheRead: null,
       cacheWrite: null,
       reasoning: null,
+      resent: null,
     });
   });
 

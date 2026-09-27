@@ -47,7 +47,7 @@ function summarize(rows, { speakerOf, hasContent, modelName }) {
   const folders = new Set();
   const measured = new Set();
   const speakers = { you: 0, assistant: 0, tools: 0, notices: 0, empty: 0, masked: 0 };
-  const tokens = { sent: 0, received: 0, cacheRead: 0 };
+  const tokens = { sent: 0, received: 0, cacheRead: 0, resent: 0 };
   const agents = new Map();
   const models = new Map();
   const months = new Map();
@@ -110,9 +110,11 @@ function summarize(rows, { speakerOf, hasContent, modelName }) {
       measured.add(row.sessionId);
       agent.measured.add(row.sessionId);
       for (const key of Object.keys(tokens)) {
-        tokens[key] += cost[key];
-        agent[key] += cost[key];
+        tokens[key] += cost[key] ?? 0;
+        agent[key] += cost[key] ?? 0;
       }
+      // Whether this assistant's counts tell what was sent again at all.
+      if (cost.resent !== null) agent.split = true;
     }
 
     const month = monthOf(row.at);
@@ -147,6 +149,8 @@ function summarize(rows, { speakerOf, hasContent, modelName }) {
         sent: a.measured.size ? a.sent : null,
         received: a.measured.size ? a.received : null,
         cacheRead: a.measured.size ? a.cacheRead : null,
+        resent: a.split ? a.resent : null,
+        split: a.split,
       }))
       .sort((a, b) => b.replies - a.replies || a.agentId.localeCompare(b.agentId)),
     models: [...models]
@@ -178,6 +182,8 @@ function agentEntry(agents, agentId) {
       sent: 0,
       received: 0,
       cacheRead: 0,
+      resent: 0,
+      split: false,
     };
     agents.set(agentId, entry);
   }
@@ -185,9 +191,11 @@ function agentEntry(agents, agentId) {
 }
 
 /**
- * The three figures of the token line (format.js, sessionTokens): what was new
- * in the prompts, what came back, and the context read again — never folded
- * together. Null when the message carries no count at all.
+ * The figures of the token line (format.js, sessionTokens): what the prompts
+ * sent, what came back, and the context read again — never folded together —
+ * and the part of what was sent that had been sent before, null where the
+ * agent's counts cannot tell (contract.js, "What was sent again"). Null when
+ * the message carries no count at all.
  */
 function costOf(row) {
   const known = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -198,6 +206,7 @@ function costOf(row) {
       (known(row.tokInput) ? row.tokInput : 0) + (known(row.tokCacheWrite) ? row.tokCacheWrite : 0),
     received: known(row.tokOutput) ? row.tokOutput : 0,
     cacheRead: known(row.tokCacheRead) ? row.tokCacheRead : 0,
+    resent: known(row.tokResent) ? row.tokResent : null,
   };
 }
 

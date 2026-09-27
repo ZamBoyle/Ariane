@@ -284,8 +284,20 @@ test('le résumé d’une ligne met les jetons des sous-agents dans les mêmes t
       subOutput: 177,
       subCacheRead: 1000,
       subCacheWrite: 50,
+      subResent: 30,
     }),
-    { count: 3, sent: 52, received: 177, cacheRead: 1000, input: 2, cacheWrite: 50 }
+    {
+      count: 3,
+      sent: 52,
+      received: 177,
+      cacheRead: 1000,
+      input: 2,
+      cacheWrite: 50,
+      resent: 30,
+      fresh: 22,
+      reasoning: null,
+      answer: null,
+    }
   );
   assert.deepEqual(
     subagentTokens({

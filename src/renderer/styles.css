@@ -634,14 +634,30 @@ button.stats:focus-visible {
   order: 1;
 }
 
-/* L'identifiant de la conversation, tout en haut : une ligne à lui sur toute
-   la largeur de l'en-tête — dans la colonne du titre, les boutons le coupaient.
-   Discret, à chasse fixe, sélectionnable pour être copié. Des données, pas une
-   phrase. La marge négative rend l'écart de l'en-tête (12 px) au titre. */
-.convo-id {
-  flex-basis: 100%;
+/* Le titre, et l'identifiant de la conversation à sa droite quand la place le
+   permet — dessous sinon (demandé le 28 septembre 2026). Le 25, il avait quitté
+   la ligne du titre parce que les boutons le coupaient : ici, ni l'un ni
+   l'autre n'est coupé pour l'autre, puisque l'identifiant passe à la ligne
+   plutôt que de rétrécir. Deux éléments côte à côte, pas un seul texte : le
+   titre reste le titre, et l'identifiant se sélectionne seul. */
+.convo-heading {
+  flex: 1;
   min-width: 0;
-  margin: 0 0 -9px;
+  align-self: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 12px;
+  row-gap: 2px;
+}
+
+/* Discret, à chasse fixe, sélectionnable pour être copié. Des données, pas une
+   phrase. */
+.convo-id {
+  flex: none;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
   font-family: var(--mono);
   font-size: 11px;
   color: var(--text-faint);
@@ -652,9 +668,8 @@ button.stats:focus-visible {
 }
 
 .convo-title {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
-  align-self: center;
   margin: 0;
   font-size: 15px;
   font-weight: 600;
@@ -737,6 +752,28 @@ button.stats:focus-visible {
 
 .meta-cost {
   font-variant-numeric: tabular-nums;
+}
+
+/* Un chiffre ne se coupe pas en deux : la ligne passe à la suivante entre deux
+   chiffres, jamais entre « 9,7M » et « renvoyés ». */
+.cost-figure {
+  white-space: nowrap;
+}
+
+/* Une somme — « ↑ … = … + … », « ↓ … = … + … » — passe à la ligne d'un bloc,
+   comme les faits de l'en-tête ; elle ne se coupe que si elle est à elle seule
+   plus large que la ligne. */
+.cost-group {
+  display: inline-block;
+}
+
+/* Les deux seuls signes de calcul de la ligne — envoyés = nouveaux + renvoyés —,
+   dans la couleur d'accent : ce sont les seuls chiffres qui s'additionnent, et
+   l'œil ne doit pas étendre l'addition aux reçus ni au cache (demandé le
+   26 septembre 2026). */
+.cost-sign {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .ghost-btn {

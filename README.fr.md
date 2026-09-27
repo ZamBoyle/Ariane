@@ -81,8 +81,12 @@ deux par cinq d'entre eux :
   une mise à jour d'Ariane ne peut pas les effacer.
 - **Ce que coûte chaque message** : sous chaque réponse, les jetons envoyés, reçus et relus depuis
   le cache — la même ligne que sous le nom de la conversation, et celle de toute la conversation en
-  haut de celle-ci. De quoi montrer, en formation, que le contexte relu à chaque tour pèse bien plus
-  que la réponse elle-même.
+  haut de celle-ci, où les envoyés se partagent : **envoyés = nouveaux + renvoyés**, ce dernier
+  chiffre étant le contexte que le cache, perdu après une pause, a fait envoyer une nouvelle fois ;
+  et **reçus = réponse + raisonnement**, ce que le modèle a pensé avant d'écrire, payé sans être lu.
+  Chaque chiffre s'explique au survol, et l'en-tête dit combien de fois le contexte a été compacté.
+  De quoi montrer, en formation, que le contexte relu à chaque tour pèse bien plus que la réponse
+  elle-même.
 - **Des statistiques** : qui a écrit quoi — les messages que vous avez tapés, les réponses, les
   sorties d'outils —, puis les jetons envoyés, reçus et relus depuis le cache, mois par mois, par
   assistant, par modèle et par dossier. Elles disent combien de conversations ont vraiment été

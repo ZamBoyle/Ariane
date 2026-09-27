@@ -291,6 +291,11 @@ function registerIpc({ userDataDir, onSplashClose: closer = null }) {
       // Whether a count may be shown beside each reply: not where the agent
       // only writes what a whole session cost (contract.js, usagePerSession).
       usageByReply: !(registry.byId(session.agentId) || {}).usagePerSession,
+      // Whether a conversation holding no compaction was never compacted: only
+      // where the agent writes every one, and its transcript was read.
+      compactionsKnown:
+        Boolean((registry.byId(session.agentId) || {}).writesCompactions) &&
+        session.source !== 'history',
       messages,
       // Row ids change at every rebuild, so a starred message is resolved here,
       // against the conversation as it stands now (core/marks.js).

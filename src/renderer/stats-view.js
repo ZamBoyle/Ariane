@@ -132,8 +132,19 @@ function whoWrote(data, { t, l10n }) {
 function tokens(data, { t, l10n, agentLabel }) {
   const section = block(t('stats-tokens'));
   const row = el('div', 'stat-tiles');
+  // What was sent, then the same in two — what was new, and what an earlier
+  // call had already sent (contract.js, "What was sent again") — as the
+  // conversation's header says it. Only when some assistant's counts tell.
+  const split = data.agents.some((a) => a.split);
+  const parts = split
+    ? [
+        ['stats-new', data.tokens.sent - data.tokens.resent],
+        ['stats-resent', data.tokens.resent],
+      ]
+    : [];
   for (const [id, value] of [
     ['stats-sent', data.tokens.sent],
+    ...parts,
     ['stats-received', data.tokens.received],
     ['stats-cache', data.tokens.cacheRead],
   ]) {
@@ -166,6 +177,20 @@ function tokens(data, { t, l10n, agentLabel }) {
           received: l10n.compact(sub.received),
           cached: l10n.compact(sub.cacheRead),
         })
+      )
+    );
+  }
+
+  // Say whose resends are not known: their whole sent count sits among the new.
+  const unsplit = data.agents
+    .filter((a) => a.measuredSessions > 0 && !a.split)
+    .map((a) => agentLabel(a.agentId));
+  if (split && unsplit.length) {
+    section.append(
+      el(
+        'p',
+        'stats-note',
+        t('stats-unsplit', { agents: l10n.list(unsplit), count: unsplit.length })
       )
     );
   }

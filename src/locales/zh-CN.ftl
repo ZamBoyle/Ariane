@@ -66,15 +66,16 @@ session-summary = { $when } · { $count ->
     }
 
 session-models = { $model } +{ $more }
-session-tokens = ↑ { $sent } · ↓ { $received }
-    .title =
-        发送：提示词中的新 token { $sentExact } 个
-        接收：{ $receivedExact } 个 token
-session-tokens-cached = ↑ { $sent } · ↓ { $received } · 缓存 { $cached }
-    .title =
-        发送：提示词中的新 token { $sentExact } 个
-        接收：{ $receivedExact } 个 token
-        从缓存重读：{ $cachedExact } 个 token，即每轮重新发送的上下文
+cost-new = 新增 { $value }
+cost-sent = ↑ { $value }
+cost-resent = 重发 { $value }
+cost-received = ↓ { $value }
+cost-cache = 缓存 { $value }
+cost-line-sent = 发送：{ $exact } 个 token
+cost-line-split = = 新增 { $new } + 重发 { $resent }
+cost-line-received = 接收：{ $exact } 个 token
+cost-line-received-split = = 回答 { $answer } + 推理 { $reasoning }
+cost-line-cache = 从缓存重读：{ $exact } 个 token
 session-tokens-subagents = 另有 { $count } 个子代理：发送 { $sent }，至少接收 { $received }，从缓存重新读取 { $cached }
 
 ## 页脚与索引
@@ -115,15 +116,44 @@ convo-empty = 此对话中没有可显示的消息。
 convo-not-found = 未找到对话。
 convo-id =
     .title = 此对话的 ID——其助手用来恢复它的标识
-convo-tokens = ↑ { $sent } 已发送 · ↓ { $received } 已接收
+convo-cost-new = { $value } 新增
     .title =
-        发送：提示词中的新 token { $sentExact } 个
-        接收：{ $receivedExact } 个 token
-convo-tokens-cached = ↑ { $sent } 已发送 · ↓ { $received } 已接收 · 从缓存重读 { $cached }
+        每次调用为上下文新增的内容：你的消息、工具结果、之前的回复。
+        { $exact } 个 token
+convo-cost-resent = { $value } 重发
     .title =
-        发送：提示词中的新 token { $sentExact } 个
-        接收：{ $receivedExact } 个 token
-        从缓存重读：{ $cachedExact } 个 token，即每轮重新发送的上下文
+        已经发送过的上下文，因缓存失效而再次发送：缓存在暂停后会过期，而且每个模型各有自己的缓存。其中没有新内容。
+        { $exact } 个 token
+convo-cost-sent = ↑ { $value } 已发送
+    .title =
+        提示词发送的全部内容：新增的部分，加上之前的调用已发送过、但缓存已失效的部分。
+        { $exact } 个 token
+convo-cost-sent-unsplit = ↑ { $value } 已发送
+    .title =
+        提示词发送的内容：新的输入，以及写入缓存的内容。其中有多少是重发的，这里无法得知。
+        { $exact } 个 token
+convo-cost-received = ↓ { $value } 已接收
+    .title =
+        模型写出的内容，包括推理。每条回复都会在下一次调用时回到上下文中，并在那里再次被计数：请勿与其他数字相加。
+        { $exact } 个 token
+convo-cost-answer = 回答 { $value }
+    .title =
+        模型的回答：文本和工具调用——即对话中显示的内容。
+        { $exact } 个 token
+convo-cost-reasoning = 推理 { $value }
+    .title =
+        模型在回答前的思考：与其他内容一样计数和计费，即使助手没有以可读形式保存——Claude 只保存加密后的版本。
+        { $exact } 个 token
+convo-cost-cache = 从缓存重读 { $value }
+    .title =
+        缓存：每次调用时，助手都会把整个对话发送给模型。服务商会保留刚处理过的内容并直接重读，而不是重新处理——更快，计费也只是一小部分。
+        每次调用都会重读之前的全部内容：这个数字随对话长度增长，而不是随对话内容增长。
+        { $exact } 个 token
+convo-compactions = { $count ->
+        [0] 上下文从未压缩
+       *[other] 上下文已压缩 { $count } 次
+    }
+    .title = 上下文有最大长度。满了之后，助手会用一段摘要替换它并继续：这就是压缩。
 convo-branch =
     .title = Git 分支
 folder-unknown = 未知文件夹
@@ -420,14 +450,19 @@ stats-records = 侧栏共计 { $records } 条记录，其中 { $empty } 条没�
 stats-masked = 其中 { $masked } 条是 Claude 如今只以加密形式保存的推理，只剩下一个签名。
 stats-tokens = Token
 stats-sent = ↑ 发送
-    .title = 提示词中的新内容：新的输入，以及写入缓存的部分
+    .title = 提示词发送的全部内容：新的输入和写入缓存的内容——包括新增部分和重发部分
+stats-new = 新增
+    .title = 每次调用为上下文新增的内容：消息、工具结果、之前的回复
+stats-resent = 重发
+    .title = 已经发送过的上下文，因缓存失效而再次发送——在暂停或更换模型之后
 stats-received = ↓ 接收
     .title = 助手写下的内容，包括推理
 stats-cache = 从缓存重读
-    .title = 每轮重新发送的上下文——单独列出，从不与其他数字相加
+    .title = 每次调用时重读、而非重新处理的上下文——单独列出，从不与其他数字相加
 stats-exact = { $value } 个 token
 stats-coverage = 在 { $total } 个对话中的 { $measured } 个里有计量。
 stats-uncovered = { $agents } 没有记录 Ariane 能读取的 token 数。
+stats-unsplit = { $agents } 每个对话只记录一个总数：重发了多少无法得知，这里计为新增。
 stats-subagents = 另有 { $count } 个子代理发送了 { $sent } 个 token，至少接收了 { $received } 个，并从缓存重新读取了 { $cached } 个。它们未计入上方数字：子代理的记录并不总是保留最终计数。
 stats-months = 按月
 stats-measure-you = 你的消息

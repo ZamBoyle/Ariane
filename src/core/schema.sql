@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS messages (
   tok_cache_read  INTEGER,
   tok_cache_write INTEGER,
   tok_reasoning   INTEGER,
+  tok_resent      INTEGER,
   text         TEXT NOT NULL DEFAULT '',
   thinking     TEXT NOT NULL DEFAULT '',
   parts        TEXT NOT NULL DEFAULT '[]',

@@ -67,15 +67,16 @@ session-summary = { $when } · { $count ->
     }
 
 session-models = { $model } +{ $more }
-session-tokens = ↑ { $sent } · ↓ { $received }
-    .title =
-        Verzonden: { $sentExact } nieuwe tokens in de prompts
-        Ontvangen: { $receivedExact } tokens
-session-tokens-cached = ↑ { $sent } · ↓ { $received } · cache { $cached }
-    .title =
-        Verzonden: { $sentExact } nieuwe tokens in de prompts
-        Ontvangen: { $receivedExact } tokens
-        Uit de cache herlezen: { $cachedExact } tokens, de context die elke beurt opnieuw wordt verzonden
+cost-new = { $value } nieuw
+cost-sent = ↑ { $value }
+cost-resent = { $value } opnieuw verzonden
+cost-received = ↓ { $value }
+cost-cache = cache { $value }
+cost-line-sent = Verzonden: { $exact } tokens
+cost-line-split = = { $new } nieuw + { $resent } opnieuw verzonden
+cost-line-received = Ontvangen: { $exact } tokens
+cost-line-received-split = = { $answer } antwoord + { $reasoning } redeneren
+cost-line-cache = Uit de cache herlezen: { $exact } tokens
 session-tokens-subagents = { $count ->
     [one] Daarbovenop zijn subagent: { $sent } verzonden, minstens { $received } ontvangen, { $cached } opnieuw uit de cache gelezen
    *[other] Daarbovenop zijn { $count } subagents: { $sent } verzonden, minstens { $received } ontvangen, { $cached } opnieuw uit de cache gelezen
@@ -128,15 +129,45 @@ convo-empty = Dit gesprek bevat geen enkel bericht dat getoond kan worden.
 convo-not-found = Gesprek niet gevonden.
 convo-id =
     .title = De id van dit gesprek — waarmee de assistent het hervat
-convo-tokens = ↑ { $sent } verzonden · ↓ { $received } ontvangen
+convo-cost-new = { $value } nieuw
     .title =
-        Verzonden: { $sentExact } nieuwe tokens in de prompts
-        Ontvangen: { $receivedExact } tokens
-convo-tokens-cached = ↑ { $sent } verzonden · ↓ { $received } ontvangen · { $cached } opnieuw uit de cache gelezen
+        Wat elke aanroep aan de context toevoegde: je berichten, de resultaten van tools, de eerdere antwoorden.
+        { $exact } tokens
+convo-cost-resent = { $value } opnieuw verzonden
     .title =
-        Verzonden: { $sentExact } nieuwe tokens in de prompts
-        Ontvangen: { $receivedExact } tokens
-        Uit de cache herlezen: { $cachedExact } tokens, de context die elke beurt opnieuw wordt verzonden
+        Context die al verzonden was, nog eens verzonden omdat de cache hem kwijt was: die verloopt na een pauze, en elk model heeft zijn eigen. Niets nieuws erin.
+        { $exact } tokens
+convo-cost-sent = ↑ { $value } verzonden
+    .title =
+        Alles wat de prompts verzonden: wat nieuw was, plus wat een eerdere aanroep al had verzonden en de cache kwijt was.
+        { $exact } tokens
+convo-cost-sent-unsplit = ↑ { $value } verzonden
+    .title =
+        Wat de prompts verzonden: nieuwe invoer en wat naar de cache werd geschreven. Hoeveel daarvan opnieuw werd verzonden, is hier niet bekend.
+        { $exact } tokens
+convo-cost-received = ↓ { $value } ontvangen
+    .title =
+        Wat het model schreef, redeneren inbegrepen. Elk antwoord gaat bij de volgende aanroep terug in de context, waar het opnieuw wordt geteld: niet bij de rest optellen.
+        { $exact } tokens
+convo-cost-answer = { $value } antwoord
+    .title =
+        Wat het model antwoordde: zijn tekst en zijn toolaanroepen — wat het gesprek toont.
+        { $exact } tokens
+convo-cost-reasoning = { $value } redeneren
+    .title =
+        Wat het model dacht voordat het antwoordde: geteld en gefactureerd zoals de rest, ook als de assistent het niet leesbaar bewaart — Claude bewaart het alleen versleuteld.
+        { $exact } tokens
+convo-cost-cache = { $value } uit de cache herlezen
+    .title =
+        De cache: bij elke aanroep stuurt de assistent het hele gesprek naar het model. De aanbieder bewaart wat hij net heeft verwerkt en leest het opnieuw in plaats van het opnieuw te verwerken — sneller, en gefactureerd tegen een fractie van de prijs.
+        Elke aanroep herleest alles wat eraan voorafgaat: dit getal groeit met de lengte van het gesprek, niet met wat erin wordt gezegd.
+        { $exact } tokens
+convo-compactions = { $count ->
+        [0] context nooit gecomprimeerd
+        [one] context één keer gecomprimeerd
+       *[other] context { $count } keer gecomprimeerd
+    }
+    .title = Een context heeft een maximale grootte. Als hij vol is, vervangt de assistent hem door een samenvatting en gaat door: dat is een compressie.
 convo-branch =
     .title = Git-branch
 folder-unknown = Onbekende map
@@ -456,17 +487,25 @@ stats-records = De zijbalk telt { $records } records: { $empty } daarvan bevatte
 stats-masked = Daarvan zijn er { $masked } redeneringen die Claude alleen nog versleuteld bewaart: er rest alleen een handtekening.
 stats-tokens = Tokens
 stats-sent = ↑ Verzonden
-    .title = Nieuw in de prompts: verse invoer en wat naar de cache is geschreven
+    .title = Alles wat de prompts verzonden: nieuwe invoer en wat naar de cache werd geschreven — het nieuwe en het al verzondene
+stats-new = Nieuw
+    .title = Wat elke aanroep aan de context toevoegde: berichten, resultaten van tools, de eerdere antwoorden
+stats-resent = Opnieuw verzonden
+    .title = Context die al verzonden was, nog eens verzonden omdat de cache hem kwijt was — na een pauze of een modelwissel
 stats-received = ↓ Ontvangen
     .title = Wat de assistenten schreven, redenering inbegrepen
 stats-cache = Uit de cache herlezen
-    .title = De context die elke beurt opnieuw wordt verzonden — apart gehouden, nooit bij de rest opgeteld
+    .title = De context die bij elke aanroep wordt herlezen in plaats van opnieuw verwerkt — apart gehouden, nooit bij de rest opgeteld
 stats-exact = { $value } tokens
 stats-coverage = Gemeten in { $measured } van de { $total } gesprekken.
 stats-uncovered = { $agents } { $count ->
         [one] registreert
        *[other] registreren
     } geen tokens die Ariane kan lezen.
+stats-unsplit = { $agents } { $count ->
+        [one] registreert maar één totaal per gesprek: wat opnieuw werd verzonden is niet bekend en telt hier als nieuw.
+       *[other] registreren maar één totaal per gesprek: wat opnieuw werd verzonden is niet bekend en telt hier als nieuw.
+    }
 stats-subagents = { $count ->
     [one] Eén subagent verzond daarnaast { $sent } tokens, ontving er minstens { $received } en las er { $cached } opnieuw uit de cache. Hij is hierboven niet meegeteld: het transcript van een subagent bewaart niet altijd zijn laatste telling.
    *[other] { $count } subagents verzonden daarnaast { $sent } tokens, ontvingen er minstens { $received } en lazen er { $cached } opnieuw uit de cache. Ze zijn hierboven niet meegeteld: het transcript van een subagent bewaart niet altijd zijn laatste telling.

@@ -130,6 +130,7 @@ const TOKEN_COLUMNS = [
   'tok_cache_read',
   'tok_cache_write',
   'tok_reasoning',
+  'tok_resent',
 ];
 
 /**

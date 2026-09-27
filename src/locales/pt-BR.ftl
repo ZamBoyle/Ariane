@@ -67,15 +67,16 @@ session-summary = { $when } · { $count ->
     }
 
 session-models = { $model } +{ $more }
-session-tokens = ↑ { $sent } · ↓ { $received }
-    .title =
-        Enviados: { $sentExact } tokens novos nos prompts
-        Recebidos: { $receivedExact } tokens
-session-tokens-cached = ↑ { $sent } · ↓ { $received } · cache { $cached }
-    .title =
-        Enviados: { $sentExact } tokens novos nos prompts
-        Recebidos: { $receivedExact } tokens
-        Relidos do cache: { $cachedExact } tokens, o contexto reenviado a cada turno
+cost-new = { $value } novos
+cost-sent = ↑ { $value }
+cost-resent = { $value } reenviados
+cost-received = ↓ { $value }
+cost-cache = cache { $value }
+cost-line-sent = Enviados: { $exact } tokens
+cost-line-split = = { $new } novos + { $resent } reenviados
+cost-line-received = Recebidos: { $exact } tokens
+cost-line-received-split = = { $answer } de resposta + { $reasoning } de raciocínio
+cost-line-cache = Relidos do cache: { $exact } tokens
 session-tokens-subagents = { $count ->
     [one] Além disso, seu subagente: { $sent } enviados, pelo menos { $received } recebidos, { $cached } relidos do cache
    *[other] Além disso, seus { $count } subagentes: { $sent } enviados, pelo menos { $received } recebidos, { $cached } relidos do cache
@@ -128,15 +129,45 @@ convo-empty = Esta conversa não tem nenhuma mensagem que possa ser exibida.
 convo-not-found = Conversa não encontrada.
 convo-id =
     .title = O identificador desta conversa — aquele pelo qual o assistente a retoma
-convo-tokens = ↑ { $sent } enviados · ↓ { $received } recebidos
+convo-cost-new = { $value } novos
     .title =
-        Enviados: { $sentExact } tokens novos nos prompts
-        Recebidos: { $receivedExact } tokens
-convo-tokens-cached = ↑ { $sent } enviados · ↓ { $received } recebidos · { $cached } relidos do cache
+        O que cada chamada acrescentou ao contexto: suas mensagens, os resultados das ferramentas, as respostas anteriores.
+        { $exact } tokens
+convo-cost-resent = { $value } reenviados
     .title =
-        Enviados: { $sentExact } tokens novos nos prompts
-        Recebidos: { $receivedExact } tokens
-        Relidos do cache: { $cachedExact } tokens, o contexto reenviado a cada turno
+        Contexto já enviado, enviado de novo porque o cache o havia perdido: ele expira após uma pausa, e cada modelo tem o seu. Nada de novo nele.
+        { $exact } tokens
+convo-cost-sent = ↑ { $value } enviados
+    .title =
+        Tudo o que os prompts enviaram: o que era novo, mais o que uma chamada anterior já havia enviado e o cache havia perdido.
+        { $exact } tokens
+convo-cost-sent-unsplit = ↑ { $value } enviados
+    .title =
+        O que os prompts enviaram: a entrada nova e o que foi escrito no cache. Quanto disso foi reenviado não se sabe aqui.
+        { $exact } tokens
+convo-cost-received = ↓ { $value } recebidos
+    .title =
+        O que o modelo escreveu, raciocínio incluído. Cada resposta volta ao contexto na chamada seguinte, onde é contada de novo: não somá-la ao resto.
+        { $exact } tokens
+convo-cost-answer = { $value } de resposta
+    .title =
+        O que o modelo respondeu: seu texto e suas chamadas de ferramentas — o que a conversa mostra.
+        { $exact } tokens
+convo-cost-reasoning = { $value } de raciocínio
+    .title =
+        O que o modelo pensou antes de responder: contado e cobrado como o resto, mesmo quando o assistente não o guarda legível — o Claude só o guarda cifrado.
+        { $exact } tokens
+convo-cost-cache = { $value } relidos do cache
+    .title =
+        O cache: a cada chamada, o assistente envia a conversa inteira ao modelo. O provedor guarda o que acabou de processar e o relê em vez de processá-lo de novo — mais rápido, e cobrado por uma fração do preço.
+        Cada chamada relê tudo o que veio antes: este número cresce com o tamanho da conversa, não com o que se diz nela.
+        { $exact } tokens
+convo-compactions = { $count ->
+        [0] contexto nunca compactado
+        [one] contexto compactado uma vez
+       *[other] contexto compactado { $count } vezes
+    }
+    .title = Um contexto tem um tamanho máximo. Quando fica cheio, o assistente o substitui por um resumo e continua: isso é uma compactação.
 convo-branch =
     .title = Branch do git
 folder-unknown = Pasta desconhecida
@@ -456,17 +487,25 @@ stats-records = A barra lateral conta { $records } registros: { $empty } não co
 stats-masked = Desses, { $masked } são raciocínios que o Claude agora guarda apenas criptografados: resta só uma assinatura.
 stats-tokens = Tokens
 stats-sent = ↑ Enviados
-    .title = Novos nos prompts: a entrada nova e o que foi gravado no cache
+    .title = Tudo o que os prompts enviaram: a entrada nova e o que foi escrito no cache — o novo e o já enviado
+stats-new = Novos
+    .title = O que cada chamada acrescentou ao contexto: mensagens, resultados de ferramentas, as respostas anteriores
+stats-resent = Reenviados
+    .title = Contexto já enviado, enviado de novo porque o cache o havia perdido — após uma pausa ou uma troca de modelo
 stats-received = ↓ Recebidos
     .title = O que os assistentes escreveram, raciocínio incluído
 stats-cache = Relidos do cache
-    .title = O contexto reenviado a cada turno — mantido à parte, nunca somado ao resto
+    .title = O contexto relido a cada chamada em vez de ser processado de novo — mantido à parte, nunca somado ao resto
 stats-exact = { $value } tokens
 stats-coverage = Medidos em { $measured } de { $total } conversas.
 stats-uncovered = { $agents } não { $count ->
         [one] registra
        *[other] registram
     } tokens que o Ariane saiba ler.
+stats-unsplit = { $agents } { $count ->
+        [one] registra só um total por conversa: o que reenviou não é conhecido e conta aqui como novo.
+       *[other] registram só um total por conversa: o que reenviaram não é conhecido e conta aqui como novo.
+    }
 stats-subagents = { $count ->
     [one] Um subagente também enviou { $sent } tokens, recebeu pelo menos { $received } e releu { $cached } do cache. Ele não está contado acima: a transcrição de um subagente nem sempre guarda sua última contagem.
    *[other] { $count } subagentes também enviaram { $sent } tokens, receberam pelo menos { $received } e releram { $cached } do cache. Eles não estão contados acima: a transcrição de um subagente nem sempre guarda sua última contagem.

@@ -42,6 +42,73 @@ Voici à quelle version chacune appartient.
 
 ## 26 septembre 2026
 
+### Envoyés = nouveaux + renvoyés, reçus = réponse + raisonnement, et combien de compactages
+
+**Demandé** : « Est-ce que ça veut dire que la conversation a été presque compactée 18 fois ?
+14,9 M + 3,1 M = 18 ? », puis, pour un auditoire qui ferait la même erreur : le rendre explicite,
+le `+` et le `=` en couleur, et le cache expliqué au survol. Puis, sur notre propre conversation :
+« Et pour 227K on ne sait pas décomposer non plus ? Ajoute aussi le nombre de fois que ça a été
+compacté. »
+
+**Ce que ça change.** L'en-tête d'une conversation dit, sur une ligne à lui,
+« ↑ 14,9M envoyés = 5,2M nouveaux + 9,7M renvoyés · ↓ 3,1M reçus = 1,8M de réponse + 1,2M de
+raisonnement · 1,6G relus depuis le cache », et « contexte compacté 5 fois » à côté du nombre de
+messages — « jamais compacté » aussi, là où l'assistant écrit chacun de ses compactages. Les deux signes sont dans la couleur
+d'accent. Chaque chiffre dit au survol ce qu'il est et son nombre exact : le cache, ce qu'il est et
+à quoi il sert ; les reçus, qu'ils reviennent dans le contexte et qu'on ne les additionne pas ; le
+compactage, ce que c'est. Une réponse dont l'essentiel de l'envoi était un renvoi le montre de même ; la barre
+latérale garde « ↑ · ↓ » et donne le partage au survol ; les statistiques ajoutent les tuiles
+« Nouveaux » et « Renvoyés », et nomment l'assistant qui n'écrit qu'un total (Copilot).
+
+**Ce qui a été mesuré.** Chaque appel envoie toute la conversation ; ce que le cache tient est relu,
+le reste est « envoyé ». Mais le cache expire après une pause, et chaque modèle a le sien : l'appel
+suivant envoie alors tout le contexte une nouvelle fois, et « envoyés » le compte à nouveau. Sur
+cette conversation de cinq jours : 14 934 947 envoyés, dont 9 714 414 déjà envoyés — vingt appels,
+seize après plus d'une heure de pause, quatre après un changement de modèle, jusqu'à 903 939
+chacun. Seuls 5 220 533 étaient nouveaux, et Claude Code le confirme de son côté : 4 736 140 jetons
+effacés par ses cinq compactages, plus 458 519 encore en contexte, font 5 194 659.
+
+La règle, par appel : renvoyés = min(envoyés, prompt précédent − relus), le prompt précédent oublié
+à un compactage — reconnu à ce que le fichier écrit : `compact_boundary` chez Claude (14 chutes de
+moitié sur 14), `compacted` chez Codex (50 sur 51). « Un prompt qui rétrécit » ne convenait pas :
+19 appels de Claude reconstruisent après une pause un cache un peu plus petit, et cette règle aurait
+compté leurs 7,6 M comme nouveaux. Vérifié avec l'indexeur réel sur les vrais fichiers, base
+jetable, contre un calcul indépendant sur les fichiers bruts : 9 714 414 au jeton près pour Claude,
+14 440 359 pour Codex (copies comprises), 94 025 pour Gemini. Passe complète contre la 0.8.2, mêmes
+fichiers, dans les deux ordres : 12,9–14,4 s contre 13,0–14,3 s — aucun écart. **Le schéma passe à
+21** : l'index se reconstruit au prochain lancement.
+
+**Les reçus, décomposés.** Le raisonnement fait partie des reçus, et les fichiers le comptent :
+sur cette conversation, 1 215 146 des 3 058 823 jetons reçus — vérifié sur le fichier brut, un
+compte par appel. Claude ne l'écrit que depuis août 2026, à chaque appel, zéro compris (5 181 appels
+sans réflexion) ; avant, rien, même pour les 820 appels qui ont réfléchi. Une absence n'étant pas un
+zéro, les reçus ne sont décomposés que si chaque réponse a compté son raisonnement — sauf une ligne
+à zéro écrite par le harnais : rien reçu, rien raisonné.
+
+**Les compactages.** Claude écrit `compact_boundary`, Codex `compacted` : les deux sont gardés comme
+avis, et la conversation dit combien — zéro compris. Codex : 51 compactages dans 17 conversations ;
+une conversation dupliquée n'en recopie aucun (5 dans 1 duplication sur 8, tous après son premier
+appel). Antigravity écrit un « CHECKPOINT 0 » juste après le premier message de 12 conversations sur
+15, y compris de trois messages : ce n'est pas un compactage qu'on reconnaîtrait, il n'est pas
+compté. **Le schéma passe à 22.**
+
+**Mis en page le 28 septembre**, comme demandé : chaque somme sur sa ligne — « ↑ … envoyés = … »
+puis « ↓ … reçus = … » —, le cache relu à côté des compactages, avec son icône (un cylindre) : le
+contexte, à l'écart des sommes. Et l'identifiant de la conversation à droite de son titre quand la
+place le permet, dessous sinon : à 1 400 px, six boutons avec libellés ne laissent que 342 px à la
+colonne du titre. Le 25 septembre, il avait quitté cette colonne parce que les boutons le coupaient ;
+elle passe désormais à la ligne plutôt que de le rétrécir.
+
+**Trouvé en chemin.** L'infobulle du cache disait « le contexte renvoyé à chaque tour » : ce mot
+nomme maintenant autre chose, elle dit « relu ». Une ligne à zéro écrite par le harnais
+(`<synthetic>`, après une erreur) aurait remis la comparaison à zéro : elle est ignorée. Claude
+renvoie quelques jetons à presque chaque appel — 16 433 appels, de 1 à 99 jetons, 45 K en tout, vus
+sur la première capture : « ↑ 2,9K = 2,9K nouveaux + 2 renvoyés » —, si bien qu'une réponse ne
+montre le partage que si le renvoi fait au moins la moitié de ce qu'elle a envoyé ; le détail reste
+au survol. Copilot
+n'écrit qu'un total par session : ses envoyés restent entiers, sans partage. Une conversation sauvée
+dans l'archive avant cette version n'a pas le partage non plus.
+
 ### La relecture de tout le code
 
 **Demandé** : « Analyse tout le projet pour d'éventuels bugs non vus. Ne revois pas les tests juste

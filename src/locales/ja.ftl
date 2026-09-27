@@ -66,15 +66,16 @@ session-summary = { $when } · { $count ->
     }
 
 session-models = { $model } +{ $more }
-session-tokens = ↑ { $sent } · ↓ { $received }
-    .title =
-        送信：プロンプト内の新しいトークン { $sentExact }
-        受信：{ $receivedExact } トークン
-session-tokens-cached = ↑ { $sent } · ↓ { $received } · キャッシュ { $cached }
-    .title =
-        送信：プロンプト内の新しいトークン { $sentExact }
-        受信：{ $receivedExact } トークン
-        キャッシュからの再読み込み：{ $cachedExact } トークン（毎ターン再送されるコンテキスト）
+cost-new = 新規 { $value }
+cost-sent = ↑ { $value }
+cost-resent = 再送 { $value }
+cost-received = ↓ { $value }
+cost-cache = キャッシュ { $value }
+cost-line-sent = 送信：{ $exact } トークン
+cost-line-split = = 新規 { $new } + 再送 { $resent }
+cost-line-received = 受信：{ $exact } トークン
+cost-line-received-split = = 回答 { $answer } + 推論 { $reasoning }
+cost-line-cache = キャッシュからの再読み込み：{ $exact } トークン
 session-tokens-subagents = さらにサブエージェント { $count } 件：送信 { $sent }、受信 少なくとも { $received }、キャッシュから再読込 { $cached }
 
 ## フッターとインデックス作成
@@ -115,15 +116,44 @@ convo-empty = この会話には表示できるメッセージがありません
 convo-not-found = 会話が見つかりません。
 convo-id =
     .title = この会話の ID — アシスタントが再開に使うもの
-convo-tokens = ↑ { $sent } 送信 · ↓ { $received } 受信
+convo-cost-new = { $value } 新規
     .title =
-        送信：プロンプト内の新しいトークン { $sentExact }
-        受信：{ $receivedExact } トークン
-convo-tokens-cached = ↑ { $sent } 送信 · ↓ { $received } 受信 · キャッシュから { $cached } 再読込
+        各呼び出しがコンテキストに加えたもの：あなたのメッセージ、ツールの結果、それまでの返答。
+        { $exact } トークン
+convo-cost-resent = { $value } 再送
     .title =
-        送信：プロンプト内の新しいトークン { $sentExact }
-        受信：{ $receivedExact } トークン
-        キャッシュからの再読み込み：{ $cachedExact } トークン（毎ターン再送されるコンテキスト）
+        すでに送信済みのコンテキストを、キャッシュが失われたため再び送信したもの。キャッシュは休止後に期限切れになり、モデルごとに別々です。新しい内容は含まれません。
+        { $exact } トークン
+convo-cost-sent = ↑ { $value } 送信
+    .title =
+        プロンプトが送信したすべて：新規の分と、以前の呼び出しで送信済みだったがキャッシュが失われた分。
+        { $exact } トークン
+convo-cost-sent-unsplit = ↑ { $value } 送信
+    .title =
+        プロンプトが送信したもの：新規の入力と、キャッシュに書き込まれたもの。そのうち再送された量はここでは分かりません。
+        { $exact } トークン
+convo-cost-received = ↓ { $value } 受信
+    .title =
+        モデルが書いたもの（推論を含む）。各返答は次の呼び出しでコンテキストに戻り、そこで再び数えられます。ほかと合計しないでください。
+        { $exact } トークン
+convo-cost-answer = 回答 { $value }
+    .title =
+        モデルが回答したもの：テキストとツール呼び出し（会話に表示される部分）。
+        { $exact } トークン
+convo-cost-reasoning = 推論 { $value }
+    .title =
+        モデルが回答前に考えたもの。ほかと同じく数えられ課金されますが、アシスタントが読める形で残すとは限りません（Claude は暗号化してのみ保存します）。
+        { $exact } トークン
+convo-cost-cache = キャッシュから { $value } 再読込
+    .title =
+        キャッシュ：呼び出しのたびに、アシスタントは会話全体をモデルに送ります。プロバイダーは処理したばかりの内容を保持し、処理し直す代わりに読み直します。速く、料金もごく一部です。
+        各呼び出しはそれ以前のすべてを読み直すため、この数値は会話の長さとともに増え、話された内容とは関係しません。
+        { $exact } トークン
+convo-compactions = { $count ->
+        [0] コンテキストは一度も圧縮されていません
+       *[other] コンテキストを { $count } 回圧縮
+    }
+    .title = コンテキストには上限があります。いっぱいになると、アシスタントはそれを要約に置き換えて続けます。これが圧縮です。
 convo-branch =
     .title = Git ブランチ
 folder-unknown = 不明なフォルダー
@@ -420,14 +450,19 @@ stats-records = サイドバーの件数は { $records } 件です。そのう�
 stats-masked = そのうち { $masked } 件は、Claude が暗号化した形でしか残さない推論です。署名しか残っていません。
 stats-tokens = トークン
 stats-sent = ↑ 送信
-    .title = プロンプトの新しい部分：新規の入力と、キャッシュに書き込まれたもの
+    .title = プロンプトが送信したすべて：新規の入力とキャッシュに書き込まれたもの（新規分と再送分）
+stats-new = 新規
+    .title = 各呼び出しがコンテキストに加えたもの：メッセージ、ツールの結果、それまでの返答
+stats-resent = 再送
+    .title = すでに送信済みのコンテキストを、キャッシュが失われたため再び送信したもの（休止後やモデル変更後）
 stats-received = ↓ 受信
     .title = アシスタントが書いたもの（推論を含む）
 stats-cache = キャッシュからの再読み込み
-    .title = 毎ターン再送されるコンテキスト。ほかとは分けて扱い、合計しません
+    .title = 呼び出しのたびに、処理し直す代わりに読み直されるコンテキスト。ほかとは分けて扱い、合計しません
 stats-exact = { $value } トークン
 stats-coverage = 会話 { $total } 件のうち { $measured } 件で計測。
 stats-uncovered = { $agents } は Ariane が読めるトークン数を記録しません。
+stats-unsplit = { $agents } は会話ごとの合計しか記録しません。再送された量は分からず、ここでは新規として数えています。
 stats-subagents = さらにサブエージェント { $count } 件が { $sent } トークンを送信し、少なくとも { $received } トークンを受信し、{ $cached } トークンをキャッシュから再読込しました。上の数値には含まれていません。サブエージェントの記録には最終的なカウントが残るとは限らないためです。
 stats-months = 月ごと
 stats-measure-you = あなたのメッセージ
