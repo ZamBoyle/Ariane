@@ -633,13 +633,13 @@ dans `ipc.js`) et la partage avec tout appel qui arrive pendant qu'elle tourne.
 plutôt que de les recopier : le corpus grossit tous les jours, et trois documents ont déjà porté
 trois totaux différents.
 
-### Les suites, mesurées par la CI le 26 septembre 2026
+### Les suites, mesurées par la CI le 28 septembre 2026
 
 | | Unitaires | Rendu | Mise en page | Accueil | Réseau |
 |---|---|---|---|---|---|
-| linux | 974 / 974 | 251 | 35 | 7 | 7 |
-| macos | 974 / 974 | 251 | 35 | 7 | 7 |
-| windows | 958 / 959 | 251 | 35 | 7 | 7 |
+| linux | 996 / 996 | 259 | 36 | 7 | 7 |
+| macos | 996 / 996 | 259 | 36 | 7 | 7 |
+| windows | 980 / 981 | 259 | 36 | 7 | 7 |
 
 Windows en exécute quinze de moins et en compte un sans le passer : ce sont les `POSIX_ONLY` de
 `terminal.test.js`, déclarés avec leur raison — bits d'exécution, shebangs, exécutables sans
@@ -648,9 +648,9 @@ extension. Une abstention écrite, pas un trou.
 **Ne recopiez pas ces chiffres ailleurs.** Quatre documents en ont déjà porté trois différents, et
 c'est précisément ce que cette section existe pour empêcher.
 
-### Couverture, 26 septembre 2026
+### Couverture, 28 septembre 2026
 
-`npm run test:coverage` — **97,27 % des lignes, 89,29 % des branches, 95,52 % des fonctions.**
+`npm run test:coverage` — **97,33 % des lignes, 89,44 % des branches, 95,55 % des fonctions.**
 
 **Elle a un plancher, et la CI le fait respecter** : le script lui-même porte
 `--test-coverage-lines=96`, `--test-coverage-branches=87` et `--test-coverage-functions=94`, et

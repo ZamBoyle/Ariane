@@ -593,13 +593,13 @@ Two rules hold up everything else:
 **This is where the project’s numbers live.** The other documents point here rather than copying
 them: the corpus grows every day, and three documents have already carried three different totals.
 
-### The suites, measured by the CI on 26 September 2026
+### The suites, measured by the CI on 28 September 2026
 
 | | Unit | Renderer | Layout | Splash | Network |
 |---|---|---|---|---|---|
-| linux | 974 / 974 | 251 | 35 | 7 | 7 |
-| macos | 974 / 974 | 251 | 35 | 7 | 7 |
-| windows | 958 / 959 | 251 | 35 | 7 | 7 |
+| linux | 996 / 996 | 259 | 36 | 7 | 7 |
+| macos | 996 / 996 | 259 | 36 | 7 | 7 |
+| windows | 980 / 981 | 259 | 36 | 7 | 7 |
 
 Windows runs fifteen fewer and counts one without passing it: the `POSIX_ONLY` skips in
 `terminal.test.js`, declared with their reason — execute bits, shebang lines, executables with no
@@ -608,9 +608,9 @@ extension. A stated abstention, not a hole.
 **Do not copy these figures elsewhere.** Four documents have already carried three different totals,
 which is what this section exists to stop.
 
-### Coverage, 26 September 2026
+### Coverage, 28 September 2026
 
-`npm run test:coverage` — **97.27 % of lines, 89.29 % of branches, 95.52 % of functions.**
+`npm run test:coverage` — **97.33 % of lines, 89.44 % of branches, 95.55 % of functions.**
 
 **It has a floor, and the CI enforces it**: the script itself states `--test-coverage-lines=96`,
 `--test-coverage-branches=87` and `--test-coverage-functions=94`, so it fails below them — locally
