@@ -87,6 +87,32 @@ test('the showcase conversation shows what the app is for', async (t) => {
   );
 });
 
+// Les captures du README montrent les deux calculs de l'en-tête (0.9.0) :
+// « envoyés = nouveaux + renvoyés » et « reçus = réponse + raisonnement ».
+// Sans pause ni compte de raisonnement, la vitrine ne montrait ni l'un ni
+// l'autre (28 septembre 2026).
+test('la vitrine a de quoi montrer ses deux calculs', async (t) => {
+  const { index } = await indexDemo(t);
+  const [session] = index
+    .folders()
+    .flatMap((f) => index.sessions(f.id))
+    .filter((s) => s.title === SHOWCASE.title);
+  const sums = index.sessionTokens(session.id);
+  assert.ok(sums.tokResent > 0, 'une pause a fait expirer le cache : du contexte renvoyé');
+  assert.ok(sums.tokReasoning > 0 && sums.reasoningMissing === 0, 'chaque réponse compte son raisonnement');
+
+  // Et la réponse qui suit la pause le dit sur sa propre ligne : son renvoi
+  // fait l'essentiel de ce qu'elle a envoyé (tokenLine, au moins la moitié).
+  const cold = index
+    .messages(session.id)
+    .find((m) => m.usage && m.usage.resent > 0);
+  assert.ok(cold, 'un appel a renvoyé le contexte');
+  assert.ok(
+    cold.usage.resent * 2 >= cold.usage.input + cold.usage.cacheWrite,
+    'le renvoi fait au moins la moitié de ce que l’appel a envoyé'
+  );
+});
+
 // La capture des statistiques du README n'a de sens que si la démo compte ses
 // jetons, sur plusieurs mois, avec les limites de Codex — comme un vrai corpus.
 test('la démo compte ce qu’elle a coûté, sur plusieurs mois, limites comprises', async (t) => {

@@ -41,6 +41,20 @@ Voici à quelle version chacune appartient.
 
 ---
 
+## 28 septembre 2026
+
+### Les captures du README montrent les deux calculs
+
+**Demandé** : « pour les démos, on pourrait aussi avoir les = et + dans les captures d'écran, pour
+avoir le calcul même fictif ? » Le corpus fictif ne perdait jamais son cache et n'écrivait aucun
+compte de raisonnement : l'en-tête de la vitrine affichait « ↑ 12,4K envoyés » seul, et les
+statistiques « Renvoyés 0 ». Il a maintenant une pause de 75 minutes avant « Option 2 » — l'appel
+suivant renvoie tout le contexte, comme en vrai — et chaque réponse Claude écrit son
+`thinking_tokens`, comme Claude Code depuis août. La vitrine dit « ↑ 38,6K envoyés = 12,9K
+nouveaux + 25,7K renvoyés » et « ↓ 1,2K reçus = 904 de réponse + 307 de raisonnement » ; la bande
+d'outils qui suit la pause, « ↑ 27,4K = 1,7K nouveaux + 25,7K renvoyés ». Un test tient les deux,
+et chacun a échoué sans ce qu'il garde.
+
 ## 26 septembre 2026
 
 ### Envoyés = nouveaux + renvoyés, reçus = réponse + raisonnement, et combien de compactages

@@ -29,7 +29,8 @@ const TOOL_GAP = 4 * SECOND;
 
 /**
  * The conversations. A turn is one of:
- *   { user }                 something the person typed
+ *   { user, pause? }         something the person typed — after a pause long
+ *                            enough for the cache to expire, if `pause` says so
  *   { say, think? }          the assistant answering, with optional reasoning
  *   { tool, input, result }  a tool call and what it returned
  */
@@ -76,7 +77,9 @@ const CONVERSATIONS = [
           '- définir la question (estimation : une planète entière, 10 millions d’années) ;\n' +
           '- accepter la réponse sans la question, en attendant.',
       },
-      { user: 'Option 2. On verra la question en v2.' },
+      // Back from a coffee: the cache has expired, and the next call sends the
+      // whole context again — so the header shows « = … nouveaux + … renvoyés ».
+      { user: 'Option 2. On verra la question en v2.', pause: 75 * MINUTE },
       {
         tool: 'Edit',
         input: {
@@ -553,11 +556,20 @@ function ensureDemoCorpus(root, { reset = false, now } = {}) {
   return { env, created: true };
 }
 
-/** When each turn happens: a steady pace, with a result just after its call. */
+/**
+ * When each turn happens: a steady pace, with a result just after its call —
+ * and the first call after a pause `cold`, its cache gone.
+ */
 function* timeline(turns, start) {
   let t = start;
+  let cold = false;
   for (const turn of turns) {
-    yield { turn, at: t, resultAt: t + TOOL_GAP };
+    if (turn.pause) {
+      t += turn.pause;
+      cold = true;
+    }
+    yield { turn, at: t, resultAt: t + TOOL_GAP, cold: cold && !turn.user };
+    if (!turn.user) cold = false;
     t += TURN_GAP;
   }
 }
@@ -568,7 +580,11 @@ const iso = (ms) => new Date(ms).toISOString();
  * What each reply cost — invented, but shaped like the real thing (ARCHITECTURE
  * § 12): a handful of fresh tokens, the new context written to the cache once,
  * and the whole context read back at every turn, which dwarfs everything else,
- * as it does for real. The same corpus always gives the same figures.
+ * as it does for real. A call after a pause finds its cache expired: it reads
+ * nothing back and writes the whole context again (contract.js, "What was
+ * sent again"). The reasoning weighs about what it does in the real corpus, a
+ * third to a half of what comes back. The same corpus always gives the same
+ * figures.
  *
  * @returns {(turn: object) => {input: number, cacheRead: number, cacheWrite: number,
  *   output: number, reasoning: number}}
@@ -577,18 +593,19 @@ function costs(conversation) {
   const seed = [...conversation.id].reduce((sum, c) => sum + c.charCodeAt(0), 0);
   let context = 11000 + (seed % 7) * 1300;
   let n = 0;
-  return (turn) => {
+  return (turn, { cold = false } = {}) => {
     n += 1;
     const said = `${turn.say || ''}${turn.think || ''}${turn.input ? JSON.stringify(turn.input) : ''}`;
-    const reasoning = turn.think ? Math.round(turn.think.length * 0.9) : 0;
+    const reasoning = turn.think ? Math.round(turn.think.length * 2.4) : 0;
+    const written = n === 1 ? 5200 + (seed % 5) * 700 : 380 + said.length * 2;
     const cost = {
       input: 3 + ((seed + n) % 6),
-      cacheRead: context,
-      cacheWrite: n === 1 ? 5200 + (seed % 5) * 700 : 380 + said.length * 2,
+      cacheRead: cold ? 0 : context,
+      cacheWrite: cold ? context + written : written,
       output: Math.round(60 + said.length * 0.45) + reasoning,
       reasoning,
     };
-    context += cost.cacheWrite + cost.output;
+    context += written + cost.output;
     return cost;
   };
 }
@@ -617,8 +634,8 @@ function writeClaude(configDir, conversation, cwd, start) {
   };
   const cost = costs(conversation);
   // One reply, one line here: its id and its usage, as the API writes them.
-  const assistant = (content, turn) => {
-    const c = cost(turn);
+  const assistant = (content, turn, cold) => {
+    const c = cost(turn, { cold });
     return {
       role: 'assistant',
       model: 'claude-opus-5',
@@ -629,11 +646,13 @@ function writeClaude(configDir, conversation, cwd, start) {
         cache_read_input_tokens: c.cacheRead,
         cache_creation_input_tokens: c.cacheWrite,
         output_tokens: c.output,
+        // What Claude Code writes since August 2026, 0 included when it did not think.
+        output_tokens_details: { thinking_tokens: c.reasoning },
       },
     };
   };
 
-  for (const { turn, at, resultAt } of timeline(conversation.turns, start)) {
+  for (const { turn, at, resultAt, cold } of timeline(conversation.turns, start)) {
     if (turn.user) {
       push({ type: 'user', timestamp: iso(at), message: { role: 'user', content: turn.user } });
     } else if (turn.tool) {
@@ -641,7 +660,7 @@ function writeClaude(configDir, conversation, cwd, start) {
       push({
         type: 'assistant',
         timestamp: iso(at),
-        message: assistant([{ type: 'tool_use', id, name: turn.tool, input: turn.input }], turn),
+        message: assistant([{ type: 'tool_use', id, name: turn.tool, input: turn.input }], turn, cold),
       });
       push({
         type: 'user',
@@ -655,7 +674,7 @@ function writeClaude(configDir, conversation, cwd, start) {
       const content = [];
       if (turn.think) content.push({ type: 'thinking', thinking: turn.think, signature: 'demo' });
       content.push({ type: 'text', text: turn.say });
-      push({ type: 'assistant', timestamp: iso(at), message: assistant(content, turn) });
+      push({ type: 'assistant', timestamp: iso(at), message: assistant(content, turn, cold) });
     }
   }
 
@@ -699,8 +718,8 @@ function writeCodex(home, conversation, cwd, start) {
   const total = { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 0 };
   const limits = conversation.limits || { hours: 5, week: 20 };
   let replies = 0;
-  const spent = (turn, at) => {
-    const c = cost(turn);
+  const spent = (turn, at, cold) => {
+    const c = cost(turn, { cold });
     const last = {
       input_tokens: c.input + c.cacheWrite + c.cacheRead,
       cached_input_tokens: c.cacheRead,
@@ -733,18 +752,18 @@ function writeCodex(home, conversation, cwd, start) {
   // same id twice means one conversation copied the other (Index.markCopies).
   const tag = conversation.id.slice(-4);
 
-  for (const { turn, at, resultAt } of timeline(conversation.turns, start)) {
+  for (const { turn, at, resultAt, cold } of timeline(conversation.turns, start)) {
     n += 1;
     if (turn.user) {
       item(at, { type: 'message', id: `msg_demo_${tag}_${n}`, role: 'user', content: [{ type: 'input_text', text: turn.user }] });
     } else if (turn.tool) {
       const callId = `call_demo_${tag}_${n}`;
       item(at, { type: 'function_call', id: callId, call_id: callId, name: turn.tool, arguments: JSON.stringify(turn.input) });
-      spent(turn, at);
+      spent(turn, at, cold);
       item(resultAt, { type: 'function_call_output', call_id: callId, output: turn.result });
     } else {
       item(at, { type: 'message', id: `msg_demo_${tag}_${n}`, role: 'assistant', content: [{ type: 'output_text', text: turn.say }] });
-      spent(turn, at);
+      spent(turn, at, cold);
     }
   }
 
