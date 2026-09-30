@@ -158,7 +158,8 @@ The `.dmg` is **Apple Silicon only** for now. An Intel Mac has to build from sou
 git clone https://github.com/ZamBoyle/ariane
 cd ariane
 npm install
-npm start
+npm start                   # Windows, macOS
+npm start -- --no-sandbox   # Linux — see "On Linux: the Chromium sandbox" below
 ```
 
 That is all. Verified from a clean clone: `npm install`, then `npm run test:all` passes every suite
@@ -199,27 +200,42 @@ sudo apt install -y libnss3 libnotify4 libsecret-1-0 xdg-utils
 
 Without them the binary does not start at all: `error while loading shared libraries: libnspr4.so`.
 
-On Linux, if the launch aborts on `chrome-sandbox`, once per install of Electron:
+### On Linux: the Chromium sandbox
 
-```bash
-sudo chown root:root node_modules/electron/dist/chrome-sandbox
-sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
-```
+Ubuntu 24.04, among others, restricts the user namespaces Chromium builds its sandbox with. Electron
+then falls back to its helper, `chrome-sandbox`, and a plain `npm start` stops on it. Two ways to
+launch:
+
+- **`npm start -- --no-sandbox`** — nothing to install. The page keeps its own protections: what a
+  conversation holds is escaped before it is shown, the page runs no script but its own and reaches
+  no network, and it has no access to Node. What it loses is the layer behind them, Chromium's
+  operating-system sandbox.
+- **Full isolation: `npm start`**, once the helper belongs to root:
+
+  ```bash
+  sudo chown root:root node_modules/electron/dist/chrome-sandbox
+  sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+  ```
+
+  Once, not at every boot: the owner and the mode stay on the disk. They go only when the file is
+  replaced — by `npm ci`, or an update of Electron.
+
+The `.deb` needs neither: it installs an AppArmor profile that gives Ariane its sandbox.
 
 ### Updating a clone
 
 ```bash
 git pull
 npm ci
-npm start
+npm start                   # on Linux: npm start -- --no-sandbox
 ```
 
 **`git pull` alone is not enough.** It brings the code, not what `node_modules` holds: when a
 version moves a dependency, the old one stays there until npm runs again. 0.6.0 is such a version —
 it moves Electron from 44.4.3 to 44.4.5. `npm ci` empties `node_modules` and installs exactly what
 `package-lock.json` names, which makes it the safe choice after any pull. The first launch then
-downloads the new Electron (about 100 MB, once per version), and on Linux the `chrome-sandbox` step
-above has to be done again: that file was reinstalled with it.
+downloads the new Electron (about 100 MB, once per version), and on Linux, for full isolation, the
+`chrome-sandbox` step above has to be done again: that file was reinstalled with it.
 
 ## Build the packages
 

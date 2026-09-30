@@ -41,6 +41,24 @@ Voici à quelle version chacune appartient.
 
 ---
 
+## 30 septembre 2026
+
+### Lancer depuis les sources sous Linux : deux façons, dites
+
+**Demandé** : « on doit vraiment utiliser sudo chown … chrome-sandbox ? pas possible de s'en
+passer ? », puis « une faille où ? On génère notre page et on affiche nos données ». Sous Ubuntu
+24.04, `kernel.apparmor_restrict_unprivileged_userns=1` empêche Chromium de construire son bac à
+sable par espaces de noms ; il se rabat sur `chrome-sandbox`, qui doit appartenir à root en 4755.
+Les README disent désormais les deux façons : `npm start -- --no-sandbox`, sans rien installer, ou
+`npm start` pour l'isolation complète, après le `chown`/`chmod` — une fois, pas à chaque démarrage :
+seuls `npm ci` et une mise à jour d'Electron remplacent le fichier.
+
+Ce que `--no-sandbox` retire, vérifié dans le code : la couche derrière les protections de la page,
+qui restent — le texte des conversations échappé avant affichage, une politique de sécurité qui
+n'autorise que nos propres scripts et aucun réseau, pas d'accès à Node, et aucune image des
+conversations affichée. Windows et macOS n'ont rien à faire ; le `.deb` non plus, puisqu'il installe
+son profil AppArmor.
+
 ## 28 septembre 2026
 
 ### Les captures du README montrent les deux calculs

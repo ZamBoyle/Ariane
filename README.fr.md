@@ -230,7 +230,8 @@ les sources.
 git clone <ce dépôt> ariane
 cd ariane
 npm install
-npm start
+npm start                   # Windows, macOS
+npm start -- --no-sandbox   # Linux — voir « Sous Linux : le bac à sable de Chromium » plus bas
 ```
 
 C'est tout. Vérifié en clonant le dépôt dans un dossier vierge : `npm install`
@@ -285,21 +286,38 @@ sudo apt install -y libnss3 libnotify4 libsecret-1-0 xdg-utils
 Sans elles, le binaire ne démarre pas du tout : `error while loading shared
 libraries: libnspr4.so`.
 
-### Si le lancement s'interrompt sur `chrome-sandbox` (Linux)
+### Sous Linux : le bac à sable de Chromium
 
-Une fois par installation d'Electron :
+Ubuntu 24.04, entre autres, restreint les espaces de noms avec lesquels
+Chromium construit son bac à sable. Electron se rabat alors sur son aide,
+`chrome-sandbox`, et un simple `npm start` s'arrête dessus. Deux façons de
+lancer :
 
-```bash
-sudo chown root:root node_modules/electron/dist/chrome-sandbox
-sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
-```
+- **`npm start -- --no-sandbox`** — rien à installer. La page garde ses
+  propres protections : ce que contient une conversation est échappé avant
+  d'être affiché, la page n'exécute que ses propres scripts et n'atteint aucun
+  réseau, et elle n'a pas accès à Node. Ce qu'elle perd, c'est la couche
+  derrière elles : le bac à sable de Chromium au niveau du système.
+- **Isolation complète : `npm start`**, une fois l'aide donnée à root :
+
+  ```bash
+  sudo chown root:root node_modules/electron/dist/chrome-sandbox
+  sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+  ```
+
+  Une fois, pas à chaque démarrage : le propriétaire et les droits restent sur
+  le disque. Ils ne partent que si le fichier est remplacé — par `npm ci`, ou
+  une mise à jour d'Electron.
+
+Le `.deb` n'a besoin ni de l'un ni de l'autre : il installe un profil AppArmor
+qui donne à Ariane son bac à sable.
 
 ### Mettre à jour un clone
 
 ```bash
 git pull
 npm ci
-npm start
+npm start                   # sous Linux : npm start -- --no-sandbox
 ```
 
 **`git pull` seul ne suffit pas.** Il apporte le code, pas ce que contient
@@ -308,8 +326,8 @@ tant que npm ne repasse pas. La 0.6.0 en est une — elle fait passer Electron
 de la 44.4.3 à la 44.4.5. `npm ci` vide `node_modules` et installe exactement
 ce que nomme `package-lock.json` : c'est le choix sûr après chaque `git pull`.
 Le premier lancement télécharge ensuite le nouvel Electron (une centaine de Mo,
-une fois par version), et sous Linux l'étape `chrome-sandbox` ci-dessus est à
-refaire : ce fichier a été réinstallé avec lui.
+une fois par version), et sous Linux, pour l'isolation complète, l'étape
+`chrome-sandbox` ci-dessus est à refaire : ce fichier a été réinstallé avec lui.
 
 ### Construire les paquets soi-même
 
