@@ -58,6 +58,11 @@ const CONVERSATIONS = [
           '    (délai dépassé après 7 500 000 ans)',
         error: true,
       },
+      // Claude Code shrinks the context when it fills: one line says where. Two
+      // of them, so the header's arrows have somewhere to go. Never between the
+      // reply before the pause and the call after it: a compaction forgets the
+      // prompt that call is compared with, and its resend would go unseen.
+      { compact: true },
       {
         tool: 'Read',
         input: { file_path: 'src/compute_answer.js' },
@@ -89,6 +94,7 @@ const CONVERSATIONS = [
         },
         result: 'Fichier modifié : test/grande-question.test.js',
       },
+      { compact: true },
       {
         tool: 'Bash',
         input: { command: 'npm test 2>&1 | tail -n 3', description: 'Relancer toute la suite' },
@@ -653,7 +659,9 @@ function writeClaude(configDir, conversation, cwd, start) {
   };
 
   for (const { turn, at, resultAt, cold } of timeline(conversation.turns, start)) {
-    if (turn.user) {
+    if (turn.compact) {
+      push({ type: 'system', subtype: 'compact_boundary', timestamp: iso(at), content: 'Conversation compacted' });
+    } else if (turn.user) {
       push({ type: 'user', timestamp: iso(at), message: { role: 'user', content: turn.user } });
     } else if (turn.tool) {
       const id = `toolu_demo_${sessionId.slice(-4)}_${n}`;

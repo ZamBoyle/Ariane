@@ -1,3 +1,5 @@
+![Ariane in 15 seconds: the folders, a search across every assistant, a click on a result, then the arrows that walk from one compaction to the next](docs/ariane.gif)
+
 ![Ariane](docs/banner.jpg)
 
 <h1 align="center">Ariane</h1>

@@ -2,6 +2,8 @@
   <a href="README.md">English</a> · <a href="README.fr.md">Français</a>
 </p>
 
+![Ariane en 15 secondes : les dossiers, une recherche dans tous les assistants, un clic sur un résultat, puis les flèches qui vont d'un compactage au suivant (interface en anglais)](docs/ariane.gif)
+
 ![Ariane](docs/banner.jpg)
 
 # Ariane
