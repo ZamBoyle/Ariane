@@ -18,6 +18,7 @@ Voici à quelle version chacune appartient.
 
 | Version | Date | Ce qu'elle apporte |
 |---|---|---|
+| [0.10.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.10.0) | 3 oct. 2026 | deux flèches dans l'en-tête d'une conversation pour passer d'un compactage au précédent ou au suivant, grisées quand il n'y en a plus dans ce sens |
 | [0.9.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.9.0) | 28 sept. 2026 | ce que coûte une conversation, sans piège pour qui l'additionne : envoyés = nouveaux + renvoyés, reçus = réponse + raisonnement, combien de fois le contexte a été compacté ; l'identifiant à côté du titre — l'index se reconstruit au premier lancement |
 | [0.8.2](https://github.com/ZamBoyle/Ariane/releases/tag/v0.8.2) | 26 sept. 2026 | la relecture de tout le code : un index sûr quand une lecture est coupée, les appels de Copilot comptés une fois, la note qu'on écrit gardée, le Markdown lu comme CommonMark — l'index se reconstruit au premier lancement |
 | [0.8.1](https://github.com/ZamBoyle/Ariane/releases/tag/v0.8.1) | 26 sept. 2026 | chaque commande shell en couleur, comme dans Claude Desktop ; le README montre l'application et ses statistiques |
