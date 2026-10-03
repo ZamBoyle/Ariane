@@ -278,6 +278,12 @@ const BIG = Array.from({ length: 2000 }, (_, i) => ({
   text: i === 7 ? 'le message profond, tout au début' : `message numéro ${i}`,
   thinking: '', parts: [], isMeta: false, isNotice: false, isSidechain: false, command: null,
 }));
+// Trois compactages, tous après la première tranche peinte (120 lignes) : les
+// flèches de l'en-tête doivent peindre jusqu'à eux avant d'y aller.
+const BIG_COMPACTIONS = [301, 1001, 1701];
+for (const i of BIG_COMPACTIONS) {
+  Object.assign(BIG[i], { isNotice: true, command: { name: 'compact-boundary' } });
+}
 const BIG_SESSIONS = [{
   id: BIG_ID, agentId: 'claude', title: 'Très longue conversation', gitBranch: 'main',
   firstPrompt: 'message numéro 0', messageCount: BIG.length,
@@ -604,6 +610,7 @@ contextBridge.exposeInMainWorld('api', {
     if (id === BIG_ID) {
       return {
         usageByReply: true,
+        compactionsKnown: true,
         session: marked({ ...BIG_SESSIONS[0], ...spanOf(BIG_SESSIONS[0]), folderPath: '/home/zam/grosse', folderId: 3 }),
         messages: BIG.slice(),
         favoriteMessages: resolveStarred(id, BIG),

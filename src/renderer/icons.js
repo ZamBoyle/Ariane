@@ -38,6 +38,8 @@ const PATHS = {
   trash: ['M3 6h18', 'M8 6V4h8v2', 'm19 6-1 14H6L5 6', 'M10 11v6', 'M14 11v6'],
   search: ['M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14z', 'm20 20-4-4'],
   chevronUp: ['m18 15-6-6-6 6'],
+  chevronLeft: ['m15 18-6-6 6-6'],
+  chevronRight: ['m9 18 6-6-6-6'],
   chevronDown: ['m6 9 6 6 6-6'],
   close: ['M18 6 6 18', 'm6 6 12 12'],
   plus: ['M12 5v14', 'M5 12h14'],

@@ -200,6 +200,8 @@ convo-compactions = { $count ->
        *[other] context compacted { $count } times
     }
     .title = A context has a maximum size. When it is full, the assistant replaces it with a summary and carries on: that is a compaction.
+compaction-previous = Previous compaction
+compaction-next = Next compaction
 convo-branch =
     .title = Git branch
 folder-unknown = Unknown folder

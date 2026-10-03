@@ -728,6 +728,37 @@ button.stats:focus-visible {
   flex: none;
 }
 
+/* Les deux flèches de compactage : discrètes, grisées quand rien n'est dans leur sens. */
+.compaction-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+.compaction-step:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.compaction-step:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.compaction-step .icon {
+  width: 14px;
+  height: 14px;
+}
+
 .meta-strong {
   color: var(--text);
   font-weight: 500;

@@ -168,6 +168,8 @@ convo-compactions = { $count ->
        *[other] contexto compactado { $count } veces
     }
     .title = Un contexto tiene un tamaño máximo. Cuando está lleno, el asistente lo sustituye por un resumen y sigue: eso es una compactación.
+compaction-previous = Compactación anterior
+compaction-next = Compactación siguiente
 convo-branch =
     .title = Rama de git
 folder-unknown = Carpeta desconocida

@@ -154,6 +154,8 @@ convo-compactions = { $count ->
        *[other] 上下文已压缩 { $count } 次
     }
     .title = 上下文有最大长度。满了之后，助手会用一段摘要替换它并继续：这就是压缩。
+compaction-previous = 上一次压缩
+compaction-next = 下一次压缩
 convo-branch =
     .title = Git 分支
 folder-unknown = 未知文件夹

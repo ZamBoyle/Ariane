@@ -22,6 +22,7 @@ import {
   markOpening,
   speakerOf,
   commandLabel,
+  noticeCode,
   groupMessages,
   describeToolRun,
   toolCall,
@@ -168,6 +169,8 @@ const state = {
   searchTerms: [],
   /** Where the last jump through the outline landed, as a row index. */
   outlineAt: null,
+  /** Row index of the compaction last jumped to with the header's arrows. */
+  compactionAt: null,
   /** The conversation whose "Oublier" was clicked once, awaiting the second click. */
   forgetArmedFor: null,
   forgetTimer: null,
@@ -456,7 +459,18 @@ function wireEvents() {
     if (item) onExport(item.dataset.format);
   });
   // One listener for every row's "Copier": a long conversation has thousands.
-  el.transcript.addEventListener('click', (event) => {
+  // The arrows' greying follows the reader: a throttled look after each scroll.
+let compactionStepsQueued = false;
+el.transcript.addEventListener('scroll', () => {
+  if (compactionStepsQueued) return;
+  compactionStepsQueued = true;
+  requestAnimationFrame(() => {
+    compactionStepsQueued = false;
+    paintCompactionSteps();
+  });
+});
+
+el.transcript.addEventListener('click', (event) => {
     const copy = event.target.closest('.msg-copy');
     if (copy) return onCopyMessage(copy);
     const star = event.target.closest('.msg-star');
@@ -1305,6 +1319,19 @@ function headerFacts(session, theme) {
     const args = { count: compactions };
     const compacted = group('meta-compactions', 'compress', t('convo-compactions', args));
     compacted.title = l10n.message('convo-compactions', args).attributes.title;
+    // Two arrows to walk from one compaction to the next (asked 3 October
+    // 2026): always there, greyed where nothing lies in that direction.
+    for (const step of [-1, 1]) {
+      const button = node('button', 'compaction-step');
+      button.type = 'button';
+      button.dataset.step = String(step);
+      setIconButton(button, {
+        icon: step < 0 ? 'chevronLeft' : 'chevronRight',
+        label: t(step < 0 ? 'compaction-previous' : 'compaction-next'),
+      });
+      button.addEventListener('click', () => stepToCompaction(step));
+      compacted.append(button);
+    }
     amount.append(' ', compacted);
   }
   if (cost && cost.cache) amount.append(' ', group('meta-cache', 'cache', cost.cache));
@@ -1845,6 +1872,7 @@ function paintHeader(session, { refreshing = false } = {}) {
   const theme = agentTheme(session.agentId, labelOfAgent(session.agentId));
   state.currentAgentLabel = theme.label;
   el.convoMeta.replaceChildren(...headerFacts(session, theme));
+  paintCompactionSteps();
 
   paintChain(session.id);
   paintOrigin();
@@ -1871,6 +1899,7 @@ function paintTranscript(messages) {
   // calls, each call still comes before its result.
   view.show(groupMessages(messages), { newestFirst: state.newestFirst });
   state.outlineAt = null;
+  state.compactionAt = null;
   paintOutline();
 }
 
@@ -2073,6 +2102,7 @@ function ownRows() {
  * conversation — painted rows or not — so the outline is a map of all of it.
  */
 function paintOutline() {
+  paintCompactionSteps();
   const { own, total } = ownRows();
   if (own.length === 0) {
     el.outline.hidden = true;
@@ -2122,6 +2152,52 @@ function jumpToOwn(step) {
   const from = lastRow && isInView(lastRow) ? last : rowIndexAtTop();
   const target = step > 0 ? own.find((o) => o.index > from) : [...own].reverse().find((o) => o.index < from);
   if (target) goToMessage(target.id);
+}
+
+/**
+ * The compaction notices, in screen order, with their row's index.
+ * Chronology is the reader's: ‹ is the compaction before, whichever way the
+ * conversation is sorted, so with the newest first it goes DOWN the screen.
+ */
+function compactionRows() {
+  const found = [];
+  view.display.forEach((group, index) => {
+    if (group.type === 'message' && noticeCode(group.message.command) === 'compact-boundary') {
+      found.push({ id: group.message.id, index });
+    }
+  });
+  return found;
+}
+
+/** Where the reader is: the last compaction jumped to while on screen, else the top row. */
+function compactionFrom() {
+  const last = state.compactionAt;
+  const lastRow = last == null ? null : el.transcript.children[last];
+  return lastRow && isInView(lastRow) ? last : rowIndexAtTop();
+}
+
+/** The compaction `step` (-1 before, +1 after) from where the reader is, or undefined. */
+function compactionTarget(step) {
+  const rows = compactionRows();
+  const from = compactionFrom();
+  // Screen order runs backwards in time when the newest is on top.
+  const down = (step > 0) !== state.newestFirst;
+  return down ? rows.find((r) => r.index > from) : [...rows].reverse().find((r) => r.index < from);
+}
+
+function stepToCompaction(step) {
+  const target = compactionTarget(step);
+  if (!target) return;
+  goToMessage(target.id);
+  state.compactionAt = target.index;
+  paintCompactionSteps();
+}
+
+/** Grey an arrow where the compaction it leads to does not exist. */
+function paintCompactionSteps() {
+  const buttons = document.querySelectorAll('#convo-meta .compaction-step');
+  if (buttons.length === 0) return;
+  for (const button of buttons) button.disabled = !compactionTarget(Number(button.dataset.step));
 }
 
 function isInView(row) {

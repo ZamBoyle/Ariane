@@ -169,6 +169,8 @@ convo-compactions = { $count ->
        *[other] Kontext { $count }-mal komprimiert
     }
     .title = Ein Kontext hat eine Höchstgröße. Ist er voll, ersetzt der Assistent ihn durch eine Zusammenfassung und macht weiter: Das ist eine Komprimierung.
+compaction-previous = Vorherige Verdichtung
+compaction-next = Nächste Verdichtung
 convo-branch =
     .title = Git-Branch
 folder-unknown = Unbekannter Ordner

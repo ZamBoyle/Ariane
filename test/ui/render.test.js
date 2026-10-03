@@ -539,6 +539,34 @@ const SCRIPT = `(async () => {
     inView: Boolean(box && box.top >= pane.top - 1 && box.bottom <= pane.bottom + 1),
   };
 
+  // Les flèches de compactage de l'en-tête. Le plus récent est en haut ; la
+  // conversation est montrée à son tout début, avant le premier compactage.
+  const stepButton = (step) => document.querySelector('#convo-meta .compaction-step[data-step="' + step + '"]');
+  const inView = (row) => {
+    const paneBox = transcript.getBoundingClientRect();
+    const rowBox = row.getBoundingClientRect();
+    return rowBox.bottom > paneBox.top && rowBox.top < paneBox.bottom;
+  };
+  const stepState = () => ({ before: !stepButton(-1).disabled, after: !stepButton(1).disabled });
+  for (let i = 0; i < 200 && rowsNow() < 2000; i++) await sleep(50);
+  const steps = {
+    count: document.querySelectorAll('#convo-meta .compaction-step').length,
+    labelled: [-1, 1].every((s) => stepButton(s).getAttribute('aria-label') && stepButton(s).title),
+    atStart: stepState(),
+    landed: [],
+  };
+  for (const id of [100301, 100001 + 1000, 100001 + 1700]) {
+    stepButton(1).click();
+    await sleep(100);
+    const row = transcript.querySelector('[data-message-id="' + id + '"]');
+    steps.landed.push({ id, painted: Boolean(row), inView: Boolean(row && inView(row)), state: stepState() });
+  }
+  stepButton(-1).click();
+  await sleep(100);
+  const back = transcript.querySelector('[data-message-id="101001"]');
+  steps.back = Boolean(back && inView(back));
+  steps.backState = stepState();
+
   // A message arriving: its row is added, the 2 000 others are left alone.
   for (let i = 0; i < 200 && rowsNow() < 2000; i++) await sleep(50);
   transcript.querySelectorAll('.msg')[50].dataset.probe = 'long';
@@ -1355,7 +1383,7 @@ const SCRIPT = `(async () => {
     settingsCheck,
     outlineCheck: { smallTicks, onBig, widths, viaTick, nearEnd, viaKeys, afterArrival, outlineOnHome },
     findCheck: { opens, accents, wrapped, retyped, quickEnter, arrived, rewritten, escaped, inert },
-    bigCheck: { opened, allRows, homeDuringSlices, deep, extended },
+    bigCheck: { opened, allRows, homeDuringSlices, deep, steps, extended },
     forgetCheck: { onLive, onSaved, afterOneClick, afterTwoClicks },
     orderCheck: { byDefault, flipped, otherConversation, backOnFirst, restored, liveOnTop },
     afterAuto,
@@ -2258,6 +2286,16 @@ async function run() {
   check('a search hit at the far end is painted before it is scrolled to',
     b.deep.atFirstPaint && b.deep.highlighted && b.deep.inView,
     `peint=${b.deep.atFirstPaint} surligné=${b.deep.highlighted} visible=${b.deep.inView}`);
+  check('deux flèches dans l’en-tête, nommées, et grisées là où aucun compactage ne les attend',
+    b.steps.count === 2 && b.steps.labelled && !b.steps.atStart.before && b.steps.atStart.after,
+    JSON.stringify(b.steps));
+  check('« suivant » mène à chaque compactage, même au-delà des lignes peintes, et « précédent » revient',
+    b.steps.landed.length === 3 && b.steps.landed.every((l) => l.painted && l.inView)
+      && !b.steps.landed[0].state.before && b.steps.landed[0].state.after
+      && b.steps.landed[1].state.before && b.steps.landed[1].state.after
+      && b.steps.landed[2].state.before && !b.steps.landed[2].state.after
+      && b.steps.back && b.steps.backState.before && b.steps.backState.after,
+    JSON.stringify(b.steps));
   check('a message arriving adds its row and repaints nothing else',
     b.extended.rows === 2001 && b.extended.untouched && b.extended.top.includes('arrivé au bout'),
     `${b.extended.rows} lignes, repère ${b.extended.untouched ? 'intact' : 'perdu'}`);

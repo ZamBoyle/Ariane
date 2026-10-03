@@ -154,6 +154,8 @@ convo-compactions = { $count ->
        *[other] コンテキストを { $count } 回圧縮
     }
     .title = コンテキストには上限があります。いっぱいになると、アシスタントはそれを要約に置き換えて続けます。これが圧縮です。
+compaction-previous = 前の圧縮
+compaction-next = 次の圧縮
 convo-branch =
     .title = Git ブランチ
 folder-unknown = 不明なフォルダー

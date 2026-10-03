@@ -168,6 +168,8 @@ convo-compactions = { $count ->
        *[other] context { $count } keer gecomprimeerd
     }
     .title = Een context heeft een maximale grootte. Als hij vol is, vervangt de assistent hem door een samenvatting en gaat door: dat is een compressie.
+compaction-previous = Vorige compactie
+compaction-next = Volgende compactie
 convo-branch =
     .title = Git-branch
 folder-unknown = Onbekende map
