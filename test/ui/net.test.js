@@ -58,7 +58,9 @@ async function run() {
     res.writeHead(302, { Location: TAG });
     res.end();
   });
-  const found = await electronRequest(redirecting.url('/releases/latest'));
+  // Le premier appel de la pile réseau tarde parfois à partir sur la CI Windows.
+  // Ce test vérifie le 302, Location et HEAD, pas le délai : il lui en laisse un large.
+  const found = await electronRequest(redirecting.url('/releases/latest'), 20000);
   check(
     'une redirection rend son statut et son en-tête Location',
     found.status === 302 && found.location === TAG,
