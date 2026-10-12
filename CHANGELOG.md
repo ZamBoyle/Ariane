@@ -18,6 +18,7 @@ Voici à quelle version chacune appartient.
 
 | Version | Date | Ce qu'elle apporte |
 |---|---|---|
+| [0.10.2](https://github.com/ZamBoyle/Ariane/releases/tag/v0.10.2) | 12 oct. 2026 | un message tapé pendant que Claude travaille s'affiche à l'heure où il a été tapé, et non plus tout en haut de la conversation, avant des réponses plus récentes — l'index se reconstruit au premier lancement |
 | [0.10.1](https://github.com/ZamBoyle/Ariane/releases/tag/v0.10.1) | 12 oct. 2026 | les mots de la personne une seule fois, même avec un collage : l'écho sans date qui remontait en tête de la conversation disparaît, les balises `<pasted_content>` autour d'un collage et le bloc `<browser_instruction>` de l'extension VS Code ne s'affichent plus comme écrits par elle — l'index se reconstruit au premier lancement |
 | [0.10.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.10.0) | 3 oct. 2026 | deux flèches dans l'en-tête d'une conversation pour passer d'un compactage au précédent ou au suivant, grisées quand il n'y en a plus dans ce sens |
 | [0.9.0](https://github.com/ZamBoyle/Ariane/releases/tag/v0.9.0) | 28 sept. 2026 | ce que coûte une conversation, sans piège pour qui l'additionne : envoyés = nouveaux + renvoyés, reçus = réponse + raisonnement, combien de fois le contexte a été compacté ; l'identifiant à côté du titre — l'index se reconstruit au premier lancement |
