@@ -28,6 +28,7 @@ const { WINDOW_SLACK, keeper } = require('./quota');
  * already stored. Raising this version drops the index and rebuilds it, which
  * takes about ten seconds.
  *
+ * 25: a message typed while the assistant worked is shown where its time puts it, not last
  * 24: the extension's <browser_instruction> block is no longer the person's words;
  *     the <pasted_content> tags around a paste are gone, its words stay
  * 23: a last-prompt pointer is matched against a prompt that holds a paste (<pasted_content>)
@@ -55,7 +56,7 @@ const { WINDOW_SLACK, keeper } = require('./quota');
  * 2: multi-agent schema
  * 1: initial
  */
-const SCHEMA_VERSION = 24;
+const SCHEMA_VERSION = 25;
 /** The six token columns of one message, from the contract's shape. */
 function usageColumns(usage) {
   const u = usage || {};
@@ -433,6 +434,12 @@ class Index {
         DO NOTHING
       `),
       maxSeq: db.prepare('SELECT COALESCE(MAX(seq), -1) AS n FROM messages WHERE session_id = ?'),
+      // Where a message held back until the whole file was read belongs: before the
+      // first row of the conversation written after it (addMessagesInOrder).
+      firstAfter: db.prepare(
+        "SELECT MIN(seq) AS n FROM messages WHERE session_id = ? AND ts <> '' AND ts > ?"
+      ),
+      shiftFrom: db.prepare('UPDATE messages SET seq = seq + 1 WHERE session_id = ? AND seq >= ?'),
       // A field the agent did not record stays as it was: adding nothing to a
       // null must not make it a zero.
       addUsage: db.prepare(`
@@ -804,6 +811,42 @@ class Index {
     }));
     this.tx.messages(rows);
     return rows.length;
+  }
+
+  /**
+   * Store messages that had to wait for the whole file to be read — a prompt typed
+   * while the assistant worked, which exists nowhere else — each at the place its
+   * own time gives it, not after the last message of the conversation. Numbered
+   * last, a message dated 11:29 showed above the reply of 16:50: nine of them in
+   * one real conversation (12 October 2026). The rows after it move down by one;
+   * `seq` stays consecutive, and the full-text triggers do not look at it.
+   * A message with no time has no place to be given, and goes last, as before.
+   *
+   * @param {string} sessionId
+   * @param {object[]} messages
+   * @returns {number} how many were written
+   */
+  addMessagesInOrder(sessionId, messages) {
+    const dated = messages
+      .filter((m) => m.timestamp)
+      .sort((a, b) => (a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0));
+    let written = 0;
+    for (const message of dated) {
+      const at = this.s.firstAfter.get(sessionId, message.timestamp).n;
+      if (at === null) {
+        written += this.addMessages(sessionId, [message]);
+        continue;
+      }
+      this.s.shiftFrom.run(sessionId, at);
+      written += this.addMessages(sessionId, [message], at);
+    }
+    return (
+      written +
+      this.addMessages(
+        sessionId,
+        messages.filter((m) => !m.timestamp)
+      )
+    );
   }
 
   /**

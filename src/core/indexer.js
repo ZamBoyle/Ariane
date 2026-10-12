@@ -452,7 +452,7 @@ class Indexer {
       if (holds(item)) continue;
       kept.push(item);
     }
-    if (kept.length > 0) count += this.index.addMessages(id, kept);
+    if (kept.length > 0) count += this.index.addMessagesInOrder(id, kept);
     settleUsage();
     this.index.recordQuotas(adapter.id, id, quotaWindows);
     // A cost with no reply anywhere in the session: reported, never guessed.

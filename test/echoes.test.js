@@ -277,6 +277,133 @@ test('l’écho d’un collage que la conversation ne contient pas est gardé', 
   ]);
 });
 
+// ── le message tapé en cours de route, rangé à sa place ─────────────────────
+//
+// Dans les fichiers récents, un message tapé pendant que Claude travaille n'est
+// plus écrit que comme une pièce jointe `queued_command` (origine humaine). Il
+// n'existe nulle part ailleurs : on le garde, mais seulement une fois le fichier
+// lu, pour savoir qu'aucune autre copie ne le porte. Il était alors numéroté
+// après tout le reste : daté de 11:29, il s'affichait en tête de la conversation,
+// avant la réponse de 16:50. Neuf messages dans l'export d'une conversation
+// signalée depuis Windows le 12 octobre 2026.
+
+const typedMidTurn = (text, timestamp) => ({
+  type: 'attachment',
+  sessionId: 's1',
+  timestamp,
+  attachment: { type: 'queued_command', prompt: text, origin: { kind: 'human' }, timestamp },
+});
+/** L'instant `seconds` secondes après un enregistrement du fixture (qui avance d'une minute). */
+const after = (record, seconds) =>
+  new Date(Date.parse(record.timestamp) + seconds * 1000).toISOString();
+const sequence = (index) => index.messages('claude:s1').map((m) => m.text);
+
+test('un message tapé en cours de route reprend la place que son heure lui donne', async (t) => {
+  const { index, run, project } = setup(t);
+  // Chaque enregistrement reçoit son heure à sa création : on les crée dans l'ordre du fichier.
+  const question = records.userText('première question');
+  const first = records.assistantText('réponse un');
+  const typed = typedMidTurn('tapé pendant que Claude travaillait', after(first, 30));
+  project.session('s1', [
+    question,
+    first,
+    typed,
+    records.assistantText('réponse deux'),
+    records.userText('deuxième question'),
+    records.assistantText('réponse trois'),
+  ]);
+
+  await run();
+  assert.deepEqual(sequence(index), [
+    'première question',
+    'réponse un',
+    'tapé pendant que Claude travaillait',
+    'réponse deux',
+    'deuxième question',
+    'réponse trois',
+  ]);
+});
+
+test('plusieurs messages tapés en cours de route, chacun à son heure, le dernier restant dernier', async (t) => {
+  const { index, run, project } = setup(t);
+  const question = records.userText('la question');
+  const one = records.assistantText('réponse un');
+  const two = records.assistantText('réponse deux');
+  const last = records.assistantText('réponse finale');
+  project.session('s1', [
+    question,
+    one,
+    two,
+    last,
+    // Écrits dans le désordre du fichier : c'est l'heure qui range.
+    typedMidTurn('après tout', after(last, 30)),
+    typedMidTurn('entre un et deux', after(one, 30)),
+    typedMidTurn('entre deux et finale', after(two, 30)),
+  ]);
+
+  await run();
+  assert.deepEqual(sequence(index), [
+    'la question',
+    'réponse un',
+    'entre un et deux',
+    'réponse deux',
+    'entre deux et finale',
+    'réponse finale',
+    'après tout',
+  ]);
+});
+
+test('les rangs restent consécutifs et uniques, et un écho sans date reste à la fin', async (t) => {
+  const { index, run, project } = setup(t);
+  const question = records.userText('première question');
+  const first = records.assistantText('réponse un');
+  const typed = typedMidTurn('au milieu', after(first, 30));
+  project.session('s1', [
+    question,
+    first,
+    typed,
+    records.assistantText('réponse deux'),
+    lastPrompt('une question perdue, sans date'),
+  ]);
+
+  await run();
+  const rows = index.messages('claude:s1');
+  assert.deepEqual(
+    rows.map((m) => m.seq),
+    [0, 1, 2, 3, 4],
+    'aucun trou ni doublon dans l’ordre'
+  );
+  assert.deepEqual(
+    rows.map((m) => m.text),
+    [
+      'première question',
+      'réponse un',
+      'au milieu',
+      'réponse deux',
+      'une question perdue, sans date',
+    ],
+    'le message sans heure n’a pas de place à lui donner : il reste dernier'
+  );
+});
+
+test('à une passe qui reprend le fichier, un message tapé en cours de route est rangé à la suite', async (t) => {
+  const { index, run, project } = setup(t);
+  const question = records.userText('première question');
+  const first = records.assistantText('réponse un');
+  project.session('s1', [question, first]);
+  await run();
+
+  const second = records.assistantText('réponse deux');
+  project.append('s1', [second, typedMidTurn('tapé après coup', after(second, 30))]);
+  await run();
+  assert.deepEqual(sequence(index), [
+    'première question',
+    'réponse un',
+    'réponse deux',
+    'tapé après coup',
+  ]);
+});
+
 // ── l'archive, qu'on ne relit pas ───────────────────────────────────────────
 
 const row = (seq, uuid, ts, text) => ({ seq, uuid, ts, role: 'user', text, is_notice: 0 });
