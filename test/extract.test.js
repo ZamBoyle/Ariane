@@ -232,7 +232,7 @@ test.describe('injected context is never indexed', () => {
     assert.equal(extractRecord(msg('assistant', [{ type: 'text', text: said }])).text, said);
   });
 
-  // Claude Code 2.1.295 entoure ce que la personne colle de balises : les mots du
+  // Claude Code (vu dès la 2.1.278) entoure ce que la personne colle de balises : les mots du
   // collage sont les siens, seules les balises partent (23 messages du vrai corpus
   // les montraient telles quelles, 12 octobre 2026).
   test('unwraps a paste: the tags go, the pasted words stay', () => {

@@ -195,7 +195,7 @@ test('un last-prompt coupé qui ne répète rien est gardé : il n’existe que 
 
 // ── les collages ────────────────────────────────────────────────────────────
 //
-// Claude Code 2.1.295 entoure ce que la personne colle de
+// Claude Code (vu dès la 2.1.278) entoure ce que la personne colle de
 // `<pasted_content id="…">…</pasted_content id="…">`. Son pointeur `last-prompt`
 // remplace chaque balise, avec les blancs autour, par une espace, puis chaque
 // retour à la ligne par une espace, et coupe à 200 : règle reproduite à

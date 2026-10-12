@@ -498,7 +498,7 @@ function trimmed(value) {
 
 /**
  * What the person pastes arrives wrapped, `<pasted_content id="…">…</pasted_content id="…">`
- * (Claude Code 2.1.295). The words inside are the person's, so only the tags go — not a
+ * (Claude Code, seen from 2.1.278). The words inside are the person's, so only the tags go — not a
  * NOTICE_BLOCKS entry, which would swallow the paste itself. Tags showed raw in 23 messages
  * of the real corpus (12 October 2026).
  */

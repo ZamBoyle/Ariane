@@ -160,7 +160,7 @@ function withoutRepeatedUsage(messages) {
 /**
  * A text with every run of blanks made one space, as Claude Code's pointer writes it —
  * and without the `<pasted_content id="…">` envelope Claude Code puts around what the
- * person pastes (2.1.295), which the pointer replaces by a space and the message keeps.
+ * person pastes (seen from 2.1.278), which the pointer replaces by a space and the message keeps.
  */
 const flattenPrompt = (text) =>
   String(text ?? '')
