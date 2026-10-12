@@ -28,6 +28,7 @@ const { WINDOW_SLACK, keeper } = require('./quota');
  * already stored. Raising this version drops the index and rebuilds it, which
  * takes about ten seconds.
  *
+ * 23: a last-prompt pointer is matched against a prompt that holds a paste (<pasted_content>)
  * 22: Codex's compactions kept as notices, as Claude's are
  * 21: what each call sent again, after its cache was lost (contract.js)
  * 20: a Copilot call once; a reply's words kept whole; the title the person
@@ -52,7 +53,7 @@ const { WINDOW_SLACK, keeper } = require('./quota');
  * 2: multi-agent schema
  * 1: initial
  */
-const SCHEMA_VERSION = 22;
+const SCHEMA_VERSION = 23;
 /** The six token columns of one message, from the contract's shape. */
 function usageColumns(usage) {
   const u = usage || {};

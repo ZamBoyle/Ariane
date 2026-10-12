@@ -22,7 +22,7 @@ const fs = require('fs');
 const path = require('path');
 
 const FORMAT = 'ariane-archive';
-const VERSION = 3;
+const VERSION = 4;
 
 class Archive {
   /** @param {string} dir Usually `<userData>/archive`. */
@@ -90,7 +90,8 @@ class Archive {
     if (header.version < 2 && String(header.id).startsWith('claude:')) {
       messages = withoutRepeatedUsage(messages);
     }
-    if (header.version < 3 && String(header.id).startsWith('claude:')) {
+    // Applied again at 4: version 3 knew how to flatten and cut, not the paste envelope.
+    if (header.version < 4 && String(header.id).startsWith('claude:')) {
       messages = withoutEchoedPrompts(messages);
     }
     return { id: header.id, session: header.session, savedAt: header.savedAt, messages };
@@ -156,9 +157,14 @@ function withoutRepeatedUsage(messages) {
   });
 }
 
-/** A text with every run of blanks made one space, as Claude Code's pointer writes it. */
+/**
+ * A text with every run of blanks made one space, as Claude Code's pointer writes it —
+ * and without the `<pasted_content id="…">` envelope Claude Code puts around what the
+ * person pastes (2.1.295), which the pointer replaces by a space and the message keeps.
+ */
 const flattenPrompt = (text) =>
   String(text ?? '')
+    .replace(/<\/?pasted_content(?:\s[^>]*)?>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 

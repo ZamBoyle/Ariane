@@ -193,6 +193,87 @@ test('un last-prompt coupé qui ne répète rien est gardé : il n’existe que 
   assert.deepEqual(said(index), ['une question perdue, coupée…']);
 });
 
+// ── les collages ────────────────────────────────────────────────────────────
+//
+// Claude Code 2.1.295 entoure ce que la personne colle de
+// `<pasted_content id="…">…</pasted_content id="…">`. Son pointeur `last-prompt`
+// remplace chaque balise, avec les blancs autour, par une espace, puis chaque
+// retour à la ligne par une espace, et coupe à 200 : règle reproduite à
+// l'identique sur deux messages de la conversation signalée depuis Windows le
+// 12 octobre 2026. Seize échos de ce genre restaient dans l'index de cette machine,
+// tous dans des conversations qui contenaient un collage.
+
+const paste = (typed, pasted) =>
+  `${typed}${typed ? ' ' : ''}\n\n<pasted_content id="f52b">\n${pasted}\n</pasted_content id="f52b">\n`;
+const pointerOf = (text) => {
+  const flat = text
+    .replace(/\s*<\/?pasted_content[^>]*>\s*/g, ' ')
+    .replace(/\n/g, ' ')
+    .trim();
+  return flat.length > 200 ? `${flat.slice(0, 200)}…` : flat;
+};
+
+// A : du texte tapé, puis un collage court. B : un collage seul, long, que le pointeur coupe.
+const WITH_TEXT = paste(
+  'voici l’erreur que j’obtiens :',
+  "Msg 207, Level 16\n\nInvalid column name 'prix'.\nLine 3"
+);
+const ONLY_PASTE = paste(
+  '',
+  `PS C:\\dev> Publish-Thing -Source ".\\bin\\Debug\\Thing.dacpac" ${'/Option:valeur '.repeat(20)}`
+);
+
+test('un last-prompt de collage ne double pas le message qu’il répète', async (t) => {
+  const { index, run, project } = setup(t);
+  assert.ok(pointerOf(ONLY_PASTE).endsWith('…'), 'le cas B est bien coupé à 200');
+  project.session('s1', [
+    records.userText(WITH_TEXT),
+    records.assistantText('je regarde'),
+    records.userText(ONLY_PASTE),
+    records.assistantText('c’est publié'),
+    lastPrompt(pointerOf(WITH_TEXT)),
+    lastPrompt(pointerOf(ONLY_PASTE)),
+    lastPrompt(pointerOf(ONLY_PASTE)),
+  ]);
+
+  await run();
+  assert.deepEqual(
+    said(index),
+    [WITH_TEXT.trim(), ONLY_PASTE.trim()],
+    'chaque message une fois : ni en tête, ni sans date'
+  );
+});
+
+test('à une passe qui reprend le fichier, la base reconnaît aussi l’écho d’un collage', async (t) => {
+  const { index, run, project } = setup(t);
+  project.session('s1', [
+    records.userText(WITH_TEXT),
+    records.userText(ONLY_PASTE),
+    records.assistantText('bien lu'),
+  ]);
+  await run();
+
+  project.append('s1', [lastPrompt(pointerOf(WITH_TEXT)), lastPrompt(pointerOf(ONLY_PASTE))]);
+  await run();
+  assert.deepEqual(said(index), [WITH_TEXT.trim(), ONLY_PASTE.trim()]);
+});
+
+test('l’écho d’un collage que la conversation ne contient pas est gardé', async (t) => {
+  const { index, run, project } = setup(t);
+  const lost = paste('et ceci, perdu :', 'un texte qui n’existe nulle part ailleurs');
+  project.session('s1', [
+    records.userText(WITH_TEXT),
+    records.assistantText('une réponse'),
+    lastPrompt(pointerOf(lost)),
+  ]);
+
+  await run();
+  assert.deepEqual(said(index), [
+    WITH_TEXT.trim(),
+    'et ceci, perdu : un texte qui n’existe nulle part ailleurs',
+  ]);
+});
+
 // ── l'archive, qu'on ne relit pas ───────────────────────────────────────────
 
 const row = (seq, uuid, ts, text) => ({ seq, uuid, ts, role: 'user', text, is_notice: 0 });
@@ -211,6 +292,49 @@ test('l’archive perd ses échos, jamais un mot dit une seule fois', () => {
     withoutEchoedPrompts(rows).map((r) => r.seq),
     [0, 2, 3, 4, 6],
     'la copie livrée en 50 ms part, pas celle livrée 30 s plus tard ; l’écho part, pas le rescapé'
+  );
+});
+
+test('l’archive perd aussi les échos de collage, et garde celui qui ne répète rien', () => {
+  const at = '2026-10-12T14:37:44.571Z';
+  const rows = [
+    row(0, 'u1', at, WITH_TEXT),
+    row(1, null, '', pointerOf(WITH_TEXT)),
+    row(2, 'u2', at, ONLY_PASTE),
+    row(3, null, '', pointerOf(ONLY_PASTE)),
+    row(4, null, '', pointerOf(paste('et ceci, perdu :', 'rien d’autre'))),
+  ];
+  assert.deepEqual(
+    withoutEchoedPrompts(rows).map((r) => r.seq),
+    [0, 2, 4]
+  );
+});
+
+test('une archive de format 3 garde ses échos de collage jusqu’à sa relecture', (t) => {
+  // Le format 3 savait aplatir et couper ; il ne connaissait pas les balises de collage.
+  const fx = createFixture();
+  t.after(() => fx.cleanup());
+  const archive = new Archive(path.join(fx.root, 'archive'));
+  const file = archive.fileFor('claude:s1');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const header = {
+    format: 'ariane-archive',
+    version: 3,
+    id: 'claude:s1',
+    savedAt: '',
+    session: {},
+  };
+  const lines = [
+    header,
+    row(0, 'u1', '2026-10-12T14:46:31.725Z', WITH_TEXT),
+    row(1, null, '', pointerOf(WITH_TEXT)),
+  ];
+  fs.writeFileSync(file, `${lines.map((l) => JSON.stringify(l)).join('\n')}\n`);
+
+  assert.deepEqual(
+    archive.read(file).messages.map((m) => m.seq),
+    [0],
+    'relue, elle perd l’écho que le format 3 laissait passer'
   );
 });
 
