@@ -74,6 +74,9 @@ const NOTICE_BLOCKS = [
   'task-notification',
   'ide_opened_file',
   'ide_selection',
+  // The VS Code extension, with Claude in Chrome on, puts these 4 KB of instructions
+  // in front of what the person typed (10 messages in 7 conversations, 12 October 2026).
+  'browser_instruction',
   'bash-input',
   'bash-stdout',
   'bash-stderr',

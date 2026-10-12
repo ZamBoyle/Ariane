@@ -210,6 +210,28 @@ test.describe('injected context is never indexed', () => {
       'abc');
   });
 
+  // L'extension VS Code, avec Claude in Chrome, met ce bloc de 4 Ko devant ce que la
+  // personne tape : 10 messages dans 7 conversations (12 octobre 2026), montrés comme
+  // s'ils étaient d'elle, et la cause d'échos last-prompt gardés (le texte ne collait pas).
+  test('strips the browser_instruction block, and keeps what was typed', () => {
+    const block = '<browser_instruction># Claude in Chrome browser automation\n\nYou have access to tools.\n</browser_instruction>';
+    assert.equal(clean(`${block}On en est où mon ami ?`), 'On en est où mon ami ?');
+    const r = extractRecord(msg('user', [{ type: 'text', text: block }, { type: 'text', text: 'et ensuite ?' }]));
+    assert.equal(r.text, 'et ensuite ?');
+    assert.equal(r.isNotice, false);
+  });
+
+  test('a turn made only of the browser_instruction block is a notice, said by nobody', () => {
+    const r = extractRecord(msg('user', '<browser_instruction>rien d’autre</browser_instruction>'));
+    assert.equal(r.text, '');
+    assert.equal(r.isNotice, true);
+  });
+
+  test('a reply quoting browser_instruction keeps its words', () => {
+    const said = 'Le bloc `<browser_instruction>…</browser_instruction>` est injecté par l’extension.';
+    assert.equal(extractRecord(msg('assistant', [{ type: 'text', text: said }])).text, said);
+  });
+
   test('leaves ordinary angle brackets alone', () => {
     assert.equal(clean('if (a < b && c > d) return;'), 'if (a < b && c > d) return;');
   });
