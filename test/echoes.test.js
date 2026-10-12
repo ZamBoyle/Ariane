@@ -213,6 +213,9 @@ const pointerOf = (text) => {
   return flat.length > 200 ? `${flat.slice(0, 200)}…` : flat;
 };
 
+// Ce que l'index garde d'un message avec collage : les balises sont parties (extract.js, clean).
+const unwrapped = (text) => text.replace(/<\/?pasted_content[^>]*>/g, '').trim();
+
 // A : du texte tapé, puis un collage court. B : un collage seul, long, que le pointeur coupe.
 const WITH_TEXT = paste(
   'voici l’erreur que j’obtiens :',
@@ -239,7 +242,7 @@ test('un last-prompt de collage ne double pas le message qu’il répète', asyn
   await run();
   assert.deepEqual(
     said(index),
-    [WITH_TEXT.trim(), ONLY_PASTE.trim()],
+    [unwrapped(WITH_TEXT), unwrapped(ONLY_PASTE)],
     'chaque message une fois : ni en tête, ni sans date'
   );
 });
@@ -255,7 +258,7 @@ test('à une passe qui reprend le fichier, la base reconnaît aussi l’écho d�
 
   project.append('s1', [lastPrompt(pointerOf(WITH_TEXT)), lastPrompt(pointerOf(ONLY_PASTE))]);
   await run();
-  assert.deepEqual(said(index), [WITH_TEXT.trim(), ONLY_PASTE.trim()]);
+  assert.deepEqual(said(index), [unwrapped(WITH_TEXT), unwrapped(ONLY_PASTE)]);
 });
 
 test('l’écho d’un collage que la conversation ne contient pas est gardé', async (t) => {
@@ -269,7 +272,7 @@ test('l’écho d’un collage que la conversation ne contient pas est gardé', 
 
   await run();
   assert.deepEqual(said(index), [
-    WITH_TEXT.trim(),
+    unwrapped(WITH_TEXT),
     'et ceci, perdu : un texte qui n’existe nulle part ailleurs',
   ]);
 });

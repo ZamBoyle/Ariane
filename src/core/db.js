@@ -28,7 +28,8 @@ const { WINDOW_SLACK, keeper } = require('./quota');
  * already stored. Raising this version drops the index and rebuilds it, which
  * takes about ten seconds.
  *
- * 24: the extension's <browser_instruction> block is no longer the person's words
+ * 24: the extension's <browser_instruction> block is no longer the person's words;
+ *     the <pasted_content> tags around a paste are gone, its words stay
  * 23: a last-prompt pointer is matched against a prompt that holds a paste (<pasted_content>)
  * 22: Codex's compactions kept as notices, as Claude's are
  * 21: what each call sent again, after its cache was lost (contract.js)

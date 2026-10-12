@@ -232,6 +232,30 @@ test.describe('injected context is never indexed', () => {
     assert.equal(extractRecord(msg('assistant', [{ type: 'text', text: said }])).text, said);
   });
 
+  // Claude Code 2.1.295 entoure ce que la personne colle de balises : les mots du
+  // collage sont les siens, seules les balises partent (23 messages du vrai corpus
+  // les montraient telles quelles, 12 octobre 2026).
+  test('unwraps a paste: the tags go, the pasted words stay', () => {
+    const typed = 'voici l’erreur :';
+    const pasted = "Msg 207, Level 16\n\nInvalid column name 'prix'.";
+    const said = `${typed} \n\n<pasted_content id="f52b">\n${pasted}\n</pasted_content id="f52b">\n`;
+    assert.equal(clean(said), `${typed} \n\n\n${pasted}`);
+    assert.equal(extractRecord(msg('user', said)).text, `${typed} \n\n\n${pasted}`);
+    assert.equal(extractRecord(msg('user', said)).isNotice, false);
+  });
+
+  test('a paste alone keeps its words, and a turn of empty tags is a notice', () => {
+    assert.equal(clean('\n\n<pasted_content id="a1">\nPS C:\\dev> ls\n</pasted_content id="a1">\n'), 'PS C:\\dev> ls');
+    const r = extractRecord(msg('user', '<pasted_content id="a1"></pasted_content id="a1">'));
+    assert.equal(r.text, '');
+    assert.equal(r.isNotice, true);
+  });
+
+  test('a reply quoting the paste tag keeps its words', () => {
+    const said = 'Claude Code écrit `<pasted_content id="f52b">` autour de ce qu’on colle.';
+    assert.equal(extractRecord(msg('assistant', [{ type: 'text', text: said }])).text, said);
+  });
+
   test('leaves ordinary angle brackets alone', () => {
     assert.equal(clean('if (a < b && c > d) return;'), 'if (a < b && c > d) return;');
   });

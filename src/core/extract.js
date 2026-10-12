@@ -496,10 +496,18 @@ function trimmed(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-/** Strip harness-injected context and slash-command envelopes. */
+/**
+ * What the person pastes arrives wrapped, `<pasted_content id="…">…</pasted_content id="…">`
+ * (Claude Code 2.1.295). The words inside are the person's, so only the tags go — not a
+ * NOTICE_BLOCKS entry, which would swallow the paste itself. Tags showed raw in 23 messages
+ * of the real corpus (12 October 2026).
+ */
+const PASTE_TAG = /<\/?pasted_content(?:\s[^>]*)?>/g;
+
+/** Strip harness-injected context and slash-command envelopes, and unwrap a paste. */
 function clean(value) {
   if (typeof value !== 'string') return '';
-  return stripInjected(value).trim();
+  return stripInjected(value).replace(PASTE_TAG, '').trim();
 }
 
 function detectCommand(rawContent) {
